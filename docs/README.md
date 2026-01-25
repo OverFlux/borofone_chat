@@ -2,7 +2,7 @@
 
 ## borofone\_chat
 
-Чат-сервис на FastAPI с HTTP и WebSocket интерфейсами, Postgres для хранения и Redis для быстрых операций (healthcheck/идемпотентность).&#x20;
+Чат-сервис на _FastAPI_ с _HTTP_ и _WebSocket_ интерфейсами, _Postgres_ для хранения и _Redis_ для быстрых операций.
 
 ### Быстрые ссылки
 
