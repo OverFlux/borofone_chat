@@ -12,7 +12,7 @@ from app.api.ws import router as ws_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup (до приема запросов) [page:2]
+    # startup (до приема запросов)
     last_exc = None
     for _ in range(30):
         try:
@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # shutdown (перед остановкой приложения) [page:2]
+    # shutdown (перед остановкой приложения)
     await redis_client.aclose()
     await engine.dispose()
 
@@ -35,7 +35,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 async def root():
-    return {"ok": True}
+    return {"ok": True} # заглушка
 
 app.include_router(http_router)
 app.include_router(ws_router)

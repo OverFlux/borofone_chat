@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infra.db import get_db
 from app.infra.redis import ping_redis
 from app.models import Message, Room
-
+from app.schemas.messages import MessageCreate
 router = APIRouter()
 
 
@@ -36,3 +36,11 @@ async def list_messages(room_id: int, limit: int = 50, db: AsyncSession = Depend
     rows = (await db.execute(stmt)).scalars().all()
     rows.reverse()
     return [{"id": m.id, "author": m.author, "body": m.body, "created_at": m.created_at.isoformat()} for m in rows]
+
+@router.post("/rooms/{room_id}/messages")
+async def post_message(room_id: int, payload: MessageCreate, db: AsyncSession = Depends(get_db)):
+    msg = Message(room_id = room_id, author = payload.author, body = payload.body)
+    db.add(msg)
+    await db.commit()
+    await db.refresh(msg)
+    return {"id": msg.id, "room_id": msg.room_id, "author": msg.author, "body": msg.body, "create_at": msg.created_at}
