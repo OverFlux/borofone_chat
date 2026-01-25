@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.dialects.postgresql import insert
 
 from app.infra.db import get_db
 from app.infra.redis import ping_redis
@@ -39,8 +40,49 @@ async def list_messages(room_id: int, limit: int = 50, db: AsyncSession = Depend
 
 @router.post("/rooms/{room_id}/messages")
 async def post_message(room_id: int, payload: MessageCreate, db: AsyncSession = Depends(get_db)):
-    msg = Message(room_id = room_id, author = payload.author, body = payload.body)
-    db.add(msg)
-    await db.commit()
-    await db.refresh(msg)
-    return {"id": msg.id, "room_id": msg.room_id, "author": msg.author, "body": msg.body, "create_at": msg.created_at}
+    stmt = (
+        insert(Message)
+        .values(
+            room_id=room_id,
+            client_msg_id=payload.client_msg_id,
+            author=payload.author,
+            body=payload.body,
+        )
+        .on_conflict_do_nothing(
+            index_elements=[Message.room_id, Message.client_msg_id],
+        )
+        .returning(Message.id)
+    )
+
+    result = await db.execute(stmt)
+    inserted_id = result.scalar_one_or_none()
+
+
+    if inserted_id is not None:
+        await db.commit()
+        msg = await db.get(Message, inserted_id)
+        return {
+            "id": msg.id,
+            "room_id": msg.room_id,
+            "client_msg_id": str(msg.client_msg_id),
+            "author": msg.author,
+            "body": msg.body,
+            "created_at": msg.created_at.isoformat(),
+        }
+    # При конфликте: строка уже есть, тогда достаём и возвращаем
+    result = await db.execute(
+        select(Message).where(
+            Message.room_id == room_id,
+            Message.client_msg_id == payload.client_msg_id,
+        )
+    )
+    msg = result.scalar_one()
+    print(type(msg), msg)
+    return {
+        "id": msg.id,
+        "room_id": msg.room_id,
+        "client_msg_id": str(msg.client_msg_id),
+        "author": msg.author,
+        "body": msg.body,
+        "created_at": msg.created_at.isoformat(),
+    }

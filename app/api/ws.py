@@ -1,4 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from app.infra.db import SessionLocal
+from app.models import Message
 
 router = APIRouter()
 
@@ -34,13 +36,29 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+
 @router.websocket("/ws/rooms/{room_id}")
 async def ws_room(ws: WebSocket, room_id: int):
     await manager.connect(ws, room_id)
+    
     try:
-        while True:
-            data = await ws.receive_json()
-            # Каркас: просто эхо в комнату. Ты заменишь на запись в БД/Redis и доменные события.
-            await manager.broadcast(room_id, {"type": "message", "room_id": room_id, "data": data})
+        async with SessionLocal() as db:
+            while True:
+                data = await ws.receive_json()
+                msg = Message(room_id = room_id, author = data["author"], body = data["body"])
+                db.add(msg)
+                await db.commit()
+                await db.refresh(msg)
+
+                await manager.broadcast(room_id, {
+                    "type": "message.new",
+                    "message": {
+                        "id": msg.id,
+                        "room_id": msg.room_id,
+                        "author": msg.author,
+                        "body": msg.body,
+                        "created_at": msg.created_at.isoformat(),
+                    }
+                })
     except WebSocketDisconnect:
         manager.disconnect(ws, room_id)
