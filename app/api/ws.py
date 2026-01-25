@@ -1,6 +1,9 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from pydantic import ValidationError
+
 from app.infra.db import SessionLocal
-from app.models import Message
+from app.schemas.messages import MessageCreate
+from app.services.messages import create_message_with_nonce
 
 router = APIRouter()
 
@@ -10,7 +13,7 @@ class ConnectionManager:
         self._rooms: dict[int, set[WebSocket]] = {}
 
     async def connect(self, ws: WebSocket, room_id: int) -> None:
-        await ws.accept()  # accept обязателен до send/receive [web:1]
+        await ws.accept()
         self._rooms.setdefault(room_id, set()).add(ws)
 
     def disconnect(self, ws: WebSocket, room_id: int) -> None:
@@ -24,11 +27,13 @@ class ConnectionManager:
     async def broadcast(self, room_id: int, payload: dict) -> None:
         room = self._rooms.get(room_id, set())
         dead: list[WebSocket] = []
+
         for ws in room:
             try:
                 await ws.send_json(payload)
             except Exception:
                 dead.append(ws)
+
         for ws in dead:
             self.disconnect(ws, room_id)
 
@@ -36,29 +41,39 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-
 @router.websocket("/ws/rooms/{room_id}")
 async def ws_room(ws: WebSocket, room_id: int):
     await manager.connect(ws, room_id)
-    
+
     try:
         async with SessionLocal() as db:
             while True:
                 data = await ws.receive_json()
-                msg = Message(room_id = room_id, author = data["author"], body = data["body"])
-                db.add(msg)
-                await db.commit()
-                await db.refresh(msg)
 
-                await manager.broadcast(room_id, {
-                    "type": "message.new",
-                    "message": {
-                        "id": msg.id,
-                        "room_id": msg.room_id,
-                        "author": msg.author,
-                        "body": msg.body,
-                        "created_at": msg.created_at.isoformat(),
-                    }
-                })
+                try:
+                    payload = MessageCreate(**data)
+                except ValidationError as e:
+                    await ws.send_json(
+                        {"type": "error", "error": "validation", "detail": e.errors()}
+                    )
+                    continue
+
+                msg = await create_message_with_nonce(db=db, room_id=room_id, payload=payload)
+
+                await manager.broadcast(
+                    room_id,
+                    {
+                        "type": "message.new",
+                        "message": {
+                            "id": msg.id,
+                            "room_id": msg.room_id,
+                            "nonce": msg.nonce,
+                            "author": msg.author,
+                            "body": msg.body,
+                            "created_at": msg.created_at.isoformat(),
+                        },
+                    },
+                )
+
     except WebSocketDisconnect:
         manager.disconnect(ws, room_id)

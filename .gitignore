@@ -1,7 +1,8 @@
 .env
 
-app/__pycache__/main.cpython-310.pyc
-app/schemas/__pycache__/messages.cpython-310.pyc
-app/api/__pycache__/http.cpython-310.pyc
-app/__pycache__/main.cpython-310.pyc
-app/api/__pycache__/http.cpython-310.pyc
+/.idea
+/app/__pycache__
+/app/services/__pycache__
+/tests/__pycache__
+/app/schemas/__pycache__
+/app/api/__pycache__

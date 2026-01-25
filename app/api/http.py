@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.dialects.postgresql import insert
 
 from app.infra.db import get_db
 from app.infra.redis import ping_redis
 from app.models import Message, Room
 from app.schemas.messages import MessageCreate
+from app.services.messages import create_message_with_nonce
+
 router = APIRouter()
 
 
@@ -36,52 +38,26 @@ async def list_messages(room_id: int, limit: int = 50, db: AsyncSession = Depend
     )
     rows = (await db.execute(stmt)).scalars().all()
     rows.reverse()
-    return [{"id": m.id, "author": m.author, "body": m.body, "created_at": m.created_at.isoformat()} for m in rows]
+    return [
+        {
+            "id": m.id,
+            "room_id": m.room_id,
+            "nonce": m.nonce,
+            "author": m.author,
+            "body": m.body,
+            "created_at": m.created_at.isoformat(),
+        }
+        for m in rows
+    ]
+
 
 @router.post("/rooms/{room_id}/messages")
 async def post_message(room_id: int, payload: MessageCreate, db: AsyncSession = Depends(get_db)):
-    stmt = (
-        insert(Message)
-        .values(
-            room_id=room_id,
-            client_msg_id=payload.client_msg_id,
-            author=payload.author,
-            body=payload.body,
-        )
-        .on_conflict_do_nothing(
-            index_elements=[Message.room_id, Message.client_msg_id],
-        )
-        .returning(Message.id)
-    )
-
-    result = await db.execute(stmt)
-    inserted_id = result.scalar_one_or_none()
-
-
-    if inserted_id is not None:
-        await db.commit()
-        msg = await db.get(Message, inserted_id)
-        return {
-            "id": msg.id,
-            "room_id": msg.room_id,
-            "client_msg_id": str(msg.client_msg_id),
-            "author": msg.author,
-            "body": msg.body,
-            "created_at": msg.created_at.isoformat(),
-        }
-    # При конфликте: строка уже есть, тогда достаём и возвращаем
-    result = await db.execute(
-        select(Message).where(
-            Message.room_id == room_id,
-            Message.client_msg_id == payload.client_msg_id,
-        )
-    )
-    msg = result.scalar_one()
-    print(type(msg), msg)
+    msg = await create_message_with_nonce(db=db, room_id=room_id, payload=payload)
     return {
         "id": msg.id,
         "room_id": msg.room_id,
-        "client_msg_id": str(msg.client_msg_id),
+        "nonce": msg.nonce,
         "author": msg.author,
         "body": msg.body,
         "created_at": msg.created_at.isoformat(),
