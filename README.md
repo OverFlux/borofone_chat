@@ -1,5 +1,7 @@
 Here readme lol ( ͡° ͜ʖ ͡°)
 
+1) First of all: Rename `.env.example` to `.env`
+
 
 Check docker health - `docker compose -f docker-compose.infra.yml ps`
 
