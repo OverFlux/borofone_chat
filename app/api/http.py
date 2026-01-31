@@ -12,6 +12,7 @@ from app.services.messages import create_message_with_nonce
 router = APIRouter()
 
 
+# Health check endpoint, ping Redis and PostgresSQL.
 @router.get("/health")
 async def health(db: AsyncSession = Depends(get_db)):
     await db.execute(select(1))
@@ -19,17 +20,26 @@ async def health(db: AsyncSession = Depends(get_db)):
     return {"ok": True, "redis": redis_ok}
 
 
+# Создание новой комнаты чата.
 @router.post("/rooms")
 async def create_room(payload: dict, db: AsyncSession = Depends(get_db)):
-    room = Room(title=str(payload.get("title", "room")))
-    db.add(room)
+    room = Room(title=str(payload.get("title", "room"))) # TODO: Вместо payload словаря - сделать pydantic типизацию
+    db.add(room) # {"id": 1, "title": "Room name"}
     await db.commit()
     await db.refresh(room)
     return {"id": room.id, "title": room.title}
 
 
+# Получение истории сообщений комнаты.
 @router.get("/rooms/{room_id}/messages")
 async def list_messages(room_id: int, limit: int = 50, db: AsyncSession = Depends(get_db)):
+    """
+    Query params:
+        limit: максимум сообщений (по умолчанию 50)
+
+    Returns:
+        Список сообщений в хронологическом порядке (от старых к новым)
+    """
     stmt = (
         select(Message)
         .where(Message.room_id == room_id)
@@ -37,7 +47,7 @@ async def list_messages(room_id: int, limit: int = 50, db: AsyncSession = Depend
         .limit(limit)
     )
     rows = (await db.execute(stmt)).scalars().all()
-    rows.reverse()
+    rows.reverse() # Ревёрсим, теперь старые сообщения идут первыми
     return [
         {
             "id": m.id,
@@ -50,9 +60,25 @@ async def list_messages(room_id: int, limit: int = 50, db: AsyncSession = Depend
         for m in rows
     ]
 
-
+# Отправка сообщения в комнату через REST API.
 @router.post("/rooms/{room_id}/messages")
 async def post_message(room_id: int, payload: MessageCreate, db: AsyncSession = Depends(get_db)):
+    """
+    Body:
+        {
+            "author": "user123",
+            "body": "Hello!",
+            "nonce": "optional-123",     // опционально
+            "enforce_nonce": false        // опционально
+        }
+
+    Логика:
+    - Использует create_message_with_nonce для дедупликации
+    - При enforce_nonce=true и дубликате вернёт HTTP 409
+
+    Returns:
+        Созданное сообщение в JSON формате
+    """
     msg = await create_message_with_nonce(db=db, room_id=room_id, payload=payload)
     return {
         "id": msg.id,

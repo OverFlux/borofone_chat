@@ -9,15 +9,15 @@ from app.models import Base
 from app.api.http import router as http_router
 from app.api.ws import router as ws_router
 
-
+# Нужно исправить этот костыль на Alembic миграцию
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup (до приема запросов)
+    # Вся часть кода до yield выполняется до запуска приложения, часть после yield при выключении сервера.
     last_exc = None
-    for _ in range(30):
+    for _ in range(30): # 30 попыток подключения к бд
         try:
             async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
+                await conn.run_sync(Base.metadata.create_all) # TODO: Миграция Alembic
             break
         except Exception as e:
             last_exc = e
@@ -27,15 +27,15 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # shutdown (перед остановкой приложения)
-    await redis_client.aclose()
-    await engine.dispose()
+    # shutdown
+    await redis_client.aclose() # Закрытие Redis клиента
+    await engine.dispose() # Закрытие connection pool с SQLAlchemy
 
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 async def root():
-    return {"ok": True} # заглушка
+    return {"ok": True} # Заглушка для быстрой проверки запуска API
 
-app.include_router(http_router)
-app.include_router(ws_router)
+app.include_router(http_router) # Добавляем роутер с HTTP эндпоинтами
+app.include_router(ws_router) # Добавляем роутер с WebSockets эндпоинтами

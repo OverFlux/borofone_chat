@@ -8,12 +8,12 @@ from app.infra.redis import redis_client
 from app.models import Message
 from app.schemas.messages import MessageCreate
 
-NONCE_TTL_SECONDS = 300  # "past few minutes" [page:0] (берём 5 минут)
+NONCE_TTL_SECONDS = 300  # "past few minutes" (берём 5 минут)
 PENDING = "PENDING"
 
 
 def _nonce_key(author: str, nonce: str) -> str:
-    # Discord формулирует дедуп как "same author + same nonce" [page:0]
+    # Discord формулирует дедуп как "same author + same nonce"
     return f"nonce:{author}:{nonce}"
 
 

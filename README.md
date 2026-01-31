@@ -13,7 +13,7 @@
 borofone_chat/
 ├── app/                        
 │   ├── api/                   
-│   │   ├── http.py             # REST API endpoints
+│   │   ├── http.py             # REST API handlers (Обработка запросов).
 │   │   └── ws.py               # WebSocket and connection management logic
 │   ├── infra/                  
 │   │   ├── db.py               # SQLAlchemy database configuration (Async)
