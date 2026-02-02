@@ -13,35 +13,39 @@
 borofone_chat/
 ├── app/                        
 │   ├── api/                   
-│   │   ├── http.py             # REST API handlers (Обработка запросов).
+│   │   ├── http.py             # REST API handlers (Request processing).
 │   │   └── ws.py               # WebSocket and connection management logic
 │   ├── infra/                  
 │   │   ├── db.py               # SQLAlchemy database configuration (Async)
 │   │   └── redis.py            # Redis configuration and client
-│   ├── main.py                 # Точка входа: инициализация FastAPI и роутинга
-│   ├── models.py               # SQLAlchemy модели (схема базы данных)
-│   ├── settings.py             # Управление настройками через Pydantic Settings
-│   └── messages.py             # Бизнес-логика и CRUD операции с сообщениями
+│   ├── schemas/
+│   │   └── *.py                # Pydantic scheme for validating a specific section
+│   ├── services/
+│   │   └── messages.py         # Logic for sending messages and CRUD operations
+│   ├── __init__.py    
+│   ├── main.py                 # Entry Point: Initializing FastAPI and Routing
+│   ├── models.py               # SQLAlchemy models (database schema)
+│   ├── settings.py             # Managing settings via Pydantic Settings
 ├── .env.example                
-├── docker-compose.yml          # Полное окружение (API + DB + Redis), not tested!
-├── docker-compose.infra.yml    # Локальная инфраструктура (DB + Redis)
+├── docker-compose.yml          # Full environment (API + DB + Redis), not tested!
+├── docker-compose.infra.yml    # Local infrastructure (DB + Redis)
 ├── requirements.txt            
 └── README.md                  
 ```
 
 ### // Main components
 
-`api/` - содержит логику взаимодействия с клиентом.  
+`api/` - contains the logic of interaction with the client. 
 
-В **ws.py** реализован `ConnectionManager`, который изолирует логику рассылки сообщений от протокола WebSocket.
+**ws.py** implements `ConnectionManager`, which isolates the message sending logic from the WebSocket protocol.
 
-`infra/` - отвечает за технические детали подключения к внешним ресурсам.  
+`infra/` - is responsible for the technical details of connecting to external resources.
 
-Здесь настраивается асинхронный движок базы данных и параметры пула соединений.
+This is where you configure the asynchronous database engine and connection pool settings.
 
-`messages.py` - вспомогательные функции для работы с данными. Здесь реализована логика обработки сообщений (например, проверка на дубликаты и сохранение в базу)
+`services/messages.py` - functions for working with data. This is where the message processing logic is implemented (for example, checking for duplicates and saving to the database).
 
-`docker-compose.infra.yml` — конфиг для разработки, позволяющий запускать только PostgreSQL-БД и Radis-кэш в контейнерах, оставляя само API на хост-машине для удобной отладки.
+`docker-compose.infra.yml` — development config that allows you to run only the PostgreSQL database and Radis cache in containers, leaving the API itself on the host machine for easy debugging.
 
 ## Usefull commands
 

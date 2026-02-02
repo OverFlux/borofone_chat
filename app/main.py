@@ -10,23 +10,22 @@ from app.models import Base
 from app.api.http import router as http_router
 from app.api.ws import router as ws_router
 
-# Нужно исправить этот костыль на Alembic миграцию
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Миграции применяются вручную через alembic upgrade
-    # Вся часть кода до yield выполняется до запуска приложения, часть после yield при выключении сервера.
-
+    # Migrations are applied manually via alembic upgrade
+    # All the code before yield is executed before the application starts,
+    # the part after yield is executed when the server is shut down.
     yield
 
-    # shutdown
-    await redis_client.aclose() # Закрытие Redis клиента
-    await engine.dispose() # Закрытие connection pool с SQLAlchemy
+    # Shutdown
+    await redis_client.aclose() # Close Redis клиента
+    await engine.dispose() # Close connection pool with SQLAlchemy
 
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 async def root():
-    return {"ok": True} # Заглушка для быстрой проверки запуска API
+    return {"ok": True} # Stub for quickly testing API startup
 
-app.include_router(http_router, tags=["HTTP"]) # Добавляем роутер с HTTP эндпоинтами
-app.include_router(ws_router, tags=["Websocket"]) # Добавляем роутер с WebSockets эндпоинтами
+app.include_router(http_router, tags=["HTTP"]) # Add a router with HTTP endpoints
+app.include_router(ws_router, tags=["Websocket"]) # Add a router with WebSockets endpoints

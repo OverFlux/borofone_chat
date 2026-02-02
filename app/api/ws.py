@@ -1,4 +1,9 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+"""
+WebSocket endpoints for real-time чата.
+
+Used Pydantic MessageCreate for validation input messages.
+"""
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import ValidationError
 
 from app.infra.db import SessionLocal
@@ -7,44 +12,24 @@ from app.services.messages import create_message_with_nonce
 
 router = APIRouter()
 
-# Менеджер WebSocket подключений для real-time коммуникации.
+
 class ConnectionManager:
     """
-    Управляет подключениями клиентов к комнатам и broadcast сообщений.
+    Manager WebSocket connections.
 
-    Архитектура:
-    - Каждая комната (room_id) имеет набор активных WebSocket соединений
-    - При отправке сообщения делается broadcast всем клиентам в комнате
-    - При разрыве соединения клиент автоматически удаляется из комнаты
-
-    ВАЖНО: Текущая реализация работает только в пределах одного процесса.
-    При горизонтальном масштабировании (2+ инстанса API) требуется
-    Redis Pub/Sub для broadcast между серверами.
-
-    Структура данных:
-        _rooms = {
-            1: {<WebSocket1>, <WebSocket2>, ...},
-            2: {<WebSocket3>, ...},
-        }
+    IMPORTANT: Only works within a single process.
+    Redis Pub/Sub is required for horizontal scaling.
     """
+
     def __init__(self) -> None:
+        # room_id -> set of WebSocket connections
         self._rooms: dict[int, set[WebSocket]] = {}
 
-    # Подключение клиента к комнате
     async def connect(self, ws: WebSocket, room_id: int) -> None:
-        """
-        1. Принимаем WebSocket соединение (handshake)
-        2. Добавляем сокет в набор активных подключений комнаты
-        """
         await ws.accept()
         self._rooms.setdefault(room_id, set()).add(ws)
 
-    # Отключение клиента от комнаты
     def disconnect(self, ws: WebSocket, room_id: int) -> None:
-        """
-        Вызывается при закрытии WebSocket соединения.
-        Если комната становится пустой — удаляем её из словаря для экономии памяти.
-        """
         room = self._rooms.get(room_id)
         if not room:
             return
@@ -52,17 +37,14 @@ class ConnectionManager:
         if not room:
             self._rooms.pop(room_id, None)
 
-    # Отправка сообщения всем клиентам в комнате.
-    async def broadcast(self, room_id: int, payload: dict) -> None: # TODO: Вместо payload словаря - сделать pydantic типизацию
+    async def broadcast(self, room_id: int, payload: dict) -> None:
         """
-        1. Получаем набор активных соединений в комнате
-        2. Пытаемся отправить JSON каждому клиенту
-        3. Если отправка не удалась (клиент отключился) — помечаем как "мёртвый"
-        4. Удаляем мёртвые соединения из комнаты
-        5. Смерть - это не шутки...
+        Broadcast messages to all clients in the room.
+
+        Automatically removes dead connections.
         """
         room = self._rooms.get(room_id, set())
-        dead: list[WebSocket] = [] # Список для накопления мёртвых соединений
+        dead: list[WebSocket] = []
 
         for ws in room:
             try:
@@ -76,13 +58,13 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# WebSocket endpoint для real-time обмена сообщениями в комнате.
+
 @router.websocket("/ws/rooms/{room_id}")
 async def ws_room(ws: WebSocket, room_id: int):
     """
-    1. Клиент подключается → accept + добавление в менеджер
-    2. Цикл: получение сообщений → валидация → сохранение → broadcast
-    3. Клиент отключается (WebSocketDisconnect) → удаление из менеджера
+    WebSocket endpoint for real-time message trade.
+
+    Read protocol from ws_protocol docs
     """
     await manager.connect(ws, room_id)
 
@@ -91,19 +73,47 @@ async def ws_room(ws: WebSocket, room_id: int):
             while True:
                 data = await ws.receive_json()
 
-                # === ВАЛИДАЦИЯ ===
+                # Validation by Pydentic
                 try:
                     payload = MessageCreate(**data)
                 except ValidationError as e:
-                    await ws.send_json(
-                        {"type": "error", "error": "validation", "detail": e.errors()}
-                    )
+                    await ws.send_json({
+                        # Pydantic validation failed
+                        "type": "error",
+                        "code": "validation_error",
+                        "detail": e.errors()
+                    })
                     continue
 
-                msg = await create_message_with_nonce(db=db, room_id=room_id, payload=payload) # TODO:  Вместо payload словаря - сделать pydantic типизацию
+                # Creating message
+                try:
+                    msg = await create_message_with_nonce(
+                        db=db,
+                        room_id=room_id,
+                        payload=payload
+                    )
+                except HTTPException as e:
+                    # Service error (For example: nonce conflict)
+                    await ws.send_json({
+                        "type": "error",
+                        "code": e.status_code,
+                        "detail": e.detail
+                    })
+                    continue
+                except Exception as e:
+                    # Unexpected error
+                    import logging
+                    logging.exception("Failed to create message via WebSocket")
 
-                # === BROADCAST ===
-                # Отправляем новое сообщение всем клиентам в комнате
+                    await ws.send_json({
+                        "type": "error",
+                        "code": 500,
+                        "detail": "internal server error"
+                    })
+                    continue
+
+                # Broadcast
+                # Send a new message to all clients in the room
                 await manager.broadcast(
                     room_id,
                     {
