@@ -1,8 +1,8 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.infra.db import engine
 from app.infra.redis import redis_client
@@ -29,6 +29,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# CORS for browser-based login/register pages (incl. preflight OPTIONS)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 @app.get("/")
 async def root():
     return {"ok": True} # Stub for quickly testing API startup

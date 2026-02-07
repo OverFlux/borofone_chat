@@ -502,12 +502,36 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:8000';
-        const WS_URL = 'ws://localhost:8000';
+        function resolveApiBase() {
+            const stored = localStorage.getItem('api_base');
+            if (stored) return stored.replace(/\/$/, '');
+
+            const url = new URL(window.location.href);
+
+            if (url.protocol === 'file:') {
+                return 'http://localhost:8000';
+            }
+
+            if (url.port && url.port !== '8000') {
+                return `${url.protocol}//${url.hostname}:8000`;
+            }
+
+            return url.origin;
+        }
+
+        function resolveWsBase(apiBase) {
+            const apiUrl = new URL(apiBase);
+            const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+            return `${wsProtocol}//${apiUrl.host}`;
+        }
+
+        const API_URL = resolveApiBase();
+        const WS_URL = resolveWsBase(API_URL);
         
         let currentRoom = null;
         let ws = null;
         let username = localStorage.getItem('chat_username') || 'User' + Math.floor(Math.random() * 10000);
+        let currentUser = null;
         let rooms = [];
         
         const messagesContainer = document.getElementById('messages');
@@ -520,19 +544,112 @@
         const userAvatar = document.getElementById('userAvatar');
         const connectionDot = document.getElementById('connectionDot');
         const connectionText = document.getElementById('connectionText');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const roomsActions = document.getElementById('roomsActions');
+        const roomTitleInput = document.getElementById('roomTitleInput');
+        const createRoomBtn = document.getElementById('createRoomBtn');
+
+                function getAccessToken() {
+            return localStorage.getItem('access_token');
+        }
+
+        function getRefreshToken() {
+            return localStorage.getItem('refresh_token');
+        }
+
+        function getAuthHeaders() {
+            const token = getAccessToken();
+            return token ? { Authorization: `Bearer ${token}` } : {};
+        }
+
+        function redirectToLogin() {
+            window.location.href = './login.html';
+        }
+
+        async function refreshAccessToken() {
+            const refreshToken = getRefreshToken();
+            if (!refreshToken) return false;
+
+            try {
+                const response = await fetch(`${API_URL}/auth/refresh`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh_token: refreshToken })
+                });
+
+                if (!response.ok) return false;
+
+                const data = await response.json();
+                localStorage.setItem('access_token', data.access_token);
+                return true;
+            } catch (err) {
+                console.error('Failed to refresh token:', err);
+                return false;
+            }
+        }
+
+        async function fetchWithAuth(url, options = {}) {
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    ...(options.headers || {}),
+                    ...getAuthHeaders()
+                }
+            });
+
+            if (response.status !== 401) return response;
+
+            const refreshed = await refreshAccessToken();
+            if (!refreshed) return response;
+
+            return fetch(url, {
+                ...options,
+                headers: {
+                    ...(options.headers || {}),
+                    ...getAuthHeaders()
+                }
+            });
+        }
+
+        async function loadCurrentUser() {
+            try {
+                const response = await fetchWithAuth(`${API_URL}/auth/me`);
+                if (!response.ok) return null;
+                return await response.json();
+            } catch (err) {
+                console.error('Failed to load user:', err);
+                return null;
+            }
+        }
+
         
         async function init() {
-            userName.textContent = username;
-            userTag.textContent = '#' + username.slice(-4).padStart(4, '0');
+            if (!getAccessToken()) {
+                redirectToLogin();
+                return;
+            }
+
+            currentUser = await loadCurrentUser();
+            if (!currentUser) {
+                redirectToLogin();
+                return;
+            }
+
+            username = currentUser.username;
+            userName.textContent = currentUser.display_name || username;
+            userTag.textContent = '@' + username;
             userAvatar.textContent = username[0].toUpperCase();
             localStorage.setItem('chat_username', username);
+
+            if (currentUser.role === 'admin') {
+                roomsActions.style.display = 'flex';
+            }
+
             
             await loadRooms();
             
             if (rooms.length > 0) {
                 selectRoom(rooms[0].id);
-            } else {
-                await createDefaultRoom();
             }
         }
         
@@ -544,26 +661,14 @@
                 console.error('Failed to load rooms:', err);
             }
         }
-        
-        async function createDefaultRoom() {
-            try {
-                const response = await fetch(`${API_URL}/rooms`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: 'general' })
-                });
-                const room = await response.json();
-                rooms.push(room);
-                renderRooms();
-                selectRoom(room.id);
-            } catch (err) {
-                console.error('Failed to create room:', err);
-            }
-        }
-        
+
         async function loadMessages(roomId) {
             try {
-                const response = await fetch(`${API_URL}/rooms/${roomId}/messages?limit=50`);
+                const response = await fetchWithAuth(`${API_URL}/rooms/${roomId}/messages?limit=50`);
+                if (!response.ok) {
+                    if (response.status === 401) redirectToLogin();
+                    throw new Error(`Failed to load messages: ${response.status}`);
+                }
                 const messages = await response.json();
                 
                 messagesContainer.innerHTML = '';
@@ -578,8 +683,16 @@
             if (ws) ws.close();
             
             updateConnectionStatus('connecting');
-            
-            ws = new WebSocket(`${WS_URL}/ws/rooms/${roomId}`);
+
+            const token = getAccessToken();
+            if (!token) {
+                console.error('Missing access token for WebSocket');
+                updateConnectionStatus('error');
+                redirectToLogin();
+                return;
+            }
+
+            ws = new WebSocket(`${WS_URL}/ws/rooms/${roomId}?token=${encodeURIComponent(token)}`);
             
             ws.onopen = () => {
                 console.log('WebSocket connected');
@@ -628,6 +741,29 @@
                 </div>
             `).join('');
         }
+
+        async function createRoom(title) {
+            try {
+                const response = await fetchWithAuth(`${API_URL}/rooms`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title })
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) redirectToLogin();
+                    throw new Error(`Failed to create room: ${response.status}`);
+                }
+
+                const room = await response.json();
+                rooms.push(room);
+                renderRooms();
+                selectRoom(room.id);
+            } catch (err) {
+                console.error('Failed to create room:', err);
+                alert('Unable to create room. Check your permissions.');
+            }
+        }
         
         async function selectRoom(roomId) {
             currentRoom = roomId;
@@ -648,7 +784,8 @@
             messageEl.className = 'message';
             if (!animate) messageEl.style.animation = 'none';
             
-            const authorInitial = msg.author[0].toUpperCase();
+            const author = msg.author || 'Unknown';
+            const authorInitial = author[0].toUpperCase();
             const time = new Date(msg.created_at).toLocaleTimeString('ru-RU', { 
                 hour: '2-digit', 
                 minute: '2-digit' 
@@ -658,7 +795,7 @@
                 <div class="message-avatar">${authorInitial}</div>
                 <div class="message-content">
                     <div class="message-header">
-                        <span class="message-author">${msg.author}</span>
+                        <span class="message-author">${author}</span>
                         <span class="message-time">${time}</span>
                     </div>
                     <div class="message-text">${escapeHtml(msg.body)}</div>
@@ -699,7 +836,6 @@
             if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
             
             ws.send(JSON.stringify({
-                author: username,
                 body: text,
                 nonce: Date.now() + '-' + Math.random().toString(36).substr(2, 9)
             }));
@@ -708,6 +844,26 @@
             messageInput.style.height = 'auto';
             sendBtn.disabled = true;
         }
+
+        roomTitleInput.addEventListener('input', (e) => {
+            createRoomBtn.disabled = !e.target.value.trim();
+        });
+
+        createRoomBtn.addEventListener('click', () => {
+            const title = roomTitleInput.value.trim();
+            if (!title) return;
+            createRoomBtn.disabled = true;
+            createRoom(title).finally(() => {
+                roomTitleInput.value = '';
+                createRoomBtn.disabled = true;
+            });
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            redirectToLogin();
+        });
         
         init();
     </script>

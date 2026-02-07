@@ -3,10 +3,12 @@ WebSocket endpoints for real-time чата.
 
 Used Pydantic MessageCreate for validation input messages.
 """
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, status
 from pydantic import ValidationError
 
 from app.infra.db import SessionLocal
+from app.models import User
+from app.security import get_user_id_from_token
 from app.schemas.messages import MessageCreate
 from app.services.messages import create_message_with_nonce
 
@@ -66,10 +68,44 @@ async def ws_room(ws: WebSocket, room_id: int):
 
     Read protocol from ws_protocol docs
     """
-    await manager.connect(ws, room_id)
+    token = ws.query_params.get("token")
+
+    if not token:
+        await ws.accept()
+        await ws.send_json({
+            "type": "error",
+            "code": status.HTTP_401_UNAUTHORIZED,
+            "detail": "Missing token",
+        })
+        await ws.close(code=1008)
+        return
 
     try:
         async with SessionLocal() as db:
+            user_id = get_user_id_from_token(token)
+            if user_id is None:
+                await ws.accept()
+                await ws.send_json({
+                    "type": "error",
+                    "code": status.HTTP_401_UNAUTHORIZED,
+                    "detail": "Invalid or expired token",
+                })
+                await ws.close(code=1008)
+                return
+
+            current_user = await db.get(User, user_id)
+            if current_user is None or not current_user.is_active:
+                await ws.accept()
+                await ws.send_json({
+                    "type": "error",
+                    "code": status.HTTP_401_UNAUTHORIZED,
+                    "detail": "User not found or disabled",
+                })
+                await ws.close(code=1008)
+                return
+
+            await manager.connect(ws, room_id)
+
             while True:
                 data = await ws.receive_json()
 
@@ -90,6 +126,7 @@ async def ws_room(ws: WebSocket, room_id: int):
                     msg = await create_message_with_nonce(
                         db=db,
                         room_id=room_id,
+                        user_id=current_user.id,
                         payload=payload
                     )
                 except HTTPException as e:
@@ -122,6 +159,7 @@ async def ws_room(ws: WebSocket, room_id: int):
                             "id": msg.id,
                             "room_id": msg.room_id,
                             "user_id": msg.user_id,
+                            "author": current_user.username,
                             "nonce": msg.nonce,
                             "body": msg.body,
                             "created_at": msg.created_at.isoformat(),

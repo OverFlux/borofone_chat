@@ -107,24 +107,26 @@ async def list_messages(
         - created_at is ISO 8601 format
     """
     stmt = (
-        select(Message)
+        select(Message, User.username)
+        .join(User, Message.user_id == User.id, isouter=True)
         .where(Message.room_id == room_id)
         .order_by(Message.id.desc())
         .limit(limit)
     )
-    rows = (await db.execute(stmt)).scalars().all()
+    rows = (await db.execute(stmt)).all()
     rows.reverse() # from old to new
 
     return [
         {
-            "id": m.id,
-            "room_id": m.room_id,
-            "nonce": m.nonce,
-            "user_id": m.user_id,
-            "body": m.body,
-            "created_at": m.created_at.isoformat(),
+            "id": message.id,
+            "room_id": message.room_id,
+            "nonce": message.nonce,
+            "user_id": message.user_id,
+            "author": username or "Unknown",
+            "body": message.body,
+            "created_at": message.created_at.isoformat(),
         }
-        for m in rows
+        for message,username in rows
     ]
 
 
@@ -204,6 +206,7 @@ async def post_message(
         "id": msg.id,
         "room_id": msg.room_id,
         "user_id": msg.user_id,
+        "author": current_user.username,
         "nonce": msg.nonce,
         "body": msg.body,
         "created_at": msg.created_at.isoformat(),
