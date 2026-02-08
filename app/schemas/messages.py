@@ -68,12 +68,11 @@ class MessageResponse(BaseModel):
     Used as response_model in endpoints.
     """
     id: int
-    room_id: int
     nonce: str | None
-    user_id: int
-    author: str
+    room_id: int
     body: str
     created_at: str  # ISO 8601 format
+    user_id: int
 
     class Config:
         from_attributes = True
@@ -83,7 +82,6 @@ class MessageResponse(BaseModel):
                 "room_id": 1,
                 "nonce": "abc123",
                 "user_id": "1",
-                "author": "nickname",
                 "body": "Hello, world!",
                 "created_at": "2025-02-01T22:00:00+00:00"
             }

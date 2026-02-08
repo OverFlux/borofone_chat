@@ -39,7 +39,7 @@ app.add_middleware(
 )
 @app.get("/")
 async def root():
-    return {"ok": True} # Stub for quickly testing API startup
+    return {"tomato": True} # Stub for quickly testing API startup
 
 app.include_router(http_router, tags=["HTTP"]) # Add a router with HTTP endpoints
 app.include_router(ws_router, tags=["Websocket"]) # Add a router with WebSockets endpoints

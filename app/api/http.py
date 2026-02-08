@@ -122,7 +122,6 @@ async def list_messages(
             "room_id": message.room_id,
             "nonce": message.nonce,
             "user_id": message.user_id,
-            "author": username or "Unknown",
             "body": message.body,
             "created_at": message.created_at.isoformat(),
         }

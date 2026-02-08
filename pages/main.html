@@ -122,6 +122,10 @@
         .rooms-header {
             padding: 16px;
             border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
             font-weight: 600;
             font-size: 15px;
             cursor: pointer;
@@ -130,6 +134,47 @@
 
         .rooms-header:hover {
             background: var(--bg-hover);
+        }
+
+                .rooms-actions {
+            display: none;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .rooms-actions input {
+            width: 120px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 8px;
+            color: var(--text-primary);
+            font-size: 12px;
+        }
+
+        .rooms-actions input::placeholder {
+            color: var(--text-dim);
+        }
+
+        .rooms-actions button {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .rooms-actions button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .rooms-actions button:hover:not(:disabled) {
+            background: var(--bg-hover);
+            color: var(--text-primary);
         }
 
         .rooms-list {
@@ -387,6 +432,22 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
+        .logout-btn {
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-secondary);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .logout-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
         /* === CONNECTION STATUS === */
         .connection-status {
             position: absolute;
@@ -466,7 +527,13 @@
         </div>
 
         <div class="rooms">
-            <div class="rooms-header">Borofone Chat</div>
+            <div class="rooms-header">
+                <span>Borofone Chat</span>
+                <div class="rooms-actions" id="roomsActions">
+                    <input id="roomTitleInput" type="text" placeholder="New room" />
+                    <button id="createRoomBtn" disabled>Create</button>
+                </div>
+            </div>
             <div class="rooms-list" id="roomsList"></div>
             <div class="status-bar">
                 <div class="status-avatar" id="userAvatar">U</div>
@@ -474,6 +541,7 @@
                     <div class="status-name" id="userName">User</div>
                     <div class="status-tag" id="userTag">#0000</div>
                 </div>
+                <button class="logout-btn" id="logoutBtn">Log out</button>
             </div>
         </div>
 
