@@ -2,15 +2,6 @@
 
 *A simple chat implemented within: FastApi, Redis, Postgres, Docker and SQLAlchemy.*
 
-## Setup
-
-1) pip install -r requirements.txt
-2) docker compose -f docker-compose.infra.yml up -d
-3) alembic upgrade head 
-3.1) alembic current
-4) uvicorn app.main:app --reload
-5) Регистрируем инвайт код в бд и создаем комнату. По надобности выдаём права пользователю - role -> admin
-
 ## !! Setup
 
 ### 1. Установить зависимости
