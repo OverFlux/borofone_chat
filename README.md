@@ -4,8 +4,49 @@
 
 ## Setup
 
-1) First of all: Rename `.env.example` to `.env`
-2) I haven't figured it out yet, maybe touch the grass..
+1) pip install -r requirements.txt
+2) docker compose -f docker-compose.infra.yml up -d
+3) alembic upgrade head 
+3.1) alembic current
+4) uvicorn app.main:app --reload
+5) Регистрируем инвайт код в бд и создаем комнату. По надобности выдаём права пользователю - role -> admin
+
+## !! Setup
+
+### 1. Установить зависимости
+```bash
+pip install -r requirements.txt
+```
+### 2. Поднять бд и редис
+```bash
+docker compose -f docker-compose.infra.yml up -d
+```
+
+### 3. Применить миграции
+```bash
+alembic upgrade head
+```
+!! **Ожидается** `001_baseline (head)` !! | 10.02 snapshot
+```bash
+alembic current
+```
+### 4. Запустить приложение
+
+```bash
+uvicorn app.main:app --reload
+```
+
+### 5. Подготовка данные
+
+- Зарегистрировать инвайт-код в БД
+
+- Создать комнату
+
+- При необходимости выдать пользователю права: role -> admin
+
+- При проблемах с uploads - создать директорию /uploads/avatars
+
+![bro](uploads/avatars/bro.png)
 
 ## Project structure
 
