@@ -22,16 +22,7 @@ function resolveApiBase() {
 const API_URL = resolveApiBase();
 
 // ==========================================
-// УПРАВЛЕНИЕ ТОКЕНАМИ
-// ==========================================
-
-function storeTokens(data) {
-    localStorage.setItem('access_token', data.access_token);
-    localStorage.setItem('refresh_token', data.refresh_token);
-}
-
-// ==========================================
-// ОБРАБОТКА ФОРМЫ ВХОДА
+// ОБРАБОТКА ФОРМЫ ВХОДА (с cookies)
 // ==========================================
 
 const loginForm = document.getElementById('loginForm');
@@ -47,6 +38,7 @@ loginForm.addEventListener('submit', async (event) => {
     try {
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
+            credentials: 'include',  // ← ВАЖНО! Сохраняет cookies
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
@@ -58,7 +50,8 @@ loginForm.addEventListener('submit', async (event) => {
             return;
         }
 
-        storeTokens(data);
+        // Токены установлены в httpOnly cookies автоматически
+        // Перенаправляем на главную страницу
         window.location.href = './main.html';
     } catch (err) {
         errorText.textContent = 'Ошибка сети. Попробуйте позже.';

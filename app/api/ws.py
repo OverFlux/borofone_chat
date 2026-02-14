@@ -1,16 +1,18 @@
 """
-WebSocket endpoint с аутентификацией через cookies.
+WebSocket endpoint с правильным connection management.
 
-Изменения:
-- Токен читается из cookie вместо query параметра
-- Fallback на query параметр для совместимости
+Исправления:
+1. pubsub инициализируется вне if блока
+2. Правильное закрытие Redis connections
+3. Graceful handling когда Redis недоступен
 """
-from fastapi import APIRouter, Cookie, Depends, Query, WebSocket, WebSocketDisconnect
+import asyncio
+import json
+import traceback
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
-from redis.asyncio import Redis
 
 from app.infra.db import get_db
-from app.infra.redis import get_redis
 from app.models import User
 from app.schemas.messages import MessageCreate
 from app.security import get_user_id_from_token
@@ -18,29 +20,13 @@ from app.services.messages import create_message_with_nonce
 
 router = APIRouter(tags=["WebSocket"])
 
-
 async def get_user_from_websocket(
     websocket: WebSocket,
     db: AsyncSession,
     token_cookie: str | None = None,
     token_query: str | None = None
 ) -> User | None:
-    """
-    Получение пользователя из WebSocket соединения.
-
-    Приоритет:
-    1. Cookie (access_token)
-    2. Query параметр (token) - fallback
-
-    Args:
-        websocket: WebSocket connection
-        db: Database session
-        token_cookie: Токен из cookie
-        token_query: Токен из query параметра
-
-    Returns:
-        User или None если токен невалидный
-    """
+    """Получение пользователя из WebSocket соединения."""
     token = token_cookie or token_query
 
     if not token:
@@ -64,11 +50,7 @@ async def websocket_endpoint(
     db: AsyncSession = Depends(get_db),
     token: str = Query(None),  # Fallback для старых клиентов
 ):
-    """
-    WebSocket endpoint для real-time чата.
-
-    ВАЖНО: Redis получаем внутри, т.к. WebSocket dependencies работают иначе.
-    """
+    """WebSocket endpoint для real-time чата."""
 
     await websocket.accept()
 
@@ -93,6 +75,9 @@ async def websocket_endpoint(
         return
 
     username = user.username
+    # redis scope
+    redis = None
+    pubsub = None
 
     try:
         from app.infra.redis import redis_client
@@ -101,20 +86,23 @@ async def websocket_endpoint(
         # Проверяем что Redis работает
         if redis:
             await redis.ping()
+            print(f"[WebSocket] Redis connected for user {username}")
     except Exception as e:
         print(f"⚠️ Redis unavailable in WebSocket: {e}")
         redis = None
 
-    # Subscribe to Redis channel
+    # Subscribe to Redis channel (if redis connected)
     channel_name = f"room:{room_id}"
 
     if redis:
         try:
             pubsub = redis.pubsub()
             await pubsub.subscribe(channel_name)
+            print(f"[WebSocket] Subscribed to {channel_name}")
         except Exception as e:
             print(f"⚠️ Could not subscribe to Redis channel: {e}")
             pubsub = None
+            redis = None # Отключение Redis если subscribe не работает
 
     print(f"[WebSocket] User {username} connected to room {room_id}")
 
@@ -131,8 +119,6 @@ async def websocket_endpoint(
         })
 
         # Handle messages
-        import asyncio
-
         async def receive_messages():
             """Receive messages from client."""
             try:
@@ -140,7 +126,6 @@ async def websocket_endpoint(
                     data = await websocket.receive_json()
 
                     if data.get("type") == "message":
-                        # Validate and save message
                         try:
                             payload = MessageCreate(
                                 body=data.get("body", ""),
@@ -155,45 +140,38 @@ async def websocket_endpoint(
                                 redis=redis
                             )
 
+                            # Формируем сообщение для broadcast
+                            message_data = {
+                                "type": "message",
+                                "id": msg.id,
+                                "room_id": msg.room_id,
+                                "nonce": msg.nonce,
+                                "body": msg.body,
+                                "created_at": msg.created_at.isoformat(),
+                                "edited_at": msg.edited_at.isoformat() if msg.edited_at else None,
+                                "user": {
+                                    "id": user.id,
+                                    "username": user.username,
+                                    "display_name": user.display_name,
+                                    "avatar_url": user.avatar_url
+                                }
+                            }
+
                             # Publish to Redis (если доступен)
                             if redis:
                                 try:
+                                    # Redis publish принимает string
                                     await redis.publish(
                                         channel_name,
-                                        {
-                                            "type": "message",
-                                            "id": msg.id,
-                                            "room_id": msg.room_id,
-                                            "nonce": msg.nonce,
-                                            "body": msg.body,
-                                            "created_at": msg.created_at.isoformat(),
-                                            "edited_at": None,
-                                            "user": {
-                                                "id": user.id,
-                                                "username": user.username,
-                                                "display_name": user.display_name,
-                                                "avatar_url": user.avatar_url
-                                            }
-                                        }
+                                        json.dumps(message_data)
                                     )
                                 except Exception as e:
-                                    print(f"⚠️ Could not publish to Redis: {e}")
-                                    # Fallback: отправляем напрямую через WebSocket
-                                    await websocket.send_json({
-                                        "type": "message",
-                                        "id": msg.id,
-                                        "room_id": msg.room_id,
-                                        "nonce": msg.nonce,
-                                        "body": msg.body,
-                                        "created_at": msg.created_at.isoformat(),
-                                        "edited_at": None,
-                                        "user": {
-                                            "id": user.id,
-                                            "username": user.username,
-                                            "display_name": user.display_name,
-                                            "avatar_url": user.avatar_url
-                                        }
-                                    })
+                                    print(f"⚠️ Redis publish failed: {e}")
+                                    # Fallback: отправляем напрямую
+                                    await websocket.send_json(message_data)
+                            else:
+                                # Нет Redis - отправляем напрямую
+                                await websocket.send_json(message_data)
 
                         except ValueError as e:
                             await websocket.send_json({
@@ -214,7 +192,7 @@ async def websocket_endpoint(
         async def send_messages():
             """Send messages from Redis to client."""
             if not pubsub:
-                # Если нет Redis - просто ждём
+                # Нет Redis - просто ждём и ничего не делаем
                 try:
                     while True:
                         await asyncio.sleep(1)
@@ -224,12 +202,19 @@ async def websocket_endpoint(
 
             try:
                 while True:
-                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                    # Получаем сообщение из Redis
+                    message = await pubsub.get_message(
+                        ignore_subscribe_messages=True,
+                        timeout=1.0
+                    )
                     if message and message['type'] == 'message':
+                        # Отправляем клиенту
                         await websocket.send_text(message['data'])
                     await asyncio.sleep(0.01)
             except WebSocketDisconnect:
                 pass
+            except Exception as e:
+                print(f"[WebSocket] Error in send_messages: {e}")
 
         # Run both tasks concurrently
         await asyncio.gather(
@@ -241,7 +226,14 @@ async def websocket_endpoint(
         print(f"[WebSocket] User {username} disconnected from room {room_id}")
     except Exception as e:
         print(f"[WebSocket] Unexpected error: {e}")
+        traceback.print_exc()
     finally:
         if pubsub:
-            await pubsub.unsubscribe(channel_name)
-            await pubsub.close()
+            try:
+                await pubsub.unsubscribe(channel_name)
+                await pubsub.close()
+                print(f"[WebSocket] Unsubscribed from {channel_name}")
+            except Exception as e:
+                print(f"⚠️ Error closing pubsub: {e}")
+
+        print(f"[WebSocket] Cleanup completed for user {username}")

@@ -1,143 +1,105 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Borofone Chat - Register</title>
+    <title>Borofone Chat - Регистрация</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #1e1f22;
-            --bg-secondary: #2b2d31;
-            --bg-tertiary: #313338;
-            --text-primary: #f2f3f5;
-            --text-secondary: #b5bac1;
-            --accent: #5865f2;
-            --accent-hover: #4752c4;
-            --border: #3f4147;
-            --error: #ff6b6b;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
-
-        body {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-        }
-
-        .card {
-            width: 100%;
-            max-width: 520px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 32px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
-        }
-
-        h1 {
-            font-size: 24px;
-            margin-bottom: 8px;
-        }
-
-        p {
-            color: var(--text-secondary);
-            margin-bottom: 24px;
-        }
-
-        label {
-            display: block;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: var(--text-secondary);
-            margin-bottom: 6px;
-        }
-
-        input {
-            width: 100%;
-            padding: 10px 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            margin-bottom: 16px;
-        }
-
-        button {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            background: var(--accent);
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 8px;
-        }
-
-        button:hover {
-            background: var(--accent-hover);
-        }
-
-        .error {
-            color: var(--error);
-            font-size: 13px;
-            margin-top: 12px;
-            min-height: 18px;
-        }
-
-        .footer {
-            margin-top: 20px;
-            font-size: 13px;
-            color: var(--text-secondary);
-            text-align: center;
-        }
-
-        .footer a {
-            color: var(--text-primary);
-        }
-    </style>
+    <link rel="stylesheet" href="styles/register.css">
 </head>
 <body>
-    <div class="card">
-        <h1>Create your account</h1>
-        <p>Register with an invite code to access Borofone Chat.</p>
-        <form id="registerForm">
-            <label for="email">Email</label>
-            <input id="email" type="email" required />
+    <div class="bg-animation">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
 
-            <label for="username">Username</label>
-            <input id="username" type="text" required maxlength="32" />
+    <!-- Абстрактное лого -->
+    <div class="logo-badge">
+        <div class="logo-container">
+            <div class="logo-shape"></div>
+        </div>
+    </div>
 
-            <label for="displayName">Display name</label>
-            <input id="displayName" type="text" required maxlength="50" />
+    <div class="container">
+        <div class="card">
+            <div class="form-section">
+                <h1>Создайте аккаунт</h1>
+                <p class="subtitle">Присоединяйтесь к Borofone Chat</p>
 
-            <label for="password">Password</label>
-            <input id="password" type="password" required minlength="8" />
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input
+                            id="email"
+                            type="email"
+                            placeholder="your@email.com"
+                            required
+                            autocomplete="email"
+                        />
+                    </div>
 
-            <label for="inviteCode">Invite code</label>
-            <input id="inviteCode" type="text" required />
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input
+                            id="username"
+                            type="text"
+                            placeholder="username"
+                            required
+                            maxlength="32"
+                            autocomplete="username"
+                        />
+                    </div>
 
-            <button type="submit">Register</button>
-            <div class="error" id="errorText"></div>
-        </form>
-        <div class="footer">
-            Already have an account? <a href="./login.html">Log in</a>
+                    <div class="form-group">
+                        <label for="displayName">Отображаемое имя</label>
+                        <input
+                            id="displayName"
+                            type="text"
+                            placeholder="Ваше имя"
+                            required
+                            maxlength="50"
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Пароль</label>
+                        <input
+                            id="password"
+                            type="password"
+                            placeholder="Минимум 8 символов"
+                            required
+                            minlength="8"
+                            autocomplete="new-password"
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="inviteCode">Инвайт-код</label>
+                        <input
+                            id="inviteCode"
+                            type="text"
+                            placeholder="Введите код приглашения"
+                            required
+                        />
+                    </div>
+
+                    <button type="submit">Зарегистрироваться</button>
+                    <div class="error" id="errorText"></div>
+                </form>
+
+                <div class="footer">
+                    Уже есть аккаунт? <a href="./login.html">Войти</a>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
+        // ==========================================
+        // API КОНФИГУРАЦИЯ
+        // ==========================================
+
         function resolveApiBase() {
             const stored = localStorage.getItem('api_base');
             if (stored) return stored.replace(/\/$/, '');
@@ -157,13 +119,12 @@
 
         const API_URL = resolveApiBase();
 
+        // ==========================================
+        // ОБРАБОТКА ФОРМЫ РЕГИСТРАЦИИ (с cookies)
+        // ==========================================
+
         const registerForm = document.getElementById('registerForm');
         const errorText = document.getElementById('errorText');
-
-        function storeTokens(data) {
-            localStorage.setItem('access_token', data.access_token);
-            localStorage.setItem('refresh_token', data.refresh_token);
-        }
 
         registerForm.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -180,6 +141,7 @@
             try {
                 const response = await fetch(`${API_URL}/auth/register`, {
                     method: 'POST',
+                    credentials: 'include',  // ← ВАЖНО! Сохраняет cookies
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
@@ -187,14 +149,15 @@
                 const data = await response.json();
 
                 if (!response.ok) {
-                    errorText.textContent = data.detail || 'Registration failed';
+                    errorText.textContent = data.detail || 'Ошибка регистрации';
                     return;
                 }
 
-                storeTokens(data);
+                // Токены установлены в httpOnly cookies автоматически
+                // Перенаправляем на главную страницу
                 window.location.href = './main.html';
             } catch (err) {
-                errorText.textContent = 'Network error. Try again later.';
+                errorText.textContent = 'Ошибка сети. Попробуйте позже.';
             }
         });
     </script>

@@ -5,6 +5,7 @@
 ## !! Setup
 
 ### 1. Установить зависимости
+
 ```bash
 pip install -r requirements.txt
 ```

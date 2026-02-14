@@ -1,16 +1,15 @@
 """
-Redis configuration with async client and FastAPI dependency.
+Redis configuration with proper connection pooling.
 
-Includes:
-- Async Redis client
-- Connection pooling
-- Dependency for FastAPI
-- Graceful fallback если Redis недоступен
+Fixes:
+1. Правильный connection pool
+2. Ограничение max_connections
+3. Graceful handling при исчерпании connections
 """
 from typing import AsyncGenerator
 
 from redis.asyncio import Redis, ConnectionPool
-from redis.exceptions import RedisError
+from redis.exceptions import RedisError, ConnectionError as RedisConnectionError
 
 from app.settings import settings
 
@@ -21,9 +20,17 @@ from app.settings import settings
 pool = ConnectionPool.from_url(
     settings.redis_url,
     decode_responses=True,  # Автоматически декодировать bytes → str
-    max_connections=10,
+    max_connections=50,
     socket_connect_timeout=5,
     socket_timeout=5,
+    socket_keepalive=True,
+    socket_keepalive_options={
+        1: 1, # TCP_KEEPIDLE
+        2: 1, # TCP_KEEPINTVL
+        3: 3, # TCP_KEEPCNT
+    },
+    retry_on_timeout=True,
+    health_check_interval=30,
 )
 
 # ==========================================
@@ -46,13 +53,7 @@ async def get_redis() -> AsyncGenerator[Redis | None, None]:
     """
     FastAPI dependency для получения Redis client.
 
-    Возвращает None если Redis недоступен (graceful degradation).
-
-    Usage:
-        @router.post("/messages")
-        async def create_message(redis: Redis = Depends(get_redis)):
-            if redis:
-                await redis.set("key", "value")
+    Graceful degradation: возвращает None если Redis недоступен.
     """
     if redis_client is None:
         yield None
@@ -71,12 +72,7 @@ async def get_redis_required() -> AsyncGenerator[Redis, None]:
     """
     FastAPI dependency для Redis (требует доступности).
 
-    Выбрасывает HTTPException если Redis недоступен.
-
-    Usage:
-        @router.post("/messages")
-        async def create_message(redis: Redis = Depends(get_redis_required)):
-            await redis.set("key", "value")  # Redis гарантированно доступен
+    Raises HTTPException если Redis недоступен.
     """
     from fastapi import HTTPException, status
 
@@ -101,12 +97,7 @@ async def get_redis_required() -> AsyncGenerator[Redis, None]:
 # ==========================================
 
 async def check_redis_health() -> bool:
-    """
-    Проверка здоровья Redis.
-
-    Returns:
-        bool: True если Redis доступен
-    """
+    """Проверка здоровья Redis."""
     if redis_client is None:
         return False
 
@@ -130,3 +121,23 @@ async def clear_redis():
     """Очистка всех ключей в Redis (только для тестов!)."""
     if redis_client:
         await redis_client.flushdb()
+
+
+async def get_redis_info() -> dict:
+    """Получение информации о Redis."""
+    if redis_client is None:
+        return {"status": "unavailable"}
+
+    try:
+        info = await redis_client.info()
+        return {
+            "status": "healthy",
+            "connected_clients": info.get("connected_clients", 0),
+            "used_memory_human": info.get("used_memory_human", "unknown"),
+            "uptime_in_seconds": info.get("uptime_in_seconds", 0),
+        }
+    except RedisError as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }

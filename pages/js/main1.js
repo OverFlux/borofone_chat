@@ -54,7 +54,7 @@ const cancelModalBtn = document.getElementById('cancelModalBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 
 // ==========================================
-// AUTH FUNCTIONS
+// AUTH FUNCTIONS (с использованием cookies)
 // ==========================================
 
 function redirectToLogin() {
@@ -62,14 +62,21 @@ function redirectToLogin() {
 }
 
 async function fetchWithAuth(url, options = {}) {
+    /**
+     * Fetch с автоматической отправкой cookies.
+     *
+     * Cookies отправляются автоматически браузером,
+     * но нужно указать credentials: 'include' для cross-origin запросов.
+     */
     const response = await fetch(url, {
         ...options,
-        credentials: 'include',
+        credentials: 'include',  // Важно! Отправляет cookies
         headers: {
             ...(options.headers || {}),
         }
     });
 
+    // Если 401, пробуем обновить токен
     if (response.status === 401) {
         const refreshed = await refreshAccessToken();
         if (!refreshed) {
@@ -77,6 +84,7 @@ async function fetchWithAuth(url, options = {}) {
             return response;
         }
 
+        // Повторяем запрос
         return fetch(url, {
             ...options,
             credentials: 'include',
@@ -90,18 +98,21 @@ async function fetchWithAuth(url, options = {}) {
 }
 
 async function refreshAccessToken() {
+    /**
+     * Обновление access токена через refresh токен.
+     *
+     * Refresh токен автоматически отправляется в cookie.
+     */
     try {
         const response = await fetch(`${API_URL}/auth/refresh`, {
             method: 'POST',
-            credentials: 'include'
+            credentials: 'include',  // Отправляет refresh_token cookie
         });
 
-        if (response.ok) {
-            console.log('Access token refreshed');
-            return true;
-        }
+        if (!response.ok) return false;
 
-        return false;
+        // Новый access_token установлен в cookie автоматически
+        return true;
     } catch (err) {
         console.error('Failed to refresh token:', err);
         return false;
@@ -109,82 +120,86 @@ async function refreshAccessToken() {
 }
 
 async function loadCurrentUser() {
+    /**
+     * Загрузка информации о текущем пользователе.
+     *
+     * Токен автоматически отправляется из cookie.
+     */
     try {
         const response = await fetchWithAuth(`${API_URL}/auth/me`);
-
-        if (!response.ok) {
-            redirectToLogin();
-            return;
-        }
-
-        currentUser = await response.json();
-        console.log('Logged in as:', currentUser.username);
+        if (!response.ok) return null;
+        return await response.json();
     } catch (err) {
         console.error('Failed to load user:', err);
-        redirectToLogin();
+        return null;
     }
 }
 
 // ==========================================
-// ROOMS FUNCTIONS
+// CONNECTION STATUS
 // ==========================================
+
+function updateConnectionStatus(status) {
+    const statusDot = connectionStatus.querySelector('.status-dot');
+    const statusText = connectionStatus.querySelector('.status-text');
+
+    connectionStatus.className = 'connection-status';
+
+    switch (status) {
+        case 'connected':
+            connectionStatus.classList.add('connected');
+            statusText.textContent = 'Подключено';
+            break;
+        case 'connecting':
+            connectionStatus.classList.add('connecting');
+            statusText.textContent = 'Подключение...';
+            break;
+        case 'disconnected':
+            connectionStatus.classList.add('disconnected');
+            statusText.textContent = 'Нет связи';
+            break;
+    }
+}
+
+// ==========================================
+// ROOMS
+// ==========================================
+
+function renderRooms() {
+    if (rooms.length === 0) {
+        roomsList.innerHTML = `
+            <div class="placeholder-message">
+                <span class="placeholder-icon">#</span>
+                <p>Нет доступных комнат</p>
+            </div>
+        `;
+        return;
+    }
+
+    roomsList.innerHTML = rooms.map(room => `
+        <div class="room-item ${currentRoom === room.id ? 'active' : ''}" 
+             onclick="selectRoom(${room.id})">
+            <span class="room-hash">#</span>
+            <span class="room-title">${escapeHtml(room.title)}</span>
+        </div>
+    `).join('');
+}
 
 async function loadRooms() {
     try {
         const response = await fetchWithAuth(`${API_URL}/rooms`);
-
-        if (!response.ok) {
-            throw new Error('Failed to load rooms');
-        }
+        if (!response.ok) throw new Error('Failed to load rooms');
 
         rooms = await response.json();
-
-        roomsList.innerHTML = '';
-
-        if (rooms.length === 0) {
-            roomsList.innerHTML = `
-                <div class="placeholder-message">
-                    <span class="placeholder-icon">#</span>
-                    <p>Нет доступных комнат</p>
-                </div>
-            `;
-            return;
-        }
-
-        rooms.forEach(room => {
-            const roomEl = document.createElement('div');
-            roomEl.className = 'room-item';
-            roomEl.dataset.roomId = room.id;
-
-            roomEl.innerHTML = `
-                <span class="room-icon">#</span>
-                <span class="room-title">${escapeHtml(room.title)}</span>
-            `;
-
-            roomEl.addEventListener('click', () => selectRoom(room.id));
-            roomsList.appendChild(roomEl);
-        });
-
-        // Auto-select first room
-        if (rooms.length > 0 && !currentRoom) {
-            selectRoom(rooms[0].id);
-        }
+        renderRooms();
     } catch (err) {
         console.error('Failed to load rooms:', err);
-        roomsList.innerHTML = `
-            <div class="placeholder-message">
-                <span class="placeholder-icon">⚠</span>
-                <p>Не удалось загрузить комнаты</p>
-            </div>
-        `;
+        rooms = [{ id: 1, title: 'general' }];
+        renderRooms();
     }
 }
 
-async function createRoom() {
-    const title = roomNameInput.value.trim();
-
-    if (!title) return;
-
+async function createRoom(title) {
     try {
         const response = await fetchWithAuth(`${API_URL}/rooms`, {
             method: 'POST',
@@ -194,68 +209,49 @@ async function createRoom() {
 
         if (!response.ok) {
             const error = await response.json();
-            alert(error.detail || 'Failed to create room');
-            return;
+            throw new Error(error.detail || 'Failed to create room');
         }
 
-        roomNameInput.value = '';
+        const room = await response.json();
+        rooms.push(room);
+        renderRooms();
+        selectRoom(room.id);
         closeModal();
-        await loadRooms();
     } catch (err) {
         console.error('Failed to create room:', err);
-        alert('Network error');
+        alert(err.message);
     }
 }
 
 function selectRoom(roomId) {
-    currentRoom = rooms.find(r => r.id === roomId);
+    currentRoom = roomId;
+    const room = rooms.find(r => r.id === roomId);
 
-    if (!currentRoom) return;
+    if (room) {
+        roomName.textContent = `# ${room.title}`;
+        messageInput.placeholder = `Сообщение в #${room.title}`;
+        messageInput.disabled = false;
+    }
 
-    // Update UI
-    document.querySelectorAll('.room-item').forEach(el => {
-        el.classList.toggle('active', el.dataset.roomId == roomId);
-    });
-
-    roomName.textContent = currentRoom.title;
-
-    // Enable input
-    messageInput.disabled = false;
-    messageInput.placeholder = `Сообщение в #${currentRoom.title}`;
-    sendBtn.disabled = false;
-
-    // Load messages and connect WebSocket
+    renderRooms();
     loadMessages(roomId);
     connectWebSocket(roomId);
 }
 
 // ==========================================
-// MESSAGES FUNCTIONS
+// MESSAGES
 // ==========================================
 
 async function loadMessages(roomId) {
     try {
-        const response = await fetchWithAuth(`${API_URL}/rooms/${roomId}/messages`);
-
-        if (!response.ok) {
-            throw new Error('Failed to load messages');
-        }
+        const response = await fetchWithAuth(`${API_URL}/rooms/${roomId}/messages?limit=50`);
+        if (!response.ok) throw new Error('Failed to load messages');
 
         const messages = await response.json();
 
-        messagesList.innerHTML = '';  // ← ВАЖНО: Очищаем плейсхолдер!
-
-        if (messages.length === 0) {
-            messagesList.innerHTML = `
-                <div class="placeholder-message">
-                    <span class="placeholder-icon">💬</span>
-                    <p>Нет сообщений. Напишите первым!</p>
-                </div>
-            `;
-        } else {
-            messages.forEach(msg => addMessage(msg, false));
-            scrollToBottom();
-        }
+        messagesList.innerHTML = '';
+        messages.forEach(msg => addMessage(msg, false));
+        scrollToBottom();
     } catch (err) {
         console.error('Failed to load messages:', err);
         messagesList.innerHTML = `
@@ -268,20 +264,12 @@ async function loadMessages(roomId) {
 }
 
 function addMessage(msg, animate = false) {
-    // ← ВАЖНО: Удаляем плейсхолдер если есть
-    const placeholder = messagesList.querySelector('.placeholder-message');
-    if (placeholder) {
-        placeholder.remove();
-    }
-
     const messageEl = document.createElement('div');
     messageEl.className = 'message' + (animate ? ' message-new' : '');
-    messageEl.dataset.messageId = msg.id;
 
     const author = msg.user?.display_name || msg.author || 'Unknown';
     const username = msg.user?.username || 'unknown';
     const authorInitial = author[0].toUpperCase();
-    const avatarUrl = normalizeAvatarUrl(msg.user?.avatar_url)
 
     const time = new Date(msg.created_at).toLocaleTimeString('ru-RU', {
         hour: '2-digit',
@@ -289,11 +277,7 @@ function addMessage(msg, animate = false) {
     });
 
     messageEl.innerHTML = `
-        <div class="message-avatar">
-            ${avatarUrl
-                ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(author)}" class="message-avatar-image">`
-                : `<span>${authorInitial}</span>`}
-        </div>
+        <div class="message-avatar">${authorInitial}</div>
         <div class="message-content">
             <div class="message-header">
                 <span class="message-author">${escapeHtml(author)}</span>
@@ -304,52 +288,8 @@ function addMessage(msg, animate = false) {
         </div>
     `;
 
-    const avatarImage = messageEl.querySelector('.message-avatar-image');
-    if (avatarImage) {
-        avatarImage.addEventListener('error', () => {
-            const avatar = messageEl.querySelector('.message-avatar');
-            if (avatar) {
-                avatar.innerHTML = `<span>${escapeHtml(authorInitial)}</span>`;
-            }
-        }, { once: true });
-    }
-
     messagesList.appendChild(messageEl);
     if (animate) scrollToBottom();
-}
-
-function normalizeAvatarUrl(avatarUrl) {
-    if (!avatarUrl) return null;
-
-    const rawUrl = String(avatarUrl).trim();
-    if (!rawUrl) return null;
-
-    if (/^https?:\/\//i.test(rawUrl)) {
-        return rawUrl;
-    }
-
-    const unixPath = rawUrl.replaceAll('\\', '/');
-
-    const uploadsIndex = unixPath.toLowerCase().indexOf('/uploads/');
-    if (uploadsIndex >= 0) {
-        const webPath = unixPath.slice(uploadsIndex);
-        try {
-            return new URL(webPath, API_URL).toString();
-        } catch {
-            return null;
-        }
-    }
-
-    const normalizedPath = unixPath
-        .replace(/^\.\//, '')
-        .replace(/^uploads\//i, '/uploads/')
-        .replace(/^avatars\//i, '/uploads/avatars/');
-
-    try {
-        return new URL(normalizedPath, API_URL).toString();
-    } catch {
-        return null;
-    }
 }
 
 function scrollToBottom() {
@@ -369,31 +309,19 @@ async function sendMessage() {
     const nonce = Date.now().toString() + Math.random().toString(36);
 
     try {
-        // Send via WebSocket
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-                type: 'message',
+        const response = await fetchWithAuth(`${API_URL}/rooms/${currentRoom}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 body: text,
                 nonce: nonce
-            }));
+            })
+        });
 
-            messageInput.value = '';
-        } else {
-            // Fallback to HTTP
-            const response = await fetchWithAuth(`${API_URL}/rooms/${currentRoom.id}/messages`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ body: text, nonce: nonce })
-            });
+        if (!response.ok) throw new Error('Failed to send message');
 
-            if (!response.ok) {
-                throw new Error('Failed to send message');
-            }
-
-            const msg = await response.json();
-            addMessage(msg, true);
-            messageInput.value = '';
-        }
+        messageInput.value = '';
+        sendBtn.disabled = true;
     } catch (err) {
         console.error('Failed to send message:', err);
         alert('Не удалось отправить сообщение');
@@ -401,13 +329,21 @@ async function sendMessage() {
 }
 
 // ==========================================
-// WEBSOCKET
+// WEBSOCKET (с автоматической отправкой cookies)
 // ==========================================
 
 function connectWebSocket(roomId) {
+    /**
+     * WebSocket подключение.
+     *
+     * ВАЖНО: Cookies отправляются автоматически для same-origin WebSocket!
+     * Для cross-origin нужно использовать ?token=... query параметр.
+     */
     if (ws) ws.close();
 
+    // Cookies отправляются автоматически браузером
     const wsUrl = `${WS_URL}/ws/rooms/${roomId}`;
+
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
@@ -418,14 +354,9 @@ function connectWebSocket(roomId) {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            console.log('WebSocket message received:', data);  // ← Отладка
 
             if (data.type === 'message') {
-                // ← ПРОВЕРКА: Не дублируем сообщения
-                const existingMessage = messagesList.querySelector(`[data-message-id="${data.id}"]`);
-                if (!existingMessage) {
-                    addMessage(data, true);
-                }
+                addMessage(data, true);
             } else if (data.type === 'error') {
                 console.error('WebSocket error:', data.detail);
                 if (data.code === 'unauthorized') {
@@ -435,7 +366,7 @@ function connectWebSocket(roomId) {
                 console.log('Connected to room:', data.room_id);
             }
         } catch (err) {
-            console.error('Failed to parse WebSocket message:', err, event.data);
+            console.error('Failed to parse WebSocket message:', err);
         }
     };
 
@@ -447,20 +378,15 @@ function connectWebSocket(roomId) {
     ws.onclose = () => {
         console.log('WebSocket disconnected');
         updateConnectionStatus('disconnected');
+
+        // Reconnect after 3 seconds
+        setTimeout(() => {
+            if (currentRoom) {
+                updateConnectionStatus('connecting');
+                connectWebSocket(currentRoom);
+            }
+        }, 3000);
     };
-}
-
-function updateConnectionStatus(status) {
-    connectionStatus.classList.remove('connecting', 'connected', 'disconnected');
-    connectionStatus.classList.add(status);
-
-    const statusText = {
-        connecting: 'Подключение...',
-        connected: 'Подключено',
-        disconnected: 'Отключено'
-    }[status] || 'Неизвестно';
-
-    connectionStatus.querySelector('.status-text').textContent = statusText;
 }
 
 // ==========================================
@@ -486,23 +412,26 @@ messageForm.addEventListener('submit', (e) => {
     sendMessage();
 });
 
+messageInput.addEventListener('input', (e) => {
+    sendBtn.disabled = !e.target.value.trim();
+});
+
 createRoomBtn.addEventListener('click', openModal);
 closeModalBtn.addEventListener('click', closeModal);
 cancelModalBtn.addEventListener('click', closeModal);
 
 createRoomForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    createRoom();
+    const title = roomNameInput.value.trim();
+    if (title) createRoom(title);
 });
 
 createRoomModal.addEventListener('click', (e) => {
-    if (e.target === createRoomModal) {
-        closeModal();
-    }
+    if (e.target === createRoomModal) closeModal();
 });
 
 settingsBtn.addEventListener('click', () => {
-    alert('Settings coming soon!');
+    alert('Настройки будут доступны в следующем обновлении');
 });
 
 // ==========================================
@@ -510,8 +439,22 @@ settingsBtn.addEventListener('click', () => {
 // ==========================================
 
 async function init() {
-    await loadCurrentUser();
+    // Load user (токен из cookie автоматически)
+    currentUser = await loadCurrentUser();
+    if (!currentUser) {
+        redirectToLogin();
+        return;
+    }
+
+    console.log('Logged in as:', currentUser.username);
+
+    // Load rooms and select first one
     await loadRooms();
+
+    if (rooms.length > 0) {
+        selectRoom(rooms[0].id);
+    }
 }
 
+// Start app
 init();
