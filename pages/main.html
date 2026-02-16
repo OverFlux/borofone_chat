@@ -30,6 +30,13 @@
                 </div>
             </div>
             <div class="sidebar-footer">
+                <div class="current-user-card" id="currentUserCard">
+                    <div class="current-user-avatar" id="currentUserAvatar"></div>
+                    <div class="current-user-meta">
+                        <div class="current-user-name" id="currentUserName">Пользователь</div>
+                        <div class="current-user-username" id="currentUserUsername">@username</div>
+                    </div>
+                </div>
                 <button class="create-room-btn" id="createRoomBtn">
                     <span class="btn-icon">+</span>
                     <span class="btn-text">Создать комнату</span>
@@ -95,7 +102,6 @@
             </div>
             <div class="users-list" id="usersList">
                 <div class="placeholder-message">
-                    <span class="placeholder-icon">👥</span>
                     <p>Список участников появится в следующем обновлении</p>
                 </div>
             </div>
@@ -127,7 +133,37 @@
             </form>
         </div>
     </div>
-
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal-content settings-modal-content">
+            <div class="modal-header">
+                <h3>Настройки профиля</h3>
+                <button class="modal-close" id="closeSettingsBtn">&times;</button>
+            </div>
+            <form id="settingsForm">
+                <div class="settings-avatar-section">
+                    <div class="settings-avatar-preview" id="settingsAvatarPreview"></div>
+                    <div class="settings-avatar-controls">
+                        <label class="btn-secondary file-label" for="avatarInput">Выбрать аватар</label>
+                        <input type="file" id="avatarInput" accept="image/*">
+                        <button type="button" class="btn-secondary" id="removeAvatarBtn">Удалить аватар</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="settingsDisplayName">Отображаемое имя</label>
+                    <input type="text" id="settingsDisplayName" maxlength="50" required>
+                </div>
+                <div class="form-group">
+                    <label for="settingsUsername">Username</label>
+                    <input type="text" id="settingsUsername" maxlength="32" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancelSettingsBtn">Отмена</button>
+                    <button type="submit" class="btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <script src="js/main.js"></script>
 </body>
 </html>

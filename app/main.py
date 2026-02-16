@@ -76,5 +76,5 @@ app.include_router(admin_router)  # /admin/invites/*
 
 app.include_router(rooms.router)
 
-app.mount("/", StaticFiles(directory="pages", html=True), name="pages")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/", StaticFiles(directory="pages", html=True), name="pages")

@@ -9,3 +9,5 @@
 /app/infra/__pycache__
 /alembic/__pycache__
 *.pyc
+/pages/old/
+/uploads/avatars/

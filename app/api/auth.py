@@ -8,8 +8,10 @@ Authentication endpoints.
 - GET /auth/me - получение информации о текущем пользователе
 """
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, UploadFile, File, Form
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +34,10 @@ from app.security import (
 from app.dependencies import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+AVATAR_UPLOAD_DIR = Path("uploads/avatars")
+ALLOWED_AVATAR_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_AVATAR_BYTES = 3 * 1024 * 1024
 
 # Cookie settings
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
@@ -291,6 +297,76 @@ async def get_me(current_user: User = Depends(get_current_user)):
 
     Токен автоматически читается из httpOnly cookie.
     """
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        username=current_user.username,
+        display_name=current_user.display_name,
+        avatar_url=current_user.avatar_url,
+        role=current_user.role,
+        is_active=current_user.is_active,
+        created_at=current_user.created_at.isoformat()
+    )
+
+@router.put("/profile", response_model=UserResponse)
+async def update_profile(
+    display_name: str = Form(...),
+    username: str = Form(...),
+    remove_avatar: bool = Form(False),
+    avatar: UploadFile | None = File(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Обновление настроек пользователя и аватарки."""
+    normalized_display_name = display_name.strip()
+    normalized_username = username.strip()
+
+    if not normalized_display_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="display_name cannot be empty")
+    if len(normalized_display_name) > 50:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="display_name must be 50 characters or less")
+
+    if len(normalized_username) < 3:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="username must be at least 3 characters")
+    if len(normalized_username) > 32:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="username must be 32 characters or less")
+    if not normalized_username.replace("_", "").isalnum():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="username can only contain letters, numbers, and underscores"
+        )
+
+    stmt = select(User).where(User.username == normalized_username, User.id != current_user.id)
+    result = await db.execute(stmt)
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
+
+    avatar_url = current_user.avatar_url
+    if remove_avatar:
+        avatar_url = None
+
+    if avatar:
+        ext = Path(avatar.filename or "").suffix.lower()
+        if ext not in ALLOWED_AVATAR_EXTENSIONS:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported avatar format")
+
+        data = await avatar.read()
+        if len(data) > MAX_AVATAR_BYTES:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Avatar is too large")
+
+        AVATAR_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        filename = f"{current_user.id}_{secrets.token_hex(8)}{ext}"
+        avatar_path = AVATAR_UPLOAD_DIR / filename
+        avatar_path.write_bytes(data)
+        avatar_url = f"/uploads/avatars/{filename}"
+
+    current_user.display_name = normalized_display_name
+    current_user.username = normalized_username
+    current_user.avatar_url = avatar_url
+
+    await db.commit()
+    await db.refresh(current_user)
+
     return UserResponse(
         id=current_user.id,
         email=current_user.email,

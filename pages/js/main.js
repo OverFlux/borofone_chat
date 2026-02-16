@@ -33,7 +33,7 @@ let currentRoom = null;
 let ws = null;
 let currentUser = null;
 let rooms = [];
-
+let shouldRemoveAvatar = false;
 // ==========================================
 // DOM ELEMENTS
 // ==========================================
@@ -52,6 +52,18 @@ const roomNameInput = document.getElementById('roomNameInput');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const cancelModalBtn = document.getElementById('cancelModalBtn');
 const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const settingsForm = document.getElementById('settingsForm');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
+const settingsDisplayName = document.getElementById('settingsDisplayName');
+const settingsUsername = document.getElementById('settingsUsername');
+const avatarInput = document.getElementById('avatarInput');
+const removeAvatarBtn = document.getElementById('removeAvatarBtn');
+const settingsAvatarPreview = document.getElementById('settingsAvatarPreview');
+const currentUserAvatar = document.getElementById('currentUserAvatar');
+const currentUserName = document.getElementById('currentUserName');
+const currentUserUsername = document.getElementById('currentUserUsername');
 
 // ==========================================
 // AUTH FUNCTIONS
@@ -118,6 +130,7 @@ async function loadCurrentUser() {
         }
 
         currentUser = await response.json();
+        renderCurrentUser();
         console.log('Logged in as:', currentUser.username);
     } catch (err) {
         console.error('Failed to load user:', err);
@@ -291,7 +304,7 @@ function addMessage(msg, animate = false) {
     messageEl.innerHTML = `
         <div class="message-avatar">
             ${avatarUrl
-                ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(author)}" class="message-avatar-image">`
+                ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(author)}" class="avatar-media avatar-media--message">`
                 : `<span>${authorInitial}</span>`}
         </div>
         <div class="message-content">
@@ -304,7 +317,7 @@ function addMessage(msg, animate = false) {
         </div>
     `;
 
-    const avatarImage = messageEl.querySelector('.message-avatar-image');
+    const avatarImage = messageEl.querySelector('.avatar-media');
     if (avatarImage) {
         avatarImage.addEventListener('error', () => {
             const avatar = messageEl.querySelector('.message-avatar');
@@ -477,6 +490,84 @@ function closeModal() {
     roomNameInput.value = '';
 }
 
+function renderCurrentUser() {
+    if (!currentUser) return;
+
+    const displayName = currentUser.display_name || currentUser.username || 'User';
+    const username = currentUser.username || 'unknown';
+    const avatarUrl = normalizeAvatarUrl(currentUser.avatar_url);
+
+    if (currentUserName) currentUserName.textContent = displayName;
+    if (currentUserUsername) currentUserUsername.textContent = `@${username}`;
+
+    const initial = escapeHtml(displayName[0]?.toUpperCase() || 'U');
+    const avatarHtml = avatarUrl
+        ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
+        : `<span>${initial}</span>`;
+
+    if (currentUserAvatar) currentUserAvatar.innerHTML = avatarHtml;
+}
+
+function openSettingsModal() {
+    if (!currentUser) return;
+
+    shouldRemoveAvatar = false;
+    settingsDisplayName.value = currentUser.display_name || '';
+    settingsUsername.value = currentUser.username || '';
+    avatarInput.value = '';
+    updateSettingsAvatarPreview(normalizeAvatarUrl(currentUser.avatar_url));
+
+    settingsModal.classList.add('active');
+}
+
+function closeSettingsModal() {
+    settingsModal.classList.remove('active');
+}
+
+function updateSettingsAvatarPreview(avatarUrl) {
+    const displayName = currentUser?.display_name || currentUser?.username || 'User';
+    const initial = escapeHtml(displayName[0]?.toUpperCase() || 'U');
+
+    settingsAvatarPreview.innerHTML = avatarUrl
+        ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
+        : `<span>${initial}</span>`;
+}
+
+async function saveSettings() {
+    const formData = new FormData();
+    formData.append('display_name', settingsDisplayName.value.trim());
+    formData.append('username', settingsUsername.value.trim());
+    formData.append('remove_avatar', shouldRemoveAvatar ? 'true' : 'false');
+
+    const file = avatarInput.files?.[0];
+    if (file) {
+        formData.append('avatar', file);
+    }
+
+    try {
+        const response = await fetchWithAuth(`${API_URL}/auth/profile`, {
+            method: 'PUT',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Не удалось сохранить настройки');
+        }
+
+        currentUser = await response.json();
+        renderCurrentUser();
+        closeSettingsModal();
+
+        if (currentRoom) {
+            await loadMessages(currentRoom.id);
+        }
+    } catch (err) {
+        console.error('Failed to save settings:', err);
+        alert(err.message || 'Не удалось сохранить настройки');
+    }
+}
+
 // ==========================================
 // EVENT LISTENERS
 // ==========================================
@@ -501,8 +592,35 @@ createRoomModal.addEventListener('click', (e) => {
     }
 });
 
-settingsBtn.addEventListener('click', () => {
-    alert('Settings coming soon!');
+settingsBtn.addEventListener('click', openSettingsModal);
+
+closeSettingsBtn.addEventListener('click', closeSettingsModal);
+cancelSettingsBtn.addEventListener('click', closeSettingsModal);
+
+settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) {
+        closeSettingsModal();
+    }
+});
+
+removeAvatarBtn.addEventListener('click', () => {
+    shouldRemoveAvatar = true;
+    avatarInput.value = '';
+    updateSettingsAvatarPreview(null);
+});
+
+avatarInput.addEventListener('change', () => {
+    const file = avatarInput.files?.[0];
+    if (!file) return;
+
+    shouldRemoveAvatar = false;
+    const objectUrl = URL.createObjectURL(file);
+    updateSettingsAvatarPreview(objectUrl);
+});
+
+settingsForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await saveSettings();
 });
 
 // ==========================================

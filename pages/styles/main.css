@@ -283,6 +283,52 @@ body {
     border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.current-user-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    background: var(--glass-hover);
+}
+
+.current-user-avatar,
+.settings-avatar-preview {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
+    border-radius: 10px;
+    background: var(--accent-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: var(--accent);
+    overflow: hidden;
+}
+
+.current-user-meta {
+    min-width: 0;
+}
+
+.current-user-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.current-user-username {
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
 .create-room-btn {
     width: 100%;
     padding: 12px;
@@ -492,10 +538,13 @@ body {
 
 .message-avatar {
     width: 40px;
+    min-width: 40px;
+    max-width: 40px;
     height: 40px;
+    min-height: 40px;
+    max-height: 40px;
     border-radius: 10px;
     background: var(--accent-dim);
-    border: 1px solid var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -503,14 +552,24 @@ body {
     font-size: 16px;
     color: var(--accent);
     flex-shrink: 0;
+    overflow: hidden;
+    position: relative;
 }
 
-.message-avatar-image {
-    width: 100%;
-    height: 100%;
+.avatar-media {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none;
+    max-height: none;
     border-radius: inherit;
     object-fit: cover;
+    object-position: center;
     display: block;
+}
+
+.avatar-media--message {
+    object-fit: contain;
+    object-position: center;
 }
 
 .message-content {
@@ -963,4 +1022,43 @@ body {
 .connection-status.connecting .status-dot {
     background: #fbbf24;
     animation: blink 2s ease-in-out infinite;
+}
+
+.settings-modal-content {
+    max-width: 520px;
+}
+
+.settings-avatar-section {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.settings-avatar-preview {
+    width: 72px;
+    min-width: 72px;
+    max-width: 72px;
+    height: 72px;
+    min-height: 72px;
+    max-height: 72px;
+    border-radius: 14px;
+    font-size: 22px;
+}
+
+.settings-avatar-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.settings-avatar-controls input[type="file"] {
+    display: none;
+}
+
+.file-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 140px;
 }
