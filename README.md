@@ -176,6 +176,13 @@ alembic heads
 ```
 
 ## TODO
+- [ ] Отображение списка пользователей в комнате (онлайн и оффлайн)
+- [ ] Logout in settings
+- [ ] Duplicate SQL bug
+- [ ] User was connected to room
+- [ ] SFX for messages
+- [ ] Вложения в сообщениях
+- [ ] Голосовой чат
 
 maybe next time
 
