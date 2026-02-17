@@ -31,6 +31,7 @@ const WS_URL = resolveWsBase(API_URL);
 
 let currentRoom = null;
 let ws = null;
+let wsReady = Promise.resolve();  // Promise который резолвится когда WS открыт
 let currentUser = null;
 let rooms = [];
 let shouldRemoveAvatar = false;
@@ -41,6 +42,7 @@ let shouldRemoveAvatar = false;
 const roomsList = document.getElementById('roomsList');
 const roomName = document.getElementById('roomName');
 const messagesList = document.getElementById('messagesList');
+const messagesContainer = document.getElementById('messagesContainer');
 const messageInput = document.getElementById('messageInput');
 const messageForm = document.getElementById('messageForm');
 const sendBtn = document.getElementById('sendBtn');
@@ -256,7 +258,8 @@ async function loadMessages(roomId) {
 
         const messages = await response.json();
 
-        messagesList.innerHTML = '';  // ← ВАЖНО: Очищаем плейсхолдер!
+        messagesList.innerHTML = '';
+        resetScroll();
 
         if (messages.length === 0) {
             messagesList.innerHTML = `
@@ -365,8 +368,17 @@ function normalizeAvatarUrl(avatarUrl) {
     }
 }
 
+// ==========================================
+// SCROLL
+// ==========================================
+
 function scrollToBottom() {
-    messagesList.scrollTop = messagesList.scrollHeight;
+    // Скроллим messagesContainer (именно на нём overflow-y: auto в CSS)
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function resetScroll() {
+    scrollToBottom();
 }
 
 function escapeHtml(text) {
@@ -379,36 +391,42 @@ async function sendMessage() {
     const text = messageInput.value.trim();
     if (!text || !currentRoom) return;
 
-    const nonce = Date.now().toString() + Math.random().toString(36);
+    const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+    // Очищаем input сразу — UX не должен зависеть от сети
+    messageInput.value = '';
 
     try {
-        // Send via WebSocket
+        // Ждём открытия WS (актуально при смене комнаты)
+        await wsReady;
+
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
                 type: 'message',
                 body: text,
-                nonce: nonce
+                nonce: nonce,
             }));
-
-            messageInput.value = '';
         } else {
-            // Fallback to HTTP
+            // WS недоступен — HTTP fallback
+            console.warn('[sendMessage] WS not open, using HTTP fallback');
             const response = await fetchWithAuth(`${API_URL}/rooms/${currentRoom.id}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ body: text, nonce: nonce })
+                body: JSON.stringify({ body: text, nonce: nonce }),
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to send message');
-            }
+            if (!response.ok) throw new Error('Failed to send message');
 
             const msg = await response.json();
-            addMessage(msg, true);
-            messageInput.value = '';
+            // HTTP fallback — добавляем сразу сами, WS не пришлёт
+            if (!messagesList.querySelector(`[data-message-id="${msg.id}"]`)) {
+                addMessage(msg, true);
+            }
         }
     } catch (err) {
-        console.error('Failed to send message:', err);
+        console.error('[sendMessage] error:', err);
+        // Возвращаем текст если не удалось отправить
+        messageInput.value = text;
         alert('Не удалось отправить сообщение');
     }
 }
@@ -418,49 +436,67 @@ async function sendMessage() {
 // ==========================================
 
 function connectWebSocket(roomId) {
-    if (ws) ws.close();
+    // Закрываем старый WS и ждём его закрытия перед открытием нового.
+    // Без этого при быстрой смене комнат старый WS ещё не закрыт,
+    // новый ещё не открыт — sendMessage теряет сообщения.
+    const oldWs = ws;
+    ws = null;
+    wsReady = new Promise((resolve) => {
+        const open = () => {
+            const wsUrl = `${WS_URL}/ws/rooms/${roomId}`;
+            const socket = new WebSocket(wsUrl);
 
-    const wsUrl = `${WS_URL}/ws/rooms/${roomId}`;
-    ws = new WebSocket(wsUrl);
+            socket.onopen = () => {
+                console.log(`[WS] Connected to room ${roomId}`);
+                updateConnectionStatus('connected');
+                ws = socket;
+                resolve();
+            };
 
-    ws.onopen = () => {
-        console.log('WebSocket connected');
-        updateConnectionStatus('connected');
-    };
+            socket.onmessage = (event) => {
+                // Игнорируем сообщения если этот сокет уже не текущий
+                if (socket !== ws) return;
 
-    ws.onmessage = (event) => {
-        try {
-            const data = JSON.parse(event.data);
-            console.log('WebSocket message received:', data);  // ← Отладка
+                try {
+                    const data = JSON.parse(event.data);
 
-            if (data.type === 'message') {
-                // ← ПРОВЕРКА: Не дублируем сообщения
-                const existingMessage = messagesList.querySelector(`[data-message-id="${data.id}"]`);
-                if (!existingMessage) {
-                    addMessage(data, true);
+                    if (data.type === 'message') {
+                        // Не дублируем: сообщение могло уже прийти через HTTP fallback
+                        if (!messagesList.querySelector(`[data-message-id="${data.id}"]`)) {
+                            addMessage(data, true);
+                        }
+                    } else if (data.type === 'error') {
+                        console.error('[WS] error:', data.detail);
+                        if (data.code === 'unauthorized') redirectToLogin();
+                    } else if (data.type === 'connected') {
+                        console.log('[WS] ready, room:', data.room_id);
+                    }
+                } catch (err) {
+                    console.error('[WS] parse error:', err, event.data);
                 }
-            } else if (data.type === 'error') {
-                console.error('WebSocket error:', data.detail);
-                if (data.code === 'unauthorized') {
-                    redirectToLogin();
+            };
+
+            socket.onerror = (err) => {
+                console.error('[WS] error:', err);
+                updateConnectionStatus('disconnected');
+            };
+
+            socket.onclose = () => {
+                if (socket === ws) {
+                    console.log('[WS] disconnected');
+                    updateConnectionStatus('disconnected');
                 }
-            } else if (data.type === 'connected') {
-                console.log('Connected to room:', data.room_id);
-            }
-        } catch (err) {
-            console.error('Failed to parse WebSocket message:', err, event.data);
+            };
+        };
+
+        if (oldWs && oldWs.readyState !== WebSocket.CLOSED) {
+            // Ждём закрытия старого, потом открываем новый
+            oldWs.onclose = () => open();
+            oldWs.close();
+        } else {
+            open();
         }
-    };
-
-    ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        updateConnectionStatus('disconnected');
-    };
-
-    ws.onclose = () => {
-        console.log('WebSocket disconnected');
-        updateConnectionStatus('disconnected');
-    };
+    });
 }
 
 function updateConnectionStatus(status) {

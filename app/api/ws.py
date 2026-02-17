@@ -54,10 +54,8 @@ async def websocket_endpoint(
 
     await websocket.accept()
 
-    # Получаем токен из cookie
-    token_cookie = websocket.cookies.get("access_token")
-
     # Аутентификация
+    token_cookie = websocket.cookies.get("access_token")
     user = await get_user_from_websocket(
         websocket,
         db,
@@ -75,6 +73,7 @@ async def websocket_endpoint(
         return
 
     username = user.username
+
     # redis scope
     redis = None
     pubsub = None
@@ -82,8 +81,6 @@ async def websocket_endpoint(
     try:
         from app.infra.redis import redis_client
         redis = redis_client
-
-        # Проверяем что Redis работает
         if redis:
             await redis.ping()
             print(f"[WebSocket] Redis connected for user {username}")
@@ -100,11 +97,12 @@ async def websocket_endpoint(
             await pubsub.subscribe(channel_name)
             print(f"[WebSocket] Subscribed to {channel_name}")
         except Exception as e:
-            print(f"⚠️ Could not subscribe to Redis channel: {e}")
+            print(f"⚠️ [WebSocket] Subscribe failed: {e}")
             pubsub = None
             redis = None # Отключение Redis если subscribe не работает
 
     print(f"[WebSocket] User {username} connected to room {room_id}")
+
 
     try:
         # Send welcome message
@@ -114,12 +112,12 @@ async def websocket_endpoint(
             "user": {
                 "id": user.id,
                 "username": user.username,
-                "display_name": user.display_name
-            }
+                "display_name": user.display_name,
+            },
         })
 
         # Handle messages
-        async def receive_messages():
+        async def receive_messages() -> None:
             """Receive messages from client."""
             try:
                 while True:
