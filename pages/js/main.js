@@ -50,6 +50,12 @@ let isMuted = false;
 let isDeafened = false;
 const peerConnections = new Map();
 const voiceRoomParticipantsByRoom = {};
+
+const voiceJoinSound = new Audio('./sounds/voice_join.wav');
+const voiceLeaveSound = new Audio('./sounds/voice_leave.wav');
+voiceJoinSound.preload = 'auto';
+voiceLeaveSound.preload = 'auto';
+
 const participantVolumes = JSON.parse(localStorage.getItem('participantVolumes') || "{}");
 let micGainValue = 1;
 let headphonesGainValue = 1;
@@ -245,7 +251,7 @@ async function loadRooms() {
             roomEl.addEventListener('click', () => selectRoom(room.id));
             roomsList.appendChild(roomEl);
         });
-        
+
         // Обновляем badges ТОЛЬКО при первой загрузке (не при создании новой комнаты)
         if (!badgesInitialized) {
             badgesInitialized = true;
@@ -345,7 +351,7 @@ function selectRoom(roomId) {
 
     // Load messages (WebSocket уже подключен глобально)
     loadMessages(roomId);
-    
+
     // Start presence tracking для новой комнаты
     stopPresenceTracking();  // останавливаем старую
     startPresenceTracking(); // запускаем новую
@@ -378,7 +384,7 @@ async function loadMessages(roomId) {
         } else {
             const lastRead = window.notifications ? window.notifications.getLastReadMessageId(roomId) : 0;
             let unreadDividerAdded = false;
-            
+
             messages.forEach(msg => {
                 // Добавляем разделитель перед первым непрочитанным сообщением
                 if (!unreadDividerAdded && lastRead > 0 && msg.id > lastRead) {
@@ -388,13 +394,13 @@ async function loadMessages(roomId) {
                     messagesList.appendChild(divider);
                     unreadDividerAdded = true;
                 }
-                
+
                 addMessage(msg, false);
             });
-            
+
             // Скроллим вниз после загрузки всех сообщений (с ожиданием изображений)
             scrollToBottomInitial();
-            
+
             // Отмечаем комнату как прочитанную
             if (window.notifications) {
                 window.notifications.markRoomAsRead(messages, roomId);
@@ -423,7 +429,7 @@ function addMessage(msg, animate = false) {
     messageEl.className = 'message' + (animate ? ' message-new' : '');
     messageEl.dataset.messageId = msg.id;
     messageEl.dataset.userId = msg.user?.id || 0;
-    
+
     // message-unread больше не нужен — оставляем только divider
 
     const author = msg.user?.display_name || msg.author || 'Unknown';
@@ -437,10 +443,10 @@ function addMessage(msg, animate = false) {
     });
 
     // Рендерим вложения если есть
-    const attachmentsHtml = window.attachments 
-        ? window.attachments.renderMessageAttachments(msg.attachments) 
+    const attachmentsHtml = window.attachments
+        ? window.attachments.renderMessageAttachments(msg.attachments)
         : '';
-    
+
     // Скрываем текст если пустой и есть вложения
     const isDeleted = Boolean(msg.is_deleted);
     messageEl.dataset.isDeleted = isDeleted ? '1' : '0';
@@ -448,7 +454,7 @@ function addMessage(msg, animate = false) {
     const bodyHtml = bodyText ? `<div class="message-text${isDeleted ? ' message-text--deleted' : ''}">${bodyText}</div>` : '';
 
     const reactionsHtml = renderReactions(msg.reactions || []);
-    
+
 
     messageEl.innerHTML = `
         <div class="message-avatar">
@@ -865,15 +871,15 @@ function scrollToBottom() {
 function scrollToBottomWithImages() {
     // Находим все изображения в контейнере, которые ещё не загрузились
     const images = messagesList.querySelectorAll('img:not([data-loaded])');
-    
+
     if (images.length === 0) {
         scrollToBottom();
         return;
     }
-    
+
     // Помечаем изображения как ожидающие загрузки
     let pendingCount = images.length;
-    
+
     images.forEach(img => {
         // Если изображение уже загружено (из кэша)
         if (img.complete) {
@@ -884,7 +890,7 @@ function scrollToBottomWithImages() {
             }
             return;
         }
-        
+
         // Ждём загрузки
         img.onload = () => {
             img.dataset.loaded = 'true';
@@ -893,7 +899,7 @@ function scrollToBottomWithImages() {
                 scrollToBottom();
             }
         };
-        
+
         img.onerror = () => {
             img.dataset.loaded = 'true';
             pendingCount--;
@@ -902,7 +908,7 @@ function scrollToBottomWithImages() {
             }
         };
     });
-    
+
     // Скроллим сразу на случай если изображения не загрузятся
     setTimeout(() => scrollToBottom(), 100);
 }
@@ -913,21 +919,21 @@ function scrollToBottomWithImages() {
  */
 function scrollToBottomInitial() {
     const images = messagesList.querySelectorAll('img:not([data-loaded])');
-    
+
     if (images.length === 0) {
         scrollToBottom();
         return;
     }
-    
+
     let pendingCount = images.length;
     let scrolled = false;
-    
+
     const doScroll = () => {
         if (scrolled) return;
         scrolled = true;
         scrollToBottom();
     };
-    
+
     images.forEach(img => {
         if (img.complete) {
             img.dataset.loaded = 'true';
@@ -937,7 +943,7 @@ function scrollToBottomInitial() {
             }
             return;
         }
-        
+
         img.onload = () => {
             img.dataset.loaded = 'true';
             pendingCount--;
@@ -945,7 +951,7 @@ function scrollToBottomInitial() {
                 doScroll();
             }
         };
-        
+
         img.onerror = () => {
             img.dataset.loaded = 'true';
             pendingCount--;
@@ -954,7 +960,7 @@ function scrollToBottomInitial() {
             }
         };
     });
-    
+
     // Fallback: скроллим через небольшую задержку
     setTimeout(() => doScroll(), 150);
 }
@@ -972,7 +978,7 @@ function escapeHtml(text) {
 async function sendMessage() {
     const text = messageInput.value.trim();
     const hasAttachments = window.attachments && window.attachments.getAttachmentsToSend().length > 0;
-    
+
     if (!text && !hasAttachments) return;
     if (!currentRoom) return;
 
@@ -1007,12 +1013,12 @@ async function sendMessage() {
                 attachments: uploadedAttachments,
                 reply_to_id: replyToMessage?.id ?? null,
             }));
-            
+
             // Очищаем вложения после отправки
             if (window.attachments) {
                 window.attachments.clearAttachments();
             }
-            
+
             // Своё сообщение — сразу обновляем lastRead (оптимистично)
             // Когда придёт через WS с ID — обновим снова
             markCurrentRoomAsRead();
@@ -1023,7 +1029,7 @@ async function sendMessage() {
             const response = await fetchWithAuth(`${getApiUrl()}/rooms/${currentRoom.id}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     body: text || '',  // Пустая строка допустима если есть вложения
                     nonce: nonce,
                     attachments: uploadedAttachments,
@@ -1034,12 +1040,12 @@ async function sendMessage() {
             if (!response.ok) throw new Error('Failed to send message');
 
             const msg = await response.json();
-            
+
             // Очищаем вложения после отправки
             if (window.attachments) {
                 window.attachments.clearAttachments();
             }
-            
+
             // HTTP fallback — добавляем сразу сами, WS не пришлёт
             if (!messagesList.querySelector(`[data-message-id="${msg.id}"]`)) {
                 addMessage(msg, true);
@@ -1054,6 +1060,17 @@ async function sendMessage() {
     }
 }
 
+function playVoiceEventSound(kind) {
+    const sound = kind === 'join' ? voiceJoinSound : voiceLeaveSound;
+    try {
+        sound.currentTime = 0;
+        const p = sound.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (_) {
+        // autoplay policy / decode errors are non-fatal
+    }
+}
+
 // ==========================================
 // WEBSOCKET
 // ==========================================
@@ -1061,7 +1078,7 @@ async function sendMessage() {
 // Подключаемся к глобальному WS ОДИН РАЗ при загрузке
 function connectWebSocket() {
     if (ws) return; // уже подключены
-    
+
     wsReady = new Promise((resolve) => {
         const wsUrl = `${getWsUrl()}/ws`;
         const socket = new WebSocket(wsUrl);
@@ -1083,18 +1100,18 @@ function connectWebSocket() {
                         if (!messagesList.querySelector(`[data-message-id="${data.id}"]`)) {
                             addMessage(data, true);
                         }
-                        
+
                         // Если это НАШЕ сообщение — обновляем lastRead с правильным ID
                         if (data.user?.id === currentUser?.id && window.notifications) {
                             window.notifications.setLastReadMessageId(currentRoom.id, data.id);
                         }
                     }
-                    
+
                     // Уведомления ТОЛЬКО если сообщение НЕ от меня
                     if (window.notifications && data.user?.id !== currentUser?.id) {
                         // Звук
                         window.notifications.playNotificationSound();
-                        
+
                         // Badge
                         if (data.room_id) {
                             if (currentRoom && data.room_id === currentRoom.id) {
@@ -1117,19 +1134,23 @@ function connectWebSocket() {
                     renderVoiceRooms();
                     renderVoiceParticipantsGrid();
                     ensurePeerConnections();
+                    playVoiceEventSound('join');
                 } else if (data.type === 'participant_joined') {
                     if (data.room_id === currentVoiceRoomId) {
                         voiceParticipants = upsertVoiceParticipant(data.participant);
                         voiceRoomParticipantsByRoom[data.room_id] = voiceParticipants;
                         renderVoiceParticipantsGrid();
                         ensurePeerConnections();
+                        if (data.participant?.user_id !== currentUser?.id) playVoiceEventSound('join');
                     }
                 } else if (data.type === 'participant_left') {
                     if (data.room_id === currentVoiceRoomId) {
-                        voiceParticipants = voiceParticipants.filter(p => p.user_id !== data.participant.user_id);
+                        const leftUserId = data.participant?.user_id;
+                        voiceParticipants = voiceParticipants.filter(p => p.user_id !== leftUserId);
                         voiceRoomParticipantsByRoom[data.room_id] = voiceParticipants;
-                        closePeerConnection(data.participant.user_id);
+                        closePeerConnection(leftUserId);
                         renderVoiceParticipantsGrid();
+                        if (leftUserId && leftUserId !== currentUser?.id) playVoiceEventSound('leave');
                     }
                 } else if (data.type === 'participant_updated') {
                     if (data.room_id === currentVoiceRoomId) {
@@ -1179,7 +1200,7 @@ function connectWebSocket() {
             console.log('[WS] disconnected');
             updateConnectionStatus('disconnected');
             ws = null;
-            
+
             // Переподключаемся через 3 секунды
             setTimeout(() => connectWebSocket(), 3000);
         };
@@ -1598,22 +1619,22 @@ async function loadOnlineUsers() {
         `;
         return;
     }
-    
+
     try {
         const response = await fetchWithAuth(`${getApiUrl()}/rooms/${currentRoom.id}/online`);
-        
+
         if (!response.ok) {
             throw new Error('Failed to load online users');
         }
-        
+
         const users = await response.json();
-        
+
         // Обновляем счётчик
         document.getElementById('usersCount').textContent = users.length;
-        
+
         // Отображаем список
         const usersList = document.getElementById('usersList');
-        
+
         if (users.length === 0) {
             usersList.innerHTML = `
                 <div class="placeholder-message">
@@ -1623,16 +1644,16 @@ async function loadOnlineUsers() {
             `;
             return;
         }
-        
+
         usersList.innerHTML = users.map(user => {
             const displayName = user.display_name || user.username;
             const avatarUrl = normalizeAvatarUrl(user.avatar_url);
             const initial = displayName[0]?.toUpperCase() || 'U';
-            
+
             const avatarHtml = avatarUrl
                 ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
                 : `<span>${initial}</span>`;
-            
+
             return `
                 <div class="user-item">
                     <div class="user-avatar">${avatarHtml}</div>
@@ -1654,7 +1675,7 @@ async function loadOnlineUsers() {
  */
 async function sendPresenceHeartbeat() {
     if (!currentRoom || !ws || ws.readyState !== WebSocket.OPEN) return;
-    
+
     try {
         ws.send(JSON.stringify({
             type: 'heartbeat',
@@ -1670,10 +1691,10 @@ async function sendPresenceHeartbeat() {
  */
 function startPresenceTracking() {
     if (presenceInterval) return;
-    
+
     // Загружаем онлайн пользователей сразу
     loadOnlineUsers();
-    
+
     // Обновляем каждые 10 секунд
     presenceInterval = setInterval(() => {
         loadOnlineUsers();
@@ -1711,10 +1732,10 @@ function updateRoomBadge(roomId, count) {
 function incrementRoomBadge(roomId) {
     const roomEl = roomsList.querySelector(`[data-room-id="${roomId}"]`);
     if (!roomEl) return;
-    
+
     const badge = roomEl.querySelector('.unread-badge');
     const current = badge ? parseInt(badge.textContent) || 0 : 0;
-    
+
     if (window.notifications) {
         window.notifications.updateRoomBadge(roomEl, current + 1);
     }
@@ -1725,11 +1746,11 @@ function incrementRoomBadge(roomId) {
  */
 function markCurrentRoomAsRead() {
     if (!currentRoom || !window.notifications) return;
-    
+
     // Берём все сообщения из DOM
     const messages = Array.from(messagesList.querySelectorAll('[data-message-id]'))
         .map(el => ({ id: parseInt(el.dataset.messageId) }));
-    
+
     if (messages.length > 0) {
         window.notifications.markRoomAsRead(messages, currentRoom.id);
         updateRoomBadge(currentRoom.id, 0);
@@ -1741,11 +1762,11 @@ function markCurrentRoomAsRead() {
  */
 function updateCurrentRoomBadge() {
     if (!currentRoom) return;
-    
+
     // Получаем все сообщения из DOM
     const messages = Array.from(messagesList.querySelectorAll('[data-message-id]'))
         .map(el => ({ id: parseInt(el.dataset.messageId) }));
-    
+
     if (window.notifications) {
         const unread = window.notifications.countUnreadMessages(messages, currentRoom.id);
         updateRoomBadge(currentRoom.id, unread);
@@ -1757,13 +1778,13 @@ function updateCurrentRoomBadge() {
  */
 async function updateAllRoomBadges() {
     if (!window.notifications) return;
-    
+
     for (const room of rooms) {
         try {
             // Загружаем сообщения комнаты (без отображения)
             const response = await fetchWithAuth(`${getApiUrl()}/rooms/${room.id}/messages`);
             if (!response.ok) continue;
-            
+
             const messages = await response.json();
             const unread = window.notifications.countUnreadMessages(messages, room.id);
             updateRoomBadge(room.id, unread);
@@ -1784,50 +1805,50 @@ const previousUnreadCounts = {};
 
 /**
  * Периодическая проверка новых сообщений во всех комнатах.
- * 
+ *
  * Запускается после загрузки комнат и работает в фоне.
  * Проверяет каждые 10 секунд: есть ли новые сообщения.
  */
 async function startPolling() {
     if (pollingInterval) return;
-    
+
     pollingInterval = setInterval(async () => {
         if (!window.notifications || !rooms.length) return;
-        
+
         for (const room of rooms) {
             // Пропускаем текущую комнату — там WebSocket работает
             if (currentRoom && room.id === currentRoom.id) continue;
-            
+
             try {
                 const response = await fetch(`${getApiUrl()}/rooms/${room.id}/messages`, {
                     credentials: 'include',
                 });
-                
+
                 if (!response.ok) continue;
-                
+
                 const messages = await response.json();
                 if (messages.length === 0) continue;
-                
+
                 const lastRead = window.notifications.getLastReadMessageId(room.id);
                 const unreadCount = messages.filter(m => m.id > lastRead).length;
-                
+
                 const prevCount = previousUnreadCounts[room.id] || 0;
-                
+
                 // Обновляем badge
                 if (unreadCount > 0) {
                     updateRoomBadge(room.id, unreadCount);
                 }
-                
+
                 // Звук только если count УВЕЛИЧИЛСЯ (новое сообщение пришло)
                 if (unreadCount > prevCount) {
                     const lastMessage = messages[messages.length - 1];
-                    
+
                     // Звук только если сообщение не от нас
                     if (lastMessage.user?.id !== currentUser?.id) {
                         window.notifications.playNotificationSound();
                     }
                 }
-                
+
                 previousUnreadCounts[room.id] = unreadCount;
             } catch (err) {
                 // Тихо игнорируем ошибки polling
@@ -2006,6 +2027,7 @@ function leaveVoiceRoom() {
     if (currentVoiceRoomId && ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'leave_room', room_id: currentVoiceRoomId }));
     }
+    playVoiceEventSound('leave');
     peerConnections.forEach((_, uid) => closePeerConnection(uid));
     const leftRoomId = currentVoiceRoomId;
     currentVoiceRoomId = null;
