@@ -41,6 +41,14 @@ const ALL_EMOJI_OPTIONS = [
 ];
 let replyToMessage = null;
 let activeReactionPickerFor = null;
+
+let voiceRooms = [];
+let currentVoiceRoomId = null;
+let voiceParticipants = [];
+let localStream = null;
+let isMuted = false;
+let isDeafened = false;
+const peerConnections = new Map();
 // ==========================================
 // DOM ELEMENTS
 // ==========================================
@@ -57,6 +65,7 @@ const createRoomBtn = document.getElementById('createRoomBtn');
 const createRoomModal = document.getElementById('createRoomModal');
 const createRoomForm = document.getElementById('createRoomForm');
 const roomNameInput = document.getElementById('roomNameInput');
+const roomTypeInput = document.getElementById('roomTypeInput');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const cancelModalBtn = document.getElementById('cancelModalBtn');
 const settingsBtn = document.getElementById('settingsBtn');
@@ -72,6 +81,13 @@ const settingsAvatarPreview = document.getElementById('settingsAvatarPreview');
 const currentUserAvatar = document.getElementById('currentUserAvatar');
 const currentUserName = document.getElementById('currentUserName');
 const currentUserUsername = document.getElementById('currentUserUsername');
+const voiceRoomsList = document.getElementById('voiceRoomsList');
+const createVoiceRoomBtn = document.getElementById('createVoiceRoomBtn');
+const toggleMicBtn = document.getElementById('toggleMicBtn');
+const toggleDeafenBtn = document.getElementById('toggleDeafenBtn');
+const leaveVoiceBtn = document.getElementById('leaveVoiceBtn');
+const voiceRoomState = document.getElementById('voiceRoomState');
+const voiceParticipantsEl = document.getElementById('voiceParticipants');
 
 const replyPreview = document.createElement('div');
 replyPreview.className = 'reply-preview hidden';
@@ -229,9 +245,30 @@ async function loadRooms() {
 
 async function createRoom() {
     const title = roomNameInput.value.trim();
+    const roomType = roomTypeInput?.value || 'text';
     if (!title) return;
 
     try {
+        if (roomType === 'voice') {
+            const response = await fetchWithAuth(`${getApiUrl()}/voice-rooms`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: title }),
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                alert(error.detail || 'Не удалось создать аудиокомнату');
+                return;
+            }
+            const room = await response.json();
+            roomNameInput.value = '';
+            closeModal();
+            await loadVoiceRooms();
+            await joinVoiceRoom(room.id);
+            startSpeakingDetector();
+            return;
+        }
+
         const response = await fetch(`${getApiUrl()}/rooms`, {
             method: 'POST',
             credentials: 'include',
@@ -1048,11 +1085,49 @@ function connectWebSocket() {
                     closeReactionPicker();
                 } else if (data.type === 'message_deleted') {
                     applyDeletedMessage(data.message_id, data.body || 'Сообщение удалено');
+                } else if (data.type === 'room_joined') {
+                    currentVoiceRoomId = data.room_id;
+                    voiceParticipants = data.participants || [];
+                    renderVoiceRooms();
+                    renderVoiceParticipants();
+                    ensurePeerConnections();
+                } else if (data.type === 'participant_joined') {
+                    if (data.room_id === currentVoiceRoomId) {
+                        voiceParticipants = upsertVoiceParticipant(data.participant);
+                        renderVoiceParticipants();
+                        ensurePeerConnections();
+                    }
+                } else if (data.type === 'participant_left') {
+                    if (data.room_id === currentVoiceRoomId) {
+                        voiceParticipants = voiceParticipants.filter(p => p.user_id !== data.participant.user_id);
+                        closePeerConnection(data.participant.user_id);
+                        renderVoiceParticipants();
+                    }
+                } else if (data.type === 'participant_updated') {
+                    if (data.room_id === currentVoiceRoomId) {
+                        voiceParticipants = upsertVoiceParticipant(data.participant);
+                        renderVoiceParticipants();
+                    }
+                } else if (data.type === 'speaking') {
+                    if (data.room_id === currentVoiceRoomId) {
+                        const participant = voiceParticipants.find(p => p.user_id === data.user_id);
+                        if (participant) participant.speaking = data.speaking;
+                        renderVoiceParticipants();
+                    }
+                } else if (data.type === 'rtc_offer') {
+                    handleRtcOffer(data);
+                } else if (data.type === 'rtc_answer') {
+                    handleRtcAnswer(data);
+                } else if (data.type === 'rtc_ice') {
+                    handleRtcIce(data);
                 } else if (data.type === 'error') {
                     console.error('[WS] error:', data.detail);
                     if (data.code === 'unauthorized') redirectToLogin();
                 } else if (data.type === 'connected') {
                     console.log('[WS] ready');
+                    if (currentVoiceRoomId) {
+                        joinVoiceRoom(currentVoiceRoomId);
+                    }
                 }
             } catch (err) {
                 console.error('[WS] parse error:', err);
@@ -1092,14 +1167,16 @@ function updateConnectionStatus(status) {
 // MODAL
 // ==========================================
 
-function openModal() {
+function openModal(type = 'text') {
     createRoomModal.classList.add('active');
+    if (roomTypeInput) roomTypeInput.value = type;
     roomNameInput.focus();
 }
 
 function closeModal() {
     createRoomModal.classList.remove('active');
     roomNameInput.value = '';
+    if (roomTypeInput) roomTypeInput.value = 'text';
 }
 
 function renderCurrentUser() {
@@ -1643,13 +1720,187 @@ function stopPolling() {
 }
 
 // ==========================================
+// VOICE CHAT (MVP)
+// ==========================================
+
+function upsertVoiceParticipant(participant) {
+    const copy = [...voiceParticipants];
+    const idx = copy.findIndex(p => p.user_id === participant.user_id);
+    if (idx >= 0) copy[idx] = { ...copy[idx], ...participant };
+    else copy.push(participant);
+    return copy;
+}
+
+async function loadVoiceRooms() {
+    const response = await fetchWithAuth(`${getApiUrl()}/voice-rooms`);
+    if (!response.ok) return;
+    voiceRooms = await response.json();
+    renderVoiceRooms();
+}
+
+function renderVoiceRooms() {
+    if (!voiceRoomsList) return;
+    voiceRoomsList.innerHTML = voiceRooms.map(room => `<div class="voice-room-item ${room.id === currentVoiceRoomId ? 'active' : ''}" data-voice-room-id="${room.id}">🔊 ${escapeHtml(room.name)}</div>`).join('');
+    voiceRoomState.textContent = currentVoiceRoomId ? `В комнате: ${escapeHtml((voiceRooms.find(r => r.id === currentVoiceRoomId) || {}).name || '')}` : 'Не в голосовой комнате';
+    toggleMicBtn.disabled = !currentVoiceRoomId;
+    toggleDeafenBtn.disabled = !currentVoiceRoomId;
+    leaveVoiceBtn.disabled = !currentVoiceRoomId;
+}
+
+function renderVoiceParticipants() {
+    if (!voiceParticipantsEl) return;
+    voiceParticipantsEl.innerHTML = voiceParticipants.map(p => `<div class="voice-participant ${p.speaking ? 'speaking' : ''}">${escapeHtml(p.display_name || p.username)} ${p.muted ? '🎤off' : '🎤on'} ${p.deafened ? '🔇' : ''}</div>`).join('');
+}
+
+async function ensureLocalStream() {
+    if (localStream) return localStream;
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    return localStream;
+}
+
+async function joinVoiceRoom(roomId) {
+    await wsReady;
+    await ensureLocalStream();
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'join_room', room_id: roomId }));
+}
+
+function leaveVoiceRoom() {
+    if (currentVoiceRoomId && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'leave_room', room_id: currentVoiceRoomId }));
+    }
+    peerConnections.forEach((_, uid) => closePeerConnection(uid));
+    currentVoiceRoomId = null;
+    voiceParticipants = [];
+    if (speakingInterval) {
+        clearInterval(speakingInterval);
+        speakingInterval = null;
+    }
+    renderVoiceRooms();
+    renderVoiceParticipants();
+}
+
+function createPeerConnection(targetUserId) {
+    const pc = new RTCPeerConnection();
+    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    pc.onicecandidate = (event) => {
+        if (event.candidate && ws && currentVoiceRoomId) {
+            ws.send(JSON.stringify({ type: 'rtc_ice', room_id: currentVoiceRoomId, target_user_id: targetUserId, payload: event.candidate }));
+        }
+    };
+    pc.ontrack = (event) => {
+        const audio = document.getElementById(`remote-audio-${targetUserId}`) || document.createElement('audio');
+        audio.id = `remote-audio-${targetUserId}`;
+        audio.autoplay = true;
+        audio.srcObject = event.streams[0];
+        audio.muted = isDeafened;
+        document.body.appendChild(audio);
+    };
+    peerConnections.set(targetUserId, pc);
+    return pc;
+}
+
+function closePeerConnection(userId) {
+    const pc = peerConnections.get(userId);
+    if (pc) pc.close();
+    peerConnections.delete(userId);
+    const audio = document.getElementById(`remote-audio-${userId}`);
+    if (audio) audio.remove();
+}
+
+async function ensurePeerConnections() {
+    if (!currentVoiceRoomId || !localStream) return;
+    const others = voiceParticipants.filter(p => p.user_id !== currentUser.id);
+    for (const p of others) {
+        if (peerConnections.has(p.user_id)) continue;
+        const pc = createPeerConnection(p.user_id);
+        if (currentUser.id < p.user_id) {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            ws.send(JSON.stringify({ type: 'rtc_offer', room_id: currentVoiceRoomId, target_user_id: p.user_id, payload: offer }));
+        }
+    }
+}
+
+async function handleRtcOffer(data) {
+    await ensureLocalStream();
+    let pc = peerConnections.get(data.from_user_id);
+    if (!pc) pc = createPeerConnection(data.from_user_id);
+    await pc.setRemoteDescription(new RTCSessionDescription(data.payload));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    ws.send(JSON.stringify({ type: 'rtc_answer', room_id: data.room_id, target_user_id: data.from_user_id, payload: answer }));
+}
+
+async function handleRtcAnswer(data) {
+    const pc = peerConnections.get(data.from_user_id);
+    if (!pc) return;
+    await pc.setRemoteDescription(new RTCSessionDescription(data.payload));
+}
+
+async function handleRtcIce(data) {
+    const pc = peerConnections.get(data.from_user_id);
+    if (!pc) return;
+    await pc.addIceCandidate(new RTCIceCandidate(data.payload));
+}
+
+function setMute(nextMuted) {
+    isMuted = nextMuted;
+    if (localStream) localStream.getAudioTracks().forEach(t => { t.enabled = !nextMuted; });
+    if (ws && currentVoiceRoomId) ws.send(JSON.stringify({ type: 'set_mute', room_id: currentVoiceRoomId, muted: isMuted }));
+    toggleMicBtn.textContent = isMuted ? '🎤 Unmute' : '🎤 Mic';
+}
+
+function setDeafen(nextDeafened) {
+    isDeafened = nextDeafened;
+    document.querySelectorAll('[id^="remote-audio-"]').forEach(audio => { audio.muted = isDeafened; });
+    if (ws && currentVoiceRoomId) ws.send(JSON.stringify({ type: 'set_deafen', room_id: currentVoiceRoomId, deafened: isDeafened }));
+    toggleDeafenBtn.textContent = isDeafened ? '🔈 Undeafen' : '🔇 Deafen';
+}
+
+let speakingInterval = null;
+let lastSpeakingState = false;
+function startSpeakingDetector() {
+    if (speakingInterval || !localStream) return;
+    const ctx = new AudioContext();
+    const analyser = ctx.createAnalyser();
+    const source = ctx.createMediaStreamSource(localStream);
+    source.connect(analyser);
+    const data = new Uint8Array(analyser.fftSize);
+    speakingInterval = setInterval(() => {
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) sum += Math.abs(data[i] - 128);
+        const speaking = !isMuted && (sum / data.length > 4);
+        if (speaking === lastSpeakingState) return;
+        lastSpeakingState = speaking;
+        if (ws && currentVoiceRoomId) ws.send(JSON.stringify({ type: 'speaking', room_id: currentVoiceRoomId, speaking }));
+    }, 250);
+}
+
+
+voiceRoomsList.addEventListener('click', async (event) => {
+    const item = event.target.closest('[data-voice-room-id]');
+    if (!item) return;
+    await joinVoiceRoom(Number(item.dataset.voiceRoomId));
+    startSpeakingDetector();
+});
+
+createVoiceRoomBtn.addEventListener('click', () => openModal('voice'));
+
+toggleMicBtn.addEventListener('click', () => setMute(!isMuted));
+toggleDeafenBtn.addEventListener('click', () => setDeafen(!isDeafened));
+leaveVoiceBtn.addEventListener('click', () => leaveVoiceRoom());
+
+// ==========================================
 // INITIALIZATION
 // ==========================================
 
 async function init() {
     await loadCurrentUser();
     await loadRooms();
-    
+    await loadVoiceRooms();
+
     // Подключаемся к глобальному WebSocket ОДИН РАЗ
     connectWebSocket();
 }

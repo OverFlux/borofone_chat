@@ -13,7 +13,7 @@ from app.api.http import router as http_router
 from app.api.ws import router as ws_router
 from app.api.auth import router as auth_router
 from app.api.admin import router as admin_router
-from app.api import auth, http, ws, rooms, attachments
+from app.api import auth, http, ws, rooms, attachments, voice_rooms
 
 ALLOWED_ORIGINS = [
     "http://localhost:8000",
@@ -58,6 +58,7 @@ app.include_router(admin_router)  # /admin/invites/*
 
 app.include_router(rooms.router)
 app.include_router(attachments.router)
+app.include_router(voice_rooms.router)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.mount("/", StaticFiles(directory="pages", html=True), name="pages")

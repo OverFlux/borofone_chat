@@ -68,6 +68,20 @@
                 </div>
             </header>
 
+            <div class="voice-overlay" id="voiceOverlay">
+                <div class="voice-overlay-header">
+                    <div class="voice-overlay-title" id="voiceRoomState">Не в голосовой комнате</div>
+                    <button class="btn-secondary voice-overlay-create" id="createVoiceRoomBtn">+ Создать аудио</button>
+                </div>
+                <div class="voice-rooms-list" id="voiceRoomsList"></div>
+                <div class="voice-participants" id="voiceParticipants"></div>
+                <div class="voice-controls">
+                    <button class="btn-secondary" id="toggleMicBtn" disabled>🎤 Mic</button>
+                    <button class="btn-secondary" id="toggleDeafenBtn" disabled>🔇 Deafen</button>
+                    <button class="btn-secondary" id="leaveVoiceBtn" disabled>🚪 Leave</button>
+                </div>
+            </div>
+
             <div class="messages-container" id="messagesContainer">
                 <div class="messages-list" id="messagesList">
                     <div class="placeholder-message">
@@ -105,6 +119,7 @@
         <!-- Users Sidebar -->
         <aside class="users-sidebar" id="usersSidebar">
             <div class="sidebar-header">
+
                 <h3 class="sidebar-title">Участники</h3>
                 <span class="users-count" id="usersCount">0</span>
             </div>
@@ -124,6 +139,13 @@
                 <button class="modal-close" id="closeModalBtn">&times;</button>
             </div>
             <form id="createRoomForm">
+                <div class="form-group">
+                    <label for="roomTypeInput">Тип комнаты</label>
+                    <select id="roomTypeInput" required>
+                        <option value="text">Текстовая</option>
+                        <option value="voice">Аудио</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label for="roomNameInput">Название комнаты</label>
                     <input

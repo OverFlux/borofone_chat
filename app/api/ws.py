@@ -21,6 +21,7 @@ from app.models import User, Room, Message, MessageReaction
 from app.schemas.messages import MessageCreate
 from app.security import get_user_id_from_token
 from app.services.messages import create_message_with_nonce
+from app.services.voice import voice_runtime
 
 router = APIRouter(tags=["WebSocket"])
 
@@ -72,6 +73,7 @@ async def global_websocket_endpoint(
 
     username = user.username
     user_id = user.id
+    await voice_runtime.register_connection(user_id, websocket)
 
     # ── Redis: подписываемся на ВСЕ комнаты ──────────────────────
     redis = None
@@ -111,6 +113,14 @@ async def global_websocket_endpoint(
     stop_event = asyncio.Event()
 
     await websocket.send_json({"type": "connected", "user": {"id": user_id}})
+
+    async def broadcast_voice(room_id: int, payload: dict) -> None:
+        sockets = await voice_runtime.sockets_for_room(room_id)
+        for sock in sockets:
+            try:
+                await sock.send_json(payload)
+            except Exception:
+                pass
 
     # ── Task 1: receive from client ───────────────────────────────
     async def receive_messages() -> None:
@@ -234,6 +244,87 @@ async def global_websocket_endpoint(
                         print(f"[WS] Delete error: {e}")
                     continue
 
+                if msg_type == "join_room":
+                    room_id = data.get("room_id")
+                    if not room_id:
+                        continue
+                    snapshot, participant, prev_room_id, prev_participant = await voice_runtime.join_room(
+                        room_id=room_id,
+                        user_id=user_id,
+                        username=user.username,
+                        display_name=user.display_name,
+                    )
+                    if prev_room_id and prev_participant:
+                        await broadcast_voice(prev_room_id, {
+                            "type": "participant_left",
+                            "room_id": prev_room_id,
+                            "participant": {
+                                "user_id": prev_participant.user_id,
+                                "username": prev_participant.username,
+                                "display_name": prev_participant.display_name,
+                            },
+                        })
+                    await websocket.send_json({"type": "room_joined", "room_id": room_id, "participants": snapshot})
+                    await broadcast_voice(room_id, {"type": "participant_joined", "room_id": room_id, "participant": voice_runtime._as_dict(participant)})
+                    continue
+
+                if msg_type == "leave_room":
+                    room_id = data.get("room_id")
+                    if not room_id:
+                        continue
+                    participant = await voice_runtime.leave_room(room_id, user_id)
+                    if participant:
+                        await broadcast_voice(room_id, {
+                            "type": "participant_left",
+                            "room_id": room_id,
+                            "participant": {"user_id": participant.user_id, "username": participant.username, "display_name": participant.display_name},
+                        })
+                    continue
+
+                if msg_type == "set_mute":
+                    room_id = data.get("room_id")
+                    muted = bool(data.get("muted"))
+                    participant = await voice_runtime.update_state(room_id, user_id, muted=muted, speaking=False if muted else None)
+                    if participant:
+                        await broadcast_voice(room_id, {"type": "participant_updated", "room_id": room_id, "participant": voice_runtime._as_dict(participant)})
+                    continue
+
+                if msg_type == "set_deafen":
+                    room_id = data.get("room_id")
+                    deafened = bool(data.get("deafened"))
+                    participant = await voice_runtime.update_state(room_id, user_id, deafened=deafened)
+                    if participant:
+                        await broadcast_voice(room_id, {"type": "participant_updated", "room_id": room_id, "participant": voice_runtime._as_dict(participant)})
+                    continue
+
+                if msg_type == "speaking":
+                    room_id = data.get("room_id")
+                    speaking = bool(data.get("speaking"))
+                    participant = await voice_runtime.update_state(room_id, user_id, speaking=speaking)
+                    if participant:
+                        await broadcast_voice(room_id, {"type": "speaking", "room_id": room_id, "user_id": user_id, "speaking": speaking})
+                    continue
+
+                if msg_type in {"rtc_offer", "rtc_answer", "rtc_ice"}:
+                    room_id = data.get("room_id")
+                    target_user_id = data.get("target_user_id")
+                    if not room_id or not target_user_id:
+                        continue
+                    target_sockets = await voice_runtime.sockets_for_user(int(target_user_id))
+                    relay = {
+                        "type": msg_type,
+                        "room_id": room_id,
+                        "from_user_id": user_id,
+                        "target_user_id": int(target_user_id),
+                        "payload": data.get("payload"),
+                    }
+                    for sock in target_sockets:
+                        try:
+                            await sock.send_json(relay)
+                        except Exception:
+                            pass
+                    continue
+
                 if msg_type != "message":
                     continue
 
@@ -320,6 +411,13 @@ async def global_websocket_endpoint(
         except WebSocketDisconnect:
             pass
         finally:
+            room_id, participant = await voice_runtime.unregister_connection(user_id, websocket)
+            if room_id and participant:
+                await broadcast_voice(room_id, {
+                    "type": "participant_left",
+                    "room_id": room_id,
+                    "participant": {"user_id": participant.user_id, "username": participant.username, "display_name": participant.display_name},
+                })
             stop_event.set()
 
     # ── Task 2: send to client ────────────────────────────────────
