@@ -94,11 +94,13 @@ const toggleMicBtn = document.getElementById('toggleMicBtn');
 const toggleDeafenBtn = document.getElementById('toggleDeafenBtn');
 const leaveVoiceBtn = document.getElementById('leaveVoiceBtn');
 const voiceRoomState = document.getElementById('voiceRoomState');
-const voiceParticipantsEl = document.getElementById('voiceParticipants');
+const voiceParticipantsGrid = document.getElementById('voiceParticipantsGrid');
 const voiceControls = document.getElementById('voiceControls');
-const voiceAudioSliders = document.getElementById('voiceAudioSliders');
+const localAudioControls = document.getElementById('localAudioControls');
 const micVolumeSlider = document.getElementById('micVolumeSlider');
-const headphonesVolumeSlider = document.getElementById('headphonesVolumeSlider');
+const headphoneVolumeSlider = document.getElementById('headphoneVolumeSlider');
+const micVolumeValue = document.getElementById('micVolumeValue');
+const headphoneVolumeValue = document.getElementById('headphoneVolumeValue');
 
 const replyPreview = document.createElement('div');
 replyPreview.className = 'reply-preview hidden';
@@ -127,7 +129,7 @@ document.body.appendChild(roomContextMenu);
 
 const participantVolumeMenu = document.createElement('div');
 participantVolumeMenu.className = 'participant-volume-menu hidden';
-participantVolumeMenu.innerHTML = '<label>Громкость участника<input type="range" id="participantVolumeSlider" min="0" max="2" step="0.01" value="1"></label>';
+participantVolumeMenu.innerHTML = '<div class="volume-context-header">Set volume</div><input type="range" class="volume-context-slider" id="participantVolumeSlider" min="0" max="100" step="1" value="100"><div class="volume-context-value" id="participantVolumeValue">100%</div>';
 
 document.body.appendChild(participantVolumeMenu);
 
@@ -1108,17 +1110,18 @@ function connectWebSocket() {
                 } else if (data.type === 'message_deleted') {
                     applyDeletedMessage(data.message_id, data.body || 'Сообщение удалено');
                 } else if (data.type === 'room_joined') {
+                    peerConnections.forEach((_, uid) => closePeerConnection(uid));
                     currentVoiceRoomId = data.room_id;
                     voiceParticipants = data.participants || [];
                     voiceRoomParticipantsByRoom[data.room_id] = voiceParticipants;
                     renderVoiceRooms();
-                    renderVoiceParticipants();
+                    renderVoiceParticipantsGrid();
                     ensurePeerConnections();
                 } else if (data.type === 'participant_joined') {
                     if (data.room_id === currentVoiceRoomId) {
                         voiceParticipants = upsertVoiceParticipant(data.participant);
                         voiceRoomParticipantsByRoom[data.room_id] = voiceParticipants;
-                        renderVoiceParticipants();
+                        renderVoiceParticipantsGrid();
                         ensurePeerConnections();
                     }
                 } else if (data.type === 'participant_left') {
@@ -1126,19 +1129,19 @@ function connectWebSocket() {
                         voiceParticipants = voiceParticipants.filter(p => p.user_id !== data.participant.user_id);
                         voiceRoomParticipantsByRoom[data.room_id] = voiceParticipants;
                         closePeerConnection(data.participant.user_id);
-                        renderVoiceParticipants();
+                        renderVoiceParticipantsGrid();
                     }
                 } else if (data.type === 'participant_updated') {
                     if (data.room_id === currentVoiceRoomId) {
                         voiceParticipants = upsertVoiceParticipant(data.participant);
                         voiceRoomParticipantsByRoom[data.room_id] = voiceParticipants;
-                        renderVoiceParticipants();
+                        renderVoiceParticipantsGrid();
                     }
                 } else if (data.type === 'speaking') {
                     if (data.room_id === currentVoiceRoomId) {
                         const participant = voiceParticipants.find(p => p.user_id === data.user_id);
                         if (participant) participant.speaking = data.speaking;
-                        renderVoiceParticipants();
+                        renderVoiceParticipantsGrid();
                     }
                 } else if (data.type === 'rtc_offer') {
                     handleRtcOffer(data);
@@ -1150,7 +1153,7 @@ function connectWebSocket() {
                     voiceRoomParticipantsByRoom[data.room_id] = data.participants || [];
                     if (data.room_id === currentVoiceRoomId) {
                         voiceParticipants = data.participants || [];
-                        renderVoiceParticipants();
+                        renderVoiceParticipantsGrid();
                     }
                     renderVoiceRooms();
                 } else if (data.type === 'error') {
@@ -1459,21 +1462,6 @@ document.addEventListener('click', (event) => {
 });
 
 
-voiceParticipantsEl.addEventListener('contextmenu', (event) => {
-    const card = event.target.closest('[data-participant-user-id]');
-    if (!card) return;
-    event.preventDefault();
-    const targetUserId = Number(card.dataset.participantUserId);
-    if (!targetUserId || targetUserId === currentUser?.id) return;
-
-    participantVolumeMenu.style.left = `${event.clientX}px`;
-    participantVolumeMenu.style.top = `${event.clientY}px`;
-    const slider = participantVolumeMenu.querySelector('#participantVolumeSlider');
-    slider.value = String(participantVolumes[targetUserId] ?? 1);
-    slider.oninput = () => setParticipantVolume(targetUserId, Number(slider.value));
-    participantVolumeMenu.classList.remove('hidden');
-});
-
 document.addEventListener('click', (event) => {
     if (!event.target.closest('.participant-volume-menu')) {
         participantVolumeMenu.classList.add('hidden');
@@ -1481,12 +1469,14 @@ document.addEventListener('click', (event) => {
 });
 
 micVolumeSlider?.addEventListener('input', () => {
-    micGainValue = Number(micVolumeSlider.value);
+    micGainValue = Number(micVolumeSlider.value) / 100;
     if (micGainNode) micGainNode.gain.value = micGainValue;
+    if (micVolumeValue) micVolumeValue.textContent = `${micVolumeSlider.value}%`;
 });
 
-headphonesVolumeSlider?.addEventListener('input', () => {
-    headphonesGainValue = Number(headphonesVolumeSlider.value);
+headphoneVolumeSlider?.addEventListener('input', () => {
+    headphonesGainValue = Number(headphoneVolumeSlider.value) / 100;
+    if (headphoneVolumeValue) headphoneVolumeValue.textContent = `${headphoneVolumeSlider.value}%`;
     applyHeadphonesGain();
 });
 
@@ -1887,7 +1877,7 @@ function renderVoiceRooms() {
     if (!voiceRoomsList) return;
     voiceRoomsList.innerHTML = voiceRooms.map(room => {
         const participants = voiceRoomParticipantsByRoom[room.id] || [];
-        const icons = participants.slice(0, 4).map(p => `<span class="voice-room-user-icon" title="${escapeHtml(p.display_name || p.username)}">${escapeHtml((p.display_name || p.username || '?')[0]?.toUpperCase() || '?')}</span>`).join('');
+        const icons = participants.slice(0, 4).map(p => `<span class="voice-room-user-icon ${p.speaking ? 'speaking' : ''}" title="${escapeHtml(p.display_name || p.username)}">${escapeHtml((p.display_name || p.username || '?')[0]?.toUpperCase() || '?')}</span>`).join('');
         const more = participants.length > 4 ? `<span class="voice-room-user-more">+${participants.length - 4}</span>` : '';
         return `<div class="voice-room-item ${room.id === currentVoiceRoomId ? 'active' : ''}" data-voice-room-id="${room.id}"><span class="voice-room-item-title">🔊 ${escapeHtml(room.name)}</span><span class="voice-room-users">${icons}${more}</span></div>`;
     }).join('');
@@ -1897,17 +1887,80 @@ function renderVoiceRooms() {
     leaveVoiceBtn.disabled = !currentVoiceRoomId;
     const controlsVisible = !!currentVoiceRoomId;
     if (voiceControls) voiceControls.style.display = controlsVisible ? "flex" : "none";
-    if (voiceAudioSliders) voiceAudioSliders.style.display = controlsVisible ? "grid" : "none";
+    if (localAudioControls) localAudioControls.style.display = controlsVisible ? "grid" : "none";
 }
 
-function renderVoiceParticipants() {
-    if (!voiceParticipantsEl) return;
-    voiceParticipantsEl.innerHTML = voiceParticipants.map((p) => {
-        const name = escapeHtml(p.display_name || p.username);
-        const mutedChip = `<span class="voice-status-chip ${p.muted ? 'off' : ''}">${p.muted ? '🎤 Off' : '🎤 On'}</span>`;
-        const deafChip = p.deafened ? '<span class="voice-status-chip off">🔇 Deaf</span>' : '';
-        return `<div class="voice-user-card ${p.speaking ? 'speaking' : ''}" data-participant-user-id="${p.user_id}"><div class="voice-user-top"><div class="voice-user-name">${name}</div><div class="voice-user-badges">${mutedChip}${deafChip}</div></div></div>`;
+function renderVoiceParticipantsGrid() {
+    if (!voiceParticipantsGrid) return;
+
+    voiceParticipantsGrid.innerHTML = voiceParticipants.map(participant => {
+        const displayName = escapeHtml(participant.display_name || participant.username);
+        const username = escapeHtml(participant.username);
+        const initials = displayName[0]?.toUpperCase() || username[0]?.toUpperCase() || 'U';
+
+        let statusClass = 'mic-on';
+        let statusIcon = '🎤';
+        if (participant.deafened) {
+            statusClass = 'deafened';
+            statusIcon = '🔇';
+        } else if (participant.muted) {
+            statusClass = 'mic-off';
+            statusIcon = '🎤';
+        }
+
+        const cardClasses = [
+            'voice-participant-card',
+            participant.speaking ? 'speaking' : '',
+            participant.muted ? 'muted' : ''
+        ].filter(Boolean).join(' ');
+
+        const volumePct = Math.round((participantVolumes[participant.user_id] ?? 1) * 100);
+
+        return `
+            <div class="${cardClasses}" data-user-id="${participant.user_id}" data-username="${username}">
+                <div class="voice-participant-avatar">
+                    <span>${initials}</span>
+                    <div class="voice-participant-status ${statusClass}">${statusIcon}</div>
+                </div>
+                <div class="voice-participant-name" title="${displayName}">${displayName}</div>
+                <div class="voice-participant-volume">
+                    <div class="voice-participant-volume-fill" style="width: ${volumePct}%"></div>
+                </div>
+            </div>
+        `;
     }).join('');
+
+    voiceParticipantsGrid.querySelectorAll('.voice-participant-card').forEach(card => {
+        card.addEventListener('contextmenu', handleParticipantContextMenu);
+    });
+}
+
+function handleParticipantContextMenu(event) {
+    event.preventDefault();
+    const card = event.currentTarget;
+    const userId = parseInt(card.dataset.userId);
+    const username = card.dataset.username;
+    if (!userId || userId === currentUser?.id) return;
+
+    const header = participantVolumeMenu.querySelector('.volume-context-header');
+    const slider = participantVolumeMenu.querySelector('.volume-context-slider');
+    const value = participantVolumeMenu.querySelector('.volume-context-value');
+
+    const currentVolume = participantVolumes[userId] ?? 1;
+    header.textContent = `Set ${username} volume`;
+    slider.value = String(Math.round(currentVolume * 100));
+    value.textContent = `${slider.value}%`;
+
+    participantVolumeMenu.style.left = `${event.clientX}px`;
+    participantVolumeMenu.style.top = `${event.clientY}px`;
+    participantVolumeMenu.classList.remove('hidden');
+
+    slider.oninput = () => {
+        const volPct = Number(slider.value);
+        value.textContent = `${volPct}%`;
+        setParticipantVolume(userId, volPct / 100);
+        renderVoiceParticipantsGrid();
+    };
 }
 
 async function ensureLocalStream() {
@@ -1940,6 +1993,12 @@ async function joinVoiceRoom(roomId) {
     await wsReady;
     await ensureLocalStream();
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    if (currentVoiceRoomId && currentVoiceRoomId !== roomId) {
+        peerConnections.forEach((_, uid) => closePeerConnection(uid));
+        ws.send(JSON.stringify({ type: 'leave_room', room_id: currentVoiceRoomId }));
+    }
+
     ws.send(JSON.stringify({ type: 'join_room', room_id: roomId }));
 }
 
@@ -1957,7 +2016,7 @@ function leaveVoiceRoom() {
         speakingInterval = null;
     }
     renderVoiceRooms();
-    renderVoiceParticipants();
+    renderVoiceParticipantsGrid();
 }
 
 function createPeerConnection(targetUserId) {
@@ -1968,7 +2027,7 @@ function createPeerConnection(targetUserId) {
         iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
     });
     (processedOutboundStream || localStream).getTracks().forEach(track => {
-        const sender = pc.addTrack(track, localStream);
+        const sender = pc.addTrack(track, (processedOutboundStream || localStream));
         const params = sender.getParameters();
         if (!params.encodings) params.encodings = [{}];
         params.encodings[0].maxBitrate = 64000;
@@ -2041,7 +2100,7 @@ async function handleRtcIce(data) {
 function setMute(nextMuted) {
     isMuted = nextMuted;
     const me = voiceParticipants.find(p => p.user_id === currentUser?.id);
-    if (me) { me.muted = isMuted; me.speaking = false; renderVoiceParticipants(); renderVoiceRooms(); }
+    if (me) { me.muted = isMuted; me.speaking = false; renderVoiceParticipantsGrid(); renderVoiceRooms(); }
     if (localStream) localStream.getAudioTracks().forEach(t => { t.enabled = !nextMuted; });
     if (ws && currentVoiceRoomId) ws.send(JSON.stringify({ type: 'set_mute', room_id: currentVoiceRoomId, muted: isMuted }));
     toggleMicBtn.textContent = isMuted ? '🎤 Unmute' : '🎤 Mic';
@@ -2050,7 +2109,7 @@ function setMute(nextMuted) {
 function setDeafen(nextDeafened) {
     isDeafened = nextDeafened;
     const me = voiceParticipants.find(p => p.user_id === currentUser?.id);
-    if (me) { me.deafened = isDeafened; renderVoiceParticipants(); renderVoiceRooms(); }
+    if (me) { me.deafened = isDeafened; renderVoiceParticipantsGrid(); renderVoiceRooms(); }
     document.querySelectorAll('[id^="remote-audio-"]').forEach(audio => { audio.muted = isDeafened; });
     if (ws && currentVoiceRoomId) ws.send(JSON.stringify({ type: 'set_deafen', room_id: currentVoiceRoomId, deafened: isDeafened }));
     toggleDeafenBtn.textContent = isDeafened ? '🔈 Undeafen' : '🔇 Deafen';
@@ -2103,6 +2162,12 @@ createVoiceRoomBtn.addEventListener('click', () => openModal('voice'));
 toggleMicBtn.addEventListener('click', () => setMute(!isMuted));
 toggleDeafenBtn.addEventListener('click', () => setDeafen(!isDeafened));
 leaveVoiceBtn.addEventListener('click', () => leaveVoiceRoom());
+
+
+if (micVolumeSlider) micVolumeSlider.value = String(Math.round(micGainValue * 100));
+if (headphoneVolumeSlider) headphoneVolumeSlider.value = String(Math.round(headphonesGainValue * 100));
+if (micVolumeValue) micVolumeValue.textContent = `${Math.round(micGainValue * 100)}%`;
+if (headphoneVolumeValue) headphoneVolumeValue.textContent = `${Math.round(headphonesGainValue * 100)}%`;
 
 // ==========================================
 // INITIALIZATION
