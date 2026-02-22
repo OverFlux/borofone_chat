@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, Response, UploadFile, File, Form, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,6 +56,7 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
         secure=COOKIE_SECURE,
         samesite=COOKIE_SAMESITE,
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60, # seconds
+        path="/",  # Важно: cookie доступна для всех путей
     )
 
     # Refresh token
@@ -66,12 +67,13 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
         secure=COOKIE_SECURE,
         samesite=COOKIE_SAMESITE,
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60, # second too
+        path="/",  # Важно: cookie доступна для всех путей
 )
 
 def clear_auth_cookies(response: Response):
     """Удаление токенов из куки"""
-    response.delete_cookie(key="access_token")
-    response.delete_cookie(key="refresh_token")
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/")
 
 @router.post("/register", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
 async def register(
@@ -209,8 +211,8 @@ async def login(
 
 @router.post("/refresh")
 async def refresh(
+    request: Request,
     response: Response,
-    refresh_token: str = None,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -222,12 +224,8 @@ async def refresh(
         {"message": "Token refreshed"}
     """
 
-    # В реальности refresh_token будет получен из cookie через dependency
-    # Для совместимости пока оставляем поддержку body
-    from fastapi import Request
-
-    # TODO: Получить refresh_token из cookie
-    # request.cookies.get('refresh_token')
+    # Получаем refresh_token из cookie
+    refresh_token = request.cookies.get('refresh_token')
 
     if not refresh_token:
         raise HTTPException(

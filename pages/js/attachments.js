@@ -144,16 +144,39 @@ function renderMessageAttachments(attachments) {
         return '/' + path;
     };
     
+    // Count images for grid layout
+    const images = attachments.filter(att => att.mime_type?.startsWith('image/'));
+    const hasMultipleImages = images.length > 1;
+    const imageCount = images.length;
+    
+    // Build class names for grid
+    let containerClass = 'message-attachments';
+    if (hasMultipleImages) {
+        containerClass += ' has-multiple-images';
+        if (imageCount === 2) containerClass += ' has-2-images';
+        else if (imageCount === 3) containerClass += ' has-3-images';
+        else if (imageCount === 4) containerClass += ' has-4-images';
+    }
+    
     return `
-        <div class="message-attachments">
+        <div class="${containerClass}">
             ${attachments.map(att => {
                 const isImage = att.mime_type?.startsWith('image/');
+                const isVideo = att.mime_type?.startsWith('video/');
                 const fileUrl = resolveFileUrl(att.file_path);
                 
                 if (isImage) {
                     return `
-                        <div class="attachment-image">
-                            <img src="${escapeHtmlLocal(fileUrl)}" alt="${escapeHtmlLocal(att.filename)}">
+                        <div class="attachment-image" onclick="openImageLightbox('${escapeHtmlLocal(fileUrl)}')">
+                            <img src="${escapeHtmlLocal(fileUrl)}" alt="${escapeHtmlLocal(att.filename)}" loading="lazy">
+                        </div>
+                    `;
+                } else if (isVideo) {
+                    return `
+                        <div class="attachment-video">
+                            <video controls preload="metadata">
+                                <source src="${escapeHtmlLocal(fileUrl)}" type="${escapeHtmlLocal(att.mime_type)}">
+                            </video>
                         </div>
                     `;
                 } else {
@@ -175,6 +198,58 @@ function renderMessageAttachments(attachments) {
 }
 
 /**
+ * Открыть изображение в модальном окне (lightbox).
+ */
+window.openImageLightbox = function(imageUrl) {
+    // Remove existing lightbox if any
+    closeImageLightbox();
+    
+    const lightbox = document.createElement('div');
+    lightbox.className = 'image-lightbox';
+    lightbox.onclick = (e) => {
+        if (e.target === lightbox || e.target.classList.contains('image-lightbox-close')) {
+            closeImageLightbox();
+        }
+    };
+    
+    lightbox.innerHTML = `
+        <button class="image-lightbox-close" onclick="closeImageLightbox()">✕</button>
+        <img src="${imageUrl}" alt="Full size image" onclick="event.stopPropagation()">
+    `;
+    
+    document.body.appendChild(lightbox);
+    
+    // Trigger animation
+    requestAnimationFrame(() => {
+        lightbox.classList.add('active');
+    });
+    
+    // Close on Escape key
+    document.addEventListener('keydown', handleLightboxKeydown);
+}
+
+/**
+ * Закрыть модальное окно с изображением.
+ */
+window.closeImageLightbox = function() {
+    const lightbox = document.querySelector('.image-lightbox');
+    if (lightbox) {
+        lightbox.classList.remove('active');
+        setTimeout(() => lightbox.remove(), 200);
+    }
+    document.removeEventListener('keydown', handleLightboxKeydown);
+}
+
+/**
+ * Обработчик клавиш для lightbox.
+ */
+function handleLightboxKeydown(e) {
+    if (e.key === 'Escape') {
+        closeImageLightbox();
+    }
+}
+
+/**
  * Форматировать размер файла (bytes → KB/MB).
  */
 function formatFileSize(bytes) {
@@ -190,6 +265,8 @@ window.attachments = {
     removeAttachment,
     uploadAttachments,
     renderMessageAttachments,
+    openImageLightbox,
+    closeImageLightbox,
     getAttachmentsToSend: () => attachmentsToSend,
     clearAttachments: () => {
         attachmentsToSend = [];

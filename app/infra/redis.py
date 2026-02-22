@@ -20,7 +20,7 @@ from app.settings import settings
 pool = ConnectionPool.from_url(
     settings.redis_url,
     decode_responses=True,  # Автоматически декодировать bytes → str
-    max_connections=50,
+    max_connections=100,    # Увеличено для множества пользователей
     socket_connect_timeout=5,
     socket_timeout=5,
     socket_keepalive=True,

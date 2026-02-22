@@ -2,24 +2,8 @@
 // API КОНФИГУРАЦИЯ
 // ==========================================
 
-function resolveApiBase() {
-    const stored = localStorage.getItem('api_base');
-    if (stored) return stored.replace(/\/$/, '');
-
-    const url = new URL(window.location.href);
-
-    if (url.protocol === 'file:') {
-        return 'http://localhost:8000';
-    }
-
-    if (url.port && url.port !== '8000') {
-        return `${url.protocol}//${url.hostname}:8000`;
-    }
-
-    return url.origin;
-}
-
-const API_URL = resolveApiBase();
+// API URL - всегда используем текущий origin чтобы cookies работали
+const API_URL = window.location.origin;
 
 // ==========================================
 // ОБРАБОТКА ФОРМЫ ВХОДА (с cookies)

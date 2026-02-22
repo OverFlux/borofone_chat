@@ -9,11 +9,11 @@ Global WebSocket: подписывается на ВСЕ комнаты одно
 import asyncio
 import json
 
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.db import get_db
+from app.infra.db import SessionLocal
 from app.models import User, Room
 from app.schemas.messages import MessageCreate
 from app.security import get_user_id_from_token
@@ -46,7 +46,6 @@ async def get_user_from_websocket(
 @router.websocket("/ws")
 async def global_websocket_endpoint(
     websocket: WebSocket,
-    db: AsyncSession = Depends(get_db),
     token: str = Query(None),
 ):
     """
@@ -58,16 +57,18 @@ async def global_websocket_endpoint(
     """
     await websocket.accept()
 
-    # ── Auth ──────────────────────────────────────────────────────
-    token_cookie = websocket.cookies.get("access_token")
-    user = await get_user_from_websocket(websocket, db, token_cookie, token)
+    # ── Auth с отдельной сессией ───────────────────────────────────
+    async with SessionLocal() as db:
+        token_cookie = websocket.cookies.get("access_token")
+        user = await get_user_from_websocket(websocket, db, token_cookie, token)
 
-    if not user:
-        await websocket.send_json({"type": "error", "code": "unauthorized"})
-        await websocket.close()
-        return
+        if not user:
+            await websocket.send_json({"type": "error", "code": "unauthorized"})
+            await websocket.close()
+            return
 
     username = user.username
+    user_id = user.id
 
     # ── Redis: подписываемся на ВСЕ комнаты ──────────────────────
     redis = None
@@ -78,24 +79,25 @@ async def global_websocket_endpoint(
         redis = redis_client
         if redis:
             await redis.ping()
-            print(f"[WS] Redis OK user={username}")
     except Exception as e:
         print(f"[WS] Redis unavailable: {e}")
         redis = None
 
     if redis:
         try:
-            # Загружаем все комнаты
-            result = await db.execute(select(Room))
-            rooms = result.scalars().all()
+            # Загружаем все комнаты с отдельной сессией
+            async with SessionLocal() as db:
+                result = await db.execute(select(Room))
+                rooms = result.scalars().all()
+                room_ids = [room.id for room in rooms]
 
             pubsub = redis.pubsub()
             
             # Подписываемся на каждую комнату
-            for room in rooms:
-                await pubsub.subscribe(f"room:{room.id}")
+            for room_id in room_ids:
+                await pubsub.subscribe(f"room:{room_id}")
             
-            print(f"[WS] {username} subscribed to {len(rooms)} rooms")
+            print(f"[WS] {username} subscribed to {len(room_ids)} rooms")
         except Exception as e:
             print(f"[WS] Subscribe failed: {e}")
             pubsub = None
@@ -105,7 +107,7 @@ async def global_websocket_endpoint(
 
     stop_event = asyncio.Event()
 
-    await websocket.send_json({"type": "connected", "user": {"id": user.id}})
+    await websocket.send_json({"type": "connected", "user": {"id": user_id}})
 
     # ── Task 1: receive from client ───────────────────────────────
     async def receive_messages() -> None:
@@ -123,7 +125,7 @@ async def global_websocket_endpoint(
                     room_id = data.get("room_id")
                     if room_id:
                         from app.services.presence import user_joined_room
-                        await user_joined_room(redis, room_id, user.id)
+                        await user_joined_room(redis, room_id, user_id)
                     continue
                 
                 if msg_type != "message":
@@ -134,43 +136,45 @@ async def global_websocket_endpoint(
                     continue
 
                 try:
-                    payload = MessageCreate(
-                        body=data.get("body", ""), 
-                        nonce=data.get("nonce"),
-                        attachments=data.get("attachments")  # Передаём вложения
-                    )
-                    msg = await create_message_with_nonce(
-                        db, room_id, user.id, payload, redis,
-                        attachments_data=payload.attachments  # И в сервис
-                    )
+                    # Создаём новую сессию для каждого сообщения
+                    async with SessionLocal() as db:
+                        payload = MessageCreate(
+                            body=data.get("body", ""), 
+                            nonce=data.get("nonce"),
+                            attachments=data.get("attachments")
+                        )
+                        msg = await create_message_with_nonce(
+                            db, room_id, user_id, payload, redis,
+                            attachments_data=payload.attachments
+                        )
 
-                    message_data = {
-                        "type": "message",
-                        "id": msg.id,
-                        "room_id": msg.room_id,
-                        "nonce": msg.nonce,
-                        "body": msg.body,
-                        "created_at": msg.created_at.isoformat(),
-                        "edited_at": msg.edited_at.isoformat() if msg.edited_at else None,
-                        "user": {
-                            "id": user.id,
-                            "username": user.username,
-                            "display_name": user.display_name,
-                            "avatar_url": user.avatar_url,
-                        },
-                        "attachments": [
-                            {
-                                "id": att.id,
-                                "message_id": att.message_id,
-                                "filename": att.filename,
-                                "file_path": att.file_path,
-                                "file_size": att.file_size,
-                                "mime_type": att.mime_type,
-                                "created_at": att.created_at.isoformat(),
-                            }
-                            for att in (msg.attachments or [])
-                        ],
-                    }
+                        message_data = {
+                            "type": "message",
+                            "id": msg.id,
+                            "room_id": msg.room_id,
+                            "nonce": msg.nonce,
+                            "body": msg.body,
+                            "created_at": msg.created_at.isoformat(),
+                            "edited_at": msg.edited_at.isoformat() if msg.edited_at else None,
+                            "user": {
+                                "id": user_id,
+                                "username": username,
+                                "display_name": user.display_name,
+                                "avatar_url": user.avatar_url,
+                            },
+                            "attachments": [
+                                {
+                                    "id": att.id,
+                                    "message_id": att.message_id,
+                                    "filename": att.filename,
+                                    "file_path": att.file_path,
+                                    "file_size": att.file_size,
+                                    "mime_type": att.mime_type,
+                                    "created_at": att.created_at.isoformat(),
+                                }
+                                for att in (msg.attachments or [])
+                            ],
+                        }
 
                     if redis:
                         try:
@@ -229,6 +233,6 @@ async def global_websocket_endpoint(
 
 # Старый endpoint оставляем для совместимости
 @router.websocket("/ws/rooms/{room_id}")
-async def room_websocket(websocket: WebSocket, room_id: int, db: AsyncSession = Depends(get_db), token: str = Query(None)):
+async def room_websocket(websocket: WebSocket, room_id: int, token: str = Query(None)):
     """Legacy endpoint. Use /ws instead."""
     await websocket.close(reason="Use /ws")

@@ -2,25 +2,16 @@
 // API CONFIGURATION
 // ==========================================
 
-// Используем config.js если есть, иначе fallback
-const API_URL = window.API_URL || resolveApiBase();
-const WS_URL = window.WS_URL || resolveWsBase(API_URL);
-
-function resolveApiBase() {
-    const url = new URL(window.location.href);
-    if (url.protocol === 'file:') {
-        return 'http://localhost:8000';
-    }
-    if (url.port && url.port !== '8000') {
-        return `${url.protocol}//${url.hostname}:8000`;
-    }
-    return url.origin;
+// API_URL и WS_URL определяются в config.js
+// Если config.js не загрузился, используем window.location.origin
+function getApiUrl() {
+    if (typeof API_URL !== 'undefined') return API_URL;
+    return window.location.origin;
 }
 
-function resolveWsBase(apiBase) {
-    const apiUrl = new URL(apiBase);
-    const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${wsProtocol}//${apiUrl.host}`;
+function getWsUrl() {
+    if (typeof WS_URL !== 'undefined') return WS_URL;
+    return window.location.origin.replace(/^http/, 'ws');
 }
 
 // ==========================================
@@ -104,7 +95,7 @@ async function fetchWithAuth(url, options = {}) {
 
 async function refreshAccessToken() {
     try {
-        const response = await fetch(`${API_URL}/auth/refresh`, {
+        const response = await fetch(`${getApiUrl()}/auth/refresh`, {
             method: 'POST',
             credentials: 'include'
         });
@@ -123,7 +114,7 @@ async function refreshAccessToken() {
 
 async function loadCurrentUser() {
     try {
-        const response = await fetchWithAuth(`${API_URL}/auth/me`);
+        const response = await fetchWithAuth(`${getApiUrl()}/auth/me`);
 
         if (!response.ok) {
             redirectToLogin();
@@ -145,7 +136,7 @@ async function loadCurrentUser() {
 
 async function loadRooms() {
     try {
-        const response = await fetchWithAuth(`${API_URL}/rooms`);
+        const response = await fetchWithAuth(`${getApiUrl()}/rooms`);
 
         if (!response.ok) {
             throw new Error('Failed to load rooms');
@@ -205,7 +196,7 @@ async function createRoom() {
     if (!title) return;
 
     try {
-        const response = await fetch(`${API_URL}/rooms`, {
+        const response = await fetch(`${getApiUrl()}/rooms`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -269,7 +260,7 @@ function selectRoom(roomId) {
 
 async function loadMessages(roomId) {
     try {
-        const response = await fetchWithAuth(`${API_URL}/rooms/${roomId}/messages`);
+        const response = await fetchWithAuth(`${getApiUrl()}/rooms/${roomId}/messages`);
 
         if (!response.ok) {
             throw new Error('Failed to load messages');
@@ -304,7 +295,8 @@ async function loadMessages(roomId) {
                 addMessage(msg, false);
             });
             
-            scrollToBottom();
+            // Скроллим вниз после загрузки всех сообщений (с ожиданием изображений)
+            scrollToBottomInitial();
             
             // Отмечаем комнату как прочитанную
             if (window.notifications) {
@@ -383,7 +375,7 @@ function addMessage(msg, animate = false) {
     }
 
     messagesList.appendChild(messageEl);
-    if (animate) scrollToBottom();
+    if (animate) scrollToBottomWithImages();
 }
 
 function normalizeAvatarUrl(avatarUrl) {
@@ -402,7 +394,7 @@ function normalizeAvatarUrl(avatarUrl) {
     if (uploadsIndex >= 0) {
         const webPath = unixPath.slice(uploadsIndex);
         try {
-            return new URL(webPath, API_URL).toString();
+            return new URL(webPath, getApiUrl()).toString();
         } catch {
             return null;
         }
@@ -414,7 +406,7 @@ function normalizeAvatarUrl(avatarUrl) {
         .replace(/^avatars\//i, '/uploads/avatars/');
 
     try {
-        return new URL(normalizedPath, API_URL).toString();
+        return new URL(normalizedPath, getApiUrl()).toString();
     } catch {
         return null;
     }
@@ -427,6 +419,107 @@ function normalizeAvatarUrl(avatarUrl) {
 function scrollToBottom() {
     // Скроллим messagesContainer (именно на нём overflow-y: auto в CSS)
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+/**
+ * Скролл вниз с ожиданием загрузки изображений.
+ * Используется при добавлении новых сообщений с вложениями.
+ */
+function scrollToBottomWithImages() {
+    // Находим все изображения в контейнере, которые ещё не загрузились
+    const images = messagesList.querySelectorAll('img:not([data-loaded])');
+    
+    if (images.length === 0) {
+        scrollToBottom();
+        return;
+    }
+    
+    // Помечаем изображения как ожидающие загрузки
+    let pendingCount = images.length;
+    
+    images.forEach(img => {
+        // Если изображение уже загружено (из кэша)
+        if (img.complete) {
+            img.dataset.loaded = 'true';
+            pendingCount--;
+            if (pendingCount === 0) {
+                scrollToBottom();
+            }
+            return;
+        }
+        
+        // Ждём загрузки
+        img.onload = () => {
+            img.dataset.loaded = 'true';
+            pendingCount--;
+            if (pendingCount === 0) {
+                scrollToBottom();
+            }
+        };
+        
+        img.onerror = () => {
+            img.dataset.loaded = 'true';
+            pendingCount--;
+            if (pendingCount === 0) {
+                scrollToBottom();
+            }
+        };
+    });
+    
+    // Скроллим сразу на случай если изображения не загрузятся
+    setTimeout(() => scrollToBottom(), 100);
+}
+
+/**
+ * Скролл вниз при начальной загрузке сообщений.
+ * Ждёт загрузки всех изображений в сообщениях.
+ */
+function scrollToBottomInitial() {
+    const images = messagesList.querySelectorAll('img:not([data-loaded])');
+    
+    if (images.length === 0) {
+        scrollToBottom();
+        return;
+    }
+    
+    let pendingCount = images.length;
+    let scrolled = false;
+    
+    const doScroll = () => {
+        if (scrolled) return;
+        scrolled = true;
+        scrollToBottom();
+    };
+    
+    images.forEach(img => {
+        if (img.complete) {
+            img.dataset.loaded = 'true';
+            pendingCount--;
+            if (pendingCount === 0) {
+                doScroll();
+            }
+            return;
+        }
+        
+        img.onload = () => {
+            img.dataset.loaded = 'true';
+            pendingCount--;
+            if (pendingCount === 0) {
+                doScroll();
+            }
+        };
+        
+        img.onerror = () => {
+            img.dataset.loaded = 'true';
+            pendingCount--;
+            if (pendingCount === 0) {
+                doScroll();
+            }
+        };
+    });
+    
+    // Fallback: скроллим через небольшую задержку
+    setTimeout(() => doScroll(), 150);
 }
 
 function resetScroll() {
@@ -488,7 +581,7 @@ async function sendMessage() {
         } else {
             // WS недоступен — HTTP fallback
             console.warn('[sendMessage] WS not open, using HTTP fallback');
-            const response = await fetchWithAuth(`${API_URL}/rooms/${currentRoom.id}/messages`, {
+            const response = await fetchWithAuth(`${getApiUrl()}/rooms/${currentRoom.id}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -529,7 +622,7 @@ function connectWebSocket() {
     if (ws) return; // уже подключены
     
     wsReady = new Promise((resolve) => {
-        const wsUrl = `${WS_URL}/ws`;
+        const wsUrl = `${getWsUrl()}/ws`;
         const socket = new WebSocket(wsUrl);
 
         socket.onopen = () => {
@@ -684,7 +777,7 @@ async function saveSettings() {
     }
 
     try {
-        const response = await fetchWithAuth(`${API_URL}/auth/profile`, {
+        const response = await fetchWithAuth(`${getApiUrl()}/auth/profile`, {
             method: 'PUT',
             body: formData,
         });
@@ -790,7 +883,7 @@ async function loadOnlineUsers() {
     }
     
     try {
-        const response = await fetchWithAuth(`${API_URL}/rooms/${currentRoom.id}/online`);
+        const response = await fetchWithAuth(`${getApiUrl()}/rooms/${currentRoom.id}/online`);
         
         if (!response.ok) {
             throw new Error('Failed to load online users');
@@ -951,7 +1044,7 @@ async function updateAllRoomBadges() {
     for (const room of rooms) {
         try {
             // Загружаем сообщения комнаты (без отображения)
-            const response = await fetchWithAuth(`${API_URL}/rooms/${room.id}/messages`);
+            const response = await fetchWithAuth(`${getApiUrl()}/rooms/${room.id}/messages`);
             if (!response.ok) continue;
             
             const messages = await response.json();
@@ -989,7 +1082,7 @@ async function startPolling() {
             if (currentRoom && room.id === currentRoom.id) continue;
             
             try {
-                const response = await fetch(`${API_URL}/rooms/${room.id}/messages`, {
+                const response = await fetch(`${getApiUrl()}/rooms/${room.id}/messages`, {
                     credentials: 'include',
                 });
                 

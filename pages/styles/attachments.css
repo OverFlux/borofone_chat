@@ -56,16 +56,35 @@
     margin-top: 8px;
 }
 
+/* Discord-style image scaling */
 .attachment-image {
     max-width: 400px;
+    max-height: 300px;
     border-radius: 8px;
     overflow: hidden;
+    display: inline-block;
+    vertical-align: top;
 }
 
 .attachment-image img {
-    width: 100%;
+    max-width: 100%;
+    max-height: 300px;
+    width: auto;
     height: auto;
     display: block;
+    object-fit: contain;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.attachment-image img:hover {
+    transform: scale(1.02);
+}
+
+/* Для очень маленьких изображений - минимальный размер */
+.attachment-image img[min-width~="0"] {
+    min-width: 100px;
+    min-height: 80px;
 }
 
 .attachment-file {
@@ -138,4 +157,117 @@
 .attach-btn svg {
     width: 20px;
     height: 20px;
+}
+
+/* ==========================================
+   DISCORD-STYLE IMAGE GRID
+   ========================================== */
+
+/* Когда несколько изображений - отображаем в сетке */
+.message-attachments.has-multiple-images {
+    display: grid;
+    gap: 4px;
+    max-width: 400px;
+}
+
+/* 2 изображения в ряд */
+.message-attachments.has-2-images {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+/* 3+ изображения - адаптивная сетка */
+.message-attachments.has-3-images,
+.message-attachments.has-4-images {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.message-attachments.has-3-images .attachment-image:first-child {
+    grid-column: span 2;
+}
+
+/* Для сетки - меньший размер изображений */
+.message-attachments.has-multiple-images .attachment-image {
+    max-width: none;
+    max-height: 200px;
+    width: 100%;
+}
+
+.message-attachments.has-multiple-images .attachment-image img {
+    max-height: 200px;
+    width: 100%;
+    object-fit: cover;
+}
+
+/* ==========================================
+   IMAGE LIGHTBOX (модальное окно)
+   ========================================== */
+
+.image-lightbox {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    cursor: zoom-out;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.image-lightbox.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.image-lightbox img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.image-lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.image-lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* ==========================================
+   VIDEO ATTACHMENTS
+   ========================================== */
+
+.attachment-video {
+    max-width: 400px;
+    max-height: 300px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.attachment-video video {
+    max-width: 100%;
+    max-height: 300px;
+    display: block;
+    border-radius: 8px;
 }
