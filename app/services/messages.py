@@ -60,13 +60,15 @@ async def create_message_with_nonce(
     # Helper для создания сообщения с вложениями
     async def _create_message_with_attachments() -> Message:
         if payload.reply_to_id is not None:
-            reply_stmt = select(Message.id).where(
+            reply_stmt = select(Message).where(
                 Message.id == payload.reply_to_id,
                 Message.room_id == room_id,
             )
-            reply_exists = (await db.execute(reply_stmt)).scalar_one_or_none()
-            if not reply_exists:
+            reply_message = (await db.execute(reply_stmt)).scalar_one_or_none()
+            if not reply_message:
                 raise HTTPException(status_code=400, detail="reply target not found")
+            if reply_message.deleted_at is not None:
+                raise HTTPException(status_code=400, detail="reply target was deleted")
 
         msg = Message(
             room_id=room_id,

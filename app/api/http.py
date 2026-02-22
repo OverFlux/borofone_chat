@@ -1,9 +1,11 @@
 """REST API endpoints for chat."""
 import json
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from redis.asyncio import Redis
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -40,9 +42,10 @@ def build_reply_preview(msg: Message) -> MessageReplyPreview | None:
     if not msg.reply_to:
         return None
     reply_user = msg.reply_to.user
+    preview_body = "Сообщение было удалено" if msg.reply_to.deleted_at is not None else msg.reply_to.body
     return MessageReplyPreview(
         id=msg.reply_to.id,
-        body=msg.reply_to.body,
+        body=preview_body,
         user=MessageUserResponse(
             id=reply_user.id if reply_user else 0,
             username=reply_user.username if reply_user else "Unknown",
@@ -111,7 +114,7 @@ async def list_messages(
             joinedload(Message.user),
             selectinload(Message.attachments),
             selectinload(Message.reactions),
-            joinedload(Message.reply_to).joinedload(Message.user),
+            selectinload(Message.reply_to).joinedload(Message.user),
         )
         .order_by(Message.id.desc())
         .limit(limit)
@@ -135,6 +138,8 @@ async def toggle_reaction(
     message = (await db.execute(message_stmt)).scalar_one_or_none()
     if not message:
         raise HTTPException(status_code=404, detail="message not found")
+    if message.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="cannot react to deleted message")
 
     existing_stmt = select(MessageReaction).where(
         MessageReaction.message_id == message_id,
@@ -147,14 +152,23 @@ async def toggle_reaction(
     if existing:
         await db.delete(existing)
         action = "removed"
+
     else:
         db.add(MessageReaction(message_id=message_id, user_id=current_user.id, emoji=emoji))
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        existing_after_race = (await db.execute(existing_stmt)).scalar_one_or_none()
+        action = "added" if existing_after_race else "removed"
 
     refreshed = (
         await db.execute(select(Message).where(Message.id == message_id).options(selectinload(Message.reactions)))
     ).scalar_one()
+    response_reactions = [r.model_dump() for r in build_reactions_payload(refreshed.reactions or [], current_user.id)]
+    broadcast_reactions = [{**reaction, "reacted_by_me": False} for reaction in response_reactions]
+
     reaction_event = {
         "type": "reaction",
         "room_id": room_id,
@@ -162,11 +176,11 @@ async def toggle_reaction(
         "emoji": emoji,
         "action": action,
         "actor_user_id": current_user.id,
-        "reactions": [r.model_dump() for r in build_reactions_payload(refreshed.reactions or [], current_user.id)],
+        "reactions": response_reactions,
     }
     if redis:
         try:
-            await redis.publish(f"room:{room_id}", json.dumps(reaction_event))
+            await redis.publish(f"room:{room_id}", json.dumps({**reaction_event, "reactions": broadcast_reactions}))
         except Exception:
             pass
     return reaction_event
@@ -187,7 +201,6 @@ async def delete_message(
     if msg.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="can delete only own message")
 
-    from datetime import datetime, timezone
     msg.body = "Сообщение удалено"
     msg.deleted_at = datetime.now(timezone.utc)
     await db.commit()
@@ -231,7 +244,7 @@ async def post_message(
                 joinedload(Message.user),
                 selectinload(Message.attachments),
                 selectinload(Message.reactions),
-                joinedload(Message.reply_to).joinedload(Message.user),
+                selectinload(Message.reply_to).joinedload(Message.user),
             )
         )
     ).scalar_one()

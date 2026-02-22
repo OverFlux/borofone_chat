@@ -235,7 +235,6 @@ class Message(Base):
         "Message",
         remote_side="Message.id",
         foreign_keys=[reply_to_id],
-        post_update=True,
     )
 
     # Индексы для быстрого поиска

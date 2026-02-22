@@ -29,8 +29,8 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('message_id', 'user_id', 'emoji', name='uq_message_user_emoji'),
     )
-    op.create_index('ix_message_reactions_message_id', 'message_reactions', ['message_id'], unique=False)
-    op.create_index('ix_message_reactions_user_id', 'message_reactions', ['user_id'], unique=False)
+    op.create_index('idx_message_reactions_message_id', 'message_reactions', ['message_id'], unique=False)
+    op.create_index('idx_message_reactions_user_id', 'message_reactions', ['user_id'], unique=False)
 
     op.add_column('messages', sa.Column('reply_to_id', sa.Integer(), nullable=True))
     op.create_index('ix_messages_reply_to_id', 'messages', ['reply_to_id'], unique=False)
@@ -49,6 +49,6 @@ def downgrade() -> None:
     op.drop_index('ix_messages_reply_to_id', table_name='messages')
     op.drop_column('messages', 'reply_to_id')
 
-    op.drop_index('ix_message_reactions_user_id', table_name='message_reactions')
-    op.drop_index('ix_message_reactions_message_id', table_name='message_reactions')
+    op.drop_index('idx_message_reactions_user_id', table_name='message_reactions')
+    op.drop_index('idx_message_reactions_message_id', table_name='message_reactions')
     op.drop_table('message_reactions')

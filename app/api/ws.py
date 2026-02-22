@@ -8,9 +8,11 @@ Global WebSocket: подписывается на ВСЕ комнаты одно
 """
 import asyncio
 import json
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -133,14 +135,14 @@ async def global_websocket_endpoint(
                     room_id = data.get("room_id")
                     message_id = data.get("message_id")
                     emoji = (data.get("emoji") or "").strip()
-                    if not room_id or not message_id or not emoji:
+                    if not room_id or not message_id or not emoji or len(emoji) > 16:
                         continue
 
                     try:
                         async with SessionLocal() as db:
                             message_stmt = select(Message).where(Message.id == message_id, Message.room_id == room_id)
                             message = (await db.execute(message_stmt)).scalar_one_or_none()
-                            if not message:
+                            if not message or message.deleted_at is not None:
                                 continue
 
                             existing_stmt = select(MessageReaction).where(
@@ -155,7 +157,18 @@ async def global_websocket_endpoint(
                                 action = "removed"
                             else:
                                 db.add(MessageReaction(message_id=message_id, user_id=user_id, emoji=emoji))
-                            await db.commit()
+
+                            try:
+                                await db.commit()
+                            except IntegrityError:
+                                await db.rollback()
+                                final_stmt = select(MessageReaction).where(
+                                    MessageReaction.message_id == message_id,
+                                    MessageReaction.user_id == user_id,
+                                    MessageReaction.emoji == emoji,
+                                )
+                                final_reaction = (await db.execute(final_stmt)).scalar_one_or_none()
+                                action = "added" if final_reaction else "removed"
 
                             reactions_stmt = select(MessageReaction).where(MessageReaction.message_id == message_id)
                             reactions = (await db.execute(reactions_stmt)).scalars().all()
@@ -202,7 +215,6 @@ async def global_websocket_endpoint(
                             if not msg or msg.user_id != user_id:
                                 continue
 
-                            from datetime import datetime, timezone
                             msg.body = "Сообщение удалено"
                             msg.deleted_at = datetime.now(timezone.utc)
                             await db.commit()

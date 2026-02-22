@@ -382,6 +382,7 @@ function addMessage(msg, animate = false) {
     
     // Скрываем текст если пустой и есть вложения
     const isDeleted = Boolean(msg.is_deleted);
+    messageEl.dataset.isDeleted = isDeleted ? '1' : '0';
     const bodyText = msg.body ? escapeHtml(msg.body) : '';
     const bodyHtml = bodyText ? `<div class="message-text${isDeleted ? ' message-text--deleted' : ''}">${bodyText}</div>` : '';
 
@@ -405,10 +406,10 @@ function addMessage(msg, animate = false) {
             ${attachmentsHtml}
             <div class="message-reactions" data-reactions-for="${msg.id}">${reactionsHtml}</div>
             <div class="message-hover-actions">
-            <button class="message-plus-btn" data-open-reaction-picker="${msg.id}" type="button">${getRandomReactionTriggerEmoji()}</button>
-            <button class="message-reply-btn" data-hover-reply="${msg.id}" type="button">↩</button>
-            <div class="message-reaction-picker hidden" data-reaction-picker-for="${msg.id}">${renderReactionPicker(msg.id)}</div>
-        </div>
+                <button class="message-plus-btn" data-open-reaction-picker="${msg.id}" type="button">${getRandomReactionTriggerEmoji()}</button>
+                <button class="message-reply-btn" data-hover-reply="${msg.id}" type="button"${isDeleted ? ' disabled' : ''}>↩</button>
+                <div class="message-reaction-picker hidden" data-reaction-picker-for="${msg.id}">${renderReactionPicker(msg.id)}</div>
+            </div>
         </div>
     `;
 
@@ -459,7 +460,7 @@ function renderReactions(reactions) {
     return reactions.map((reaction) => `
         <button class="reaction-chip ${reaction.reacted_by_me ? 'active' : ''}" data-emoji="${escapeHtml(reaction.emoji)}" type="button">
             <span>${escapeHtml(reaction.emoji)}</span>
-            <span>${reaction.count}</span>
+            <span>${escapeHtml(String(reaction.count))}</span>
         </button>
     `).join('');
 }
@@ -490,6 +491,7 @@ function jumpToMessage(messageId) {
 
 function setReplyTarget(messageEl) {
     if (!messageEl) return;
+    if (messageEl.dataset.isDeleted === '1') return;
     const author = messageEl.querySelector('.message-author')?.textContent || 'Unknown';
     const text = messageEl.querySelector('.message-text')?.textContent || '[вложение]';
     replyToMessage = { id: Number(messageEl.dataset.messageId), author, body: text };
@@ -530,21 +532,82 @@ function openMessageContextMenu(event, messageEl) {
     if (!messageEl) return;
 
     const messageUserId = Number(messageEl.dataset.userId || 0);
+    const isDeletedMessage = messageEl.dataset.isDeleted === '1';
     const deleteBtn = messageContextMenu.querySelector('[data-context-action="delete"]');
+    const reactBtn = messageContextMenu.querySelector('[data-context-action="react"]');
+    const replyBtn = messageContextMenu.querySelector('[data-context-action="reply"]');
+    const quickReactions = messageContextMenu.querySelector('[data-context-quick-reactions]');
+
     if (deleteBtn) {
         deleteBtn.classList.toggle('hidden', Number(messageUserId) !== Number(currentUser?.id));
     }
+    if (reactBtn) {
+        reactBtn.classList.toggle('hidden', isDeletedMessage);
+    }
+    if (replyBtn) {
+        replyBtn.classList.toggle('hidden', isDeletedMessage);
+    }
+    if (quickReactions) {
+        quickReactions.classList.toggle('hidden', isDeletedMessage);
+    }
 
-    renderContextQuickReactions();
-    renderContextAllEmojiMenu();
+    if (!isDeletedMessage) {
+        renderContextQuickReactions();
+        renderContextAllEmojiMenu();
+    } else {
+        messageContextEmojiMenu.classList.add('hidden');
+    }
 
     messageContextMenu.dataset.messageId = messageEl.dataset.messageId;
-    messageContextMenu.style.left = `${event.clientX}px`;
-    messageContextMenu.style.top = `${event.clientY}px`;
-    messageContextMenu.classList.remove('hidden');
 
-    messageContextEmojiMenu.style.left = `${event.clientX + 270}px`;
-    messageContextEmojiMenu.style.top = `${event.clientY}px`;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+
+    messageContextMenu.classList.remove('hidden');
+    messageContextMenu.style.left = '0px';
+    messageContextMenu.style.top = '0px';
+
+    const menuRect = messageContextMenu.getBoundingClientRect();
+    let menuX = event.clientX;
+    let menuY = event.clientY;
+
+    if (menuX + menuRect.width > viewportWidth) {
+        menuX = Math.max(0, viewportWidth - menuRect.width);
+    }
+    if (menuY + menuRect.height > viewportHeight) {
+        menuY = Math.max(0, viewportHeight - menuRect.height);
+    }
+
+    messageContextMenu.style.left = `${menuX}px`;
+    messageContextMenu.style.top = `${menuY}px`;
+
+    const emojiOffsetX = 270;
+    const wasEmojiHidden = messageContextEmojiMenu.classList.contains('hidden');
+    const prevEmojiVisibility = messageContextEmojiMenu.style.visibility;
+
+    messageContextEmojiMenu.style.visibility = 'hidden';
+    messageContextEmojiMenu.classList.remove('hidden');
+    messageContextEmojiMenu.style.left = '0px';
+    messageContextEmojiMenu.style.top = '0px';
+
+    const emojiRect = messageContextEmojiMenu.getBoundingClientRect();
+    let emojiX = menuX + emojiOffsetX;
+    let emojiY = menuY;
+
+    if (emojiX + emojiRect.width > viewportWidth) {
+        emojiX = Math.max(0, menuX - emojiRect.width);
+    }
+    if (emojiY + emojiRect.height > viewportHeight) {
+        emojiY = Math.max(0, viewportHeight - emojiRect.height);
+    }
+
+    messageContextEmojiMenu.style.left = `${emojiX}px`;
+    messageContextEmojiMenu.style.top = `${emojiY}px`;
+
+    if (wasEmojiHidden) {
+        messageContextEmojiMenu.classList.add('hidden');
+    }
+    messageContextEmojiMenu.style.visibility = prevEmojiVisibility;
 }
 
 function closeMessageContextMenu() {
@@ -598,6 +661,18 @@ function applyDeletedMessage(messageId, body = 'Сообщение удален�
             node.textContent = body;
             content.appendChild(node);
         }
+    }
+
+    messageEl.dataset.isDeleted = '1';
+
+    const hoverActions = messageEl.querySelector('.message-hover-actions');
+    if (hoverActions) {
+        hoverActions.classList.add('hidden');
+    }
+
+    const replyBtn = messageEl.querySelector('.message-reply-btn');
+    if (replyBtn) {
+        replyBtn.setAttribute('disabled', 'disabled');
     }
 }
 
@@ -1148,6 +1223,7 @@ messagesList.addEventListener('click', (event) => {
     if (reactionBtn) {
         const messageEl = reactionBtn.closest('.message');
         if (!messageEl) return;
+        if (messageEl.dataset.isDeleted === '1') return;
         toggleReaction(messageEl.dataset.messageId, reactionBtn.dataset.emoji);
         return;
     }
@@ -1187,6 +1263,10 @@ messageContextMenu.addEventListener('click', (event) => {
     const messageEl = messagesList.querySelector(`[data-message-id="${messageId}"]`);
 
     if (emojiBtn) {
+        if (messageEl?.dataset.isDeleted === '1') {
+            closeMessageContextMenu();
+            return;
+        }
         toggleReaction(messageId, emojiBtn.dataset.contextEmoji);
         closeMessageContextMenu();
         return;
@@ -1195,6 +1275,10 @@ messageContextMenu.addEventListener('click', (event) => {
     if (!actionBtn || !messageEl) return;
 
     if (actionBtn.dataset.contextAction === 'react') {
+        if (messageEl.dataset.isDeleted === '1') {
+            closeMessageContextMenu();
+            return;
+        }
         messageContextEmojiMenu.classList.remove('hidden');
         return;
     }
@@ -1215,6 +1299,11 @@ messageContextEmojiMenu.addEventListener('click', (event) => {
     const messageId = messageContextMenu.dataset.messageId;
 
     if (emojiBtn) {
+        const messageEl = messagesList.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageEl?.dataset.isDeleted === '1') {
+            closeMessageContextMenu();
+            return;
+        }
         toggleReaction(messageId, emojiBtn.dataset.contextEmoji);
         closeMessageContextMenu();
         return;
