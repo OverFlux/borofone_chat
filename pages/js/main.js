@@ -1547,7 +1547,7 @@ async function deleteRoomByType(roomId, type) {
     }
 }
 
-createRoomBtn.addEventListener('click', openModal);
+if (createRoomBtn) createRoomBtn.addEventListener('click', () => openModal('text'));
 closeModalBtn.addEventListener('click', closeModal);
 cancelModalBtn.addEventListener('click', closeModal);
 
