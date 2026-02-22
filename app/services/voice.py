@@ -106,6 +106,13 @@ class VoiceRuntime:
         async with self._lock:
             return list(self._connections.get(user_id, set()))
 
+    async def sockets_all(self) -> list:
+        async with self._lock:
+            sockets = []
+            for conns in self._connections.values():
+                sockets.extend(conns)
+            return sockets
+
     @staticmethod
     def _as_dict(participant: VoiceParticipant) -> dict:
         return {

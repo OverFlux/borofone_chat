@@ -122,6 +122,19 @@ async def global_websocket_endpoint(
             except Exception:
                 pass
 
+    async def broadcast_voice_presence(room_id: int) -> None:
+        payload = {
+            "type": "voice_room_presence",
+            "room_id": room_id,
+            "participants": await voice_runtime.participants_snapshot(room_id),
+        }
+        sockets = await voice_runtime.sockets_all()
+        for sock in sockets:
+            try:
+                await sock.send_json(payload)
+            except Exception:
+                pass
+
     # ── Task 1: receive from client ───────────────────────────────
     async def receive_messages() -> None:
         try:
@@ -264,8 +277,10 @@ async def global_websocket_endpoint(
                                 "display_name": prev_participant.display_name,
                             },
                         })
+                        await broadcast_voice_presence(prev_room_id)
                     await websocket.send_json({"type": "room_joined", "room_id": room_id, "participants": snapshot})
                     await broadcast_voice(room_id, {"type": "participant_joined", "room_id": room_id, "participant": voice_runtime._as_dict(participant)})
+                    await broadcast_voice_presence(room_id)
                     continue
 
                 if msg_type == "leave_room":
@@ -279,6 +294,7 @@ async def global_websocket_endpoint(
                             "room_id": room_id,
                             "participant": {"user_id": participant.user_id, "username": participant.username, "display_name": participant.display_name},
                         })
+                        await broadcast_voice_presence(room_id)
                     continue
 
                 if msg_type == "set_mute":
@@ -418,6 +434,7 @@ async def global_websocket_endpoint(
                     "room_id": room_id,
                     "participant": {"user_id": participant.user_id, "username": participant.username, "display_name": participant.display_name},
                 })
+                await broadcast_voice_presence(room_id)
             stop_event.set()
 
     # ── Task 2: send to client ────────────────────────────────────

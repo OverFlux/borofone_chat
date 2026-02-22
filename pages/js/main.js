@@ -1130,6 +1130,13 @@ function connectWebSocket() {
                     handleRtcAnswer(data);
                 } else if (data.type === 'rtc_ice') {
                     handleRtcIce(data);
+                } else if (data.type === 'voice_room_presence') {
+                    voiceRoomParticipantsByRoom[data.room_id] = data.participants || [];
+                    if (data.room_id === currentVoiceRoomId) {
+                        voiceParticipants = data.participants || [];
+                        renderVoiceParticipants();
+                    }
+                    renderVoiceRooms();
                 } else if (data.type === 'error') {
                     console.error('[WS] error:', data.detail);
                     if (data.code === 'unauthorized') redirectToLogin();
@@ -1840,6 +1847,10 @@ function renderVoiceRooms() {
     toggleMicBtn.disabled = !currentVoiceRoomId;
     toggleDeafenBtn.disabled = !currentVoiceRoomId;
     leaveVoiceBtn.disabled = !currentVoiceRoomId;
+    const controlsVisible = !!currentVoiceRoomId;
+    if (toggleMicBtn?.parentElement) {
+        toggleMicBtn.parentElement.style.display = controlsVisible ? "flex" : "none";
+    }
 }
 
 function renderVoiceParticipants() {
@@ -1851,8 +1862,8 @@ async function ensureLocalStream() {
     if (localStream) return localStream;
     localStream = await navigator.mediaDevices.getUserMedia({
         audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
+            echoCancellation: false,
+            noiseSuppression: false,
             autoGainControl: false,
             channelCount: 1,
             sampleRate: 48000,
