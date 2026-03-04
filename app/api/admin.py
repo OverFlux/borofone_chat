@@ -6,16 +6,16 @@ Admin endpoints для управления инвайтами.
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import require_admin
 from app.infra.db import get_db
-from app.models import Invite, User
+from app.models import Invite, User, Room
 from app.schemas.auth import InviteCreateRequest, InviteResponse
 from app.security import generate_invite_code
 
-router = APIRouter(prefix="/admin/invites", tags=["Admin"])
+router = APIRouter(prefix="/api/admin/invites", tags=["Admin"])
 
 
 @router.post("", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)

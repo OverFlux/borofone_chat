@@ -2,6 +2,67 @@
    ONLINE USERS SIDEBAR
    ========================================== */
 
+.users-search {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.search-input::placeholder {
+    color: var(--text-dim);
+}
+
+.search-input:focus {
+    border-color: var(--accent);
+}
+
+.users-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pagination-btn {
+    padding: 6px 12px;
+    background: var(--glass-hover);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.page-info {
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
 .user-item {
     display: flex;
     align-items: center;
@@ -59,6 +120,12 @@
     white-space: nowrap;
 }
 
+.user-last-seen {
+    font-size: 11px;
+    color: #72767d;
+    margin-top: 2px;
+}
+
 .user-status {
     width: 10px;
     height: 10px;
@@ -68,10 +135,44 @@
 
 .user-status.online {
     background: #43b581;
-    box-shadow: 0 0 0 2px #1e1f22;
 }
 
 .user-status.offline {
     background: #72767d;
-    box-shadow: 0 0 0 2px #1e1f22;
+}
+
+/* Offline user styling - Discord style */
+.user-item.offline .user-avatar {
+    background: linear-gradient(135deg, #4f545c 0%, #3f4147 100%);
+    opacity: 0.6;
+}
+
+.user-item.offline .user-display-name {
+    color: #4f545c;
+}
+
+.user-item.offline .user-username {
+    color: #5d6269;
+}
+
+.user-item.offline .user-last-seen {
+    color: #5d6269;
+}
+
+/* Dark theme offline */
+[data-theme] .user-item.offline .user-avatar {
+    background: linear-gradient(135deg, #4f545c 0%, #3f4147 100%);
+    opacity: 0.5;
+}
+
+[data-theme] .user-item.offline .user-display-name {
+    color: #72767d;
+}
+
+[data-theme] .user-item.offline .user-username {
+    color: #4f545c;
+}
+
+[data-theme] .user-item.offline .user-last-seen {
+    color: #4f545c;
 }

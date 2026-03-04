@@ -116,26 +116,9 @@ function createWordleModal() {
  * Add Wordle button to chat header
  */
 function addWordleButton() {
-    const headerRight = document.querySelector('.header-right');
-    if (!headerRight) return;
-    
-    // Check if button already exists
-    if (document.getElementById('wordleBtn')) return;
-    
-    const btn = document.createElement('button');
-    btn.id = 'wordleBtn';
-    btn.className = 'wordle-btn';
-    btn.title = 'Играть в Wordle';
-    btn.innerHTML = 'Wordle';
-    btn.onclick = openWordleModal;
-    
-    // Insert before settings button
-    const settingsBtn = document.getElementById('settingsBtn');
-    if (settingsBtn) {
-        headerRight.insertBefore(btn, settingsBtn);
-    } else {
-        headerRight.appendChild(btn);
-    }
+    // Wordle button is now handled through the sidebar activities tab
+    // This function is kept for backwards compatibility but does nothing
+    return;
 }
 
 /**

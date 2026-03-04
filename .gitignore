@@ -21,3 +21,4 @@
 *.pfx
 *.crt
 *.key
+/.VSCodeCounter

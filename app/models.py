@@ -76,6 +76,19 @@ class User(Base):
         nullable=False,
     )
 
+    # Присутствие - отслеживание онлайн/оффлайн статуса
+    last_seen: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+    is_online: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        index=True,
+    )
+
     # Relationships
     messages: Mapped[list["Message"]] = relationship(
         "Message",

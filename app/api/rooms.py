@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 
 from app.dependencies import get_current_user
 from app.infra.db import get_db
 from app.models import Room, User
 from app.schemas.rooms import RoomCreate, RoomResponse
+from app.services.presence import get_all_users_with_status, set_user_online, set_user_offline, check_and_update_offline_users
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
@@ -119,3 +121,79 @@ async def delete_room(
 
     await db.delete(room)
     await db.commit()
+
+
+@router.get("/{room_id}/users")
+async def get_all_users(
+    room_id: int,
+    status: Optional[str] = Query(None, description="Фильтр: online, offline"),
+    search: Optional[str] = Query(None, description="Поиск по имени"),
+    sort_by: str = Query("last_seen", description="Сортировка: last_seen, username, display_name"),
+    sort_order: str = Query("desc", description="Порядок: asc, desc"),
+    limit: int = Query(50, ge=1, le=100, description="Лимит"),
+    offset: int = Query(0, ge=0, description="Смещение"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Получить всех пользователей с разделением на онлайн/оффлайн.
+    
+    Поддерживает:
+    - Фильтрацию по статусу (online/offline)
+    - Поиск по username и display_name
+    - Сортировку по последней активности, имени или отображаемому имени
+    - Пагинацию
+    """
+    users, total = await get_all_users_with_status(
+        db=db,
+        room_id=room_id,
+        status_filter=status,
+        search_query=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        limit=limit,
+        offset=offset,
+    )
+    
+    return {
+        "users": users,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.post("/{room_id}/users/{user_id}/online")
+async def mark_user_online(
+    room_id: int,
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Отметить пользователя как онлайн (вызывается при входе в комнату)."""
+    await set_user_online(db, user_id)
+    return {"status": "ok", "user_id": user_id, "is_online": True}
+
+
+@router.post("/{room_id}/users/{user_id}/offline")
+async def mark_user_offline(
+    room_id: int,
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Отметить пользователя как оффлайн (вызывается при выходе из комнаты)."""
+    await set_user_offline(db, user_id)
+    return {"status": "ok", "user_id": user_id, "is_online": False}
+
+
+@router.post("/{room_id}/users/sync")
+async def sync_users_status(
+    room_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Синхронизировать статусы пользователей (проверить кто оффлайн)."""
+    from app.infra.redis import redis_client
+    await check_and_update_offline_users(db, redis_client)
+    return {"status": "synced"}

@@ -83,6 +83,17 @@ function initLoadingScreen() {
 let currentRoom = null;
 let ws = null;
 let wsReady = Promise.resolve();  // Promise который резолвится когда WS открыт
+
+// Connection stats tracking
+let connectionStats = {
+    connectedAt: null,
+    messagesSent: 0,
+    messagesReceived: 0,
+    reconnects: 0,
+    lastPingTime: null,
+    pingValue: null
+};
+
 let currentUser = null;
 let rooms = [];
 let shouldRemoveAvatar = false;
@@ -107,6 +118,12 @@ let activeReactionPickerFor = null;
 let voiceRooms = [];
 let currentVoiceRoomId = null;
 let voiceParticipants = [];
+
+// Typing indicator state
+const TYPING_TIMEOUT_MS = 3000;  // Time before stopping typing indicator
+const TYPING_DEBOUNCE_MS = 500;  // Debounce time between typing events
+let typingTimeout = null;
+let typingUsers = {};  // { userId: timeout }
 let localStream = null;
 let isMuted = false;
 let isDeafened = false;
@@ -151,6 +168,7 @@ const messageForm = document.getElementById('messageForm');
 const sendBtn = document.getElementById('sendBtn');
 const markdownPopup = document.getElementById('markdownPopup');
 const connectionStatus = document.getElementById('connectionStatus');
+const connectionStatsPopup = document.getElementById('connectionStatsPopup');
 const createRoomBtn = document.getElementById('createRoomBtn');
 const createRoomModal = document.getElementById('createRoomModal');
 const createRoomForm = document.getElementById('createRoomForm');
@@ -161,11 +179,15 @@ const cancelModalBtn = document.getElementById('cancelModalBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const activitiesBtn = document.getElementById('activitiesBtn');
 const activitiesModal = document.getElementById('activitiesModal');
+const avatarDropdown = document.getElementById('avatarDropdown');
+const settingsBtnSidebar = document.getElementById('settingsBtnSidebar');
+const activitiesTab = document.getElementById('activitiesTab');
 const activitiesOverlay = document.getElementById('activitiesOverlay');
 const activitiesCloseBtn = document.getElementById('activitiesCloseBtn');
 const gameFrame = document.getElementById('gameFrame');
 const activitiesPlaceholder = document.getElementById('activitiesPlaceholder');
 const launchGameBtn = document.getElementById('launchGameBtn');
+const launchWordleBtn = document.getElementById('launchWordleBtn');
 const openNewTabBtn = document.getElementById('openNewTabBtn');
 const dndBtn = document.getElementById('dndBtn');
 const settingsModal = document.getElementById('settingsModal');
@@ -178,7 +200,22 @@ const settingsUsername = document.getElementById('settingsUsername');
 const avatarInput = document.getElementById('avatarInput');
 const removeAvatarBtn = document.getElementById('removeAvatarBtn');
 const settingsAvatarPreview = document.getElementById('settingsAvatarPreview');
+const avatarCropperContainer = document.getElementById('avatarCropperContainer');
+const cropperImage = document.getElementById('cropperImage');
+const cropperPreviewInner = document.getElementById('cropperPreviewInner');
+const cropperZoomSlider = document.getElementById('cropperZoomSlider');
+const closeCropperBtn = document.getElementById('closeCropperBtn');
+const cancelCropBtn = document.getElementById('cancelCropBtn');
+const applyCropBtn = document.getElementById('applyCropBtn');
 const currentUserAvatar = document.getElementById('currentUserAvatar');
+
+// Avatar cropper state
+let cropperImageData = null;
+let cropperOriginalImage = null; // Original loaded image for cropping
+let panX = 0;
+let panY = 0;
+let cropScale = 1;
+const outputSize = 256; // Fixed output size
 const currentUserName = document.getElementById('currentUserName');
 const currentUserUsername = document.getElementById('currentUserUsername');
 const voiceRoomsList = document.getElementById('voiceRoomsList');
@@ -199,6 +236,17 @@ const headphoneVolumeSlider = document.getElementById('headphoneVolumeSlider');
 const micVolumeValue = document.getElementById('micVolumeValue');
 const headphoneVolumeValue = document.getElementById('headphoneVolumeValue');
 
+// Settings modal tab elements
+const logoutConfirmModal = document.getElementById('logoutConfirmModal');
+const cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
+const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
+const settingsTabBtns = document.querySelectorAll('.settings-tab-btn');
+const settingsTabPanels = document.querySelectorAll('.settings-tab-panel');
+const settingsMicVolume = document.getElementById('settingsMicVolume');
+const settingsHeadphoneVolume = document.getElementById('settingsHeadphoneVolume');
+const settingsMicVolumeValue = document.getElementById('settingsMicVolumeValue');
+const settingsHeadphoneVolumeValue = document.getElementById('settingsHeadphoneVolumeValue');
+
 const replyPreview = document.createElement('div');
 
 // ==========================================
@@ -218,12 +266,22 @@ function applyTheme(theme) {
 }
 
 function updateThemeUI(activeTheme) {
+    // Handle old theme options
     const themeOptions = document.querySelectorAll('.theme-option');
     themeOptions.forEach(option => {
         if (option.dataset.theme === activeTheme) {
             option.classList.add('active');
         } else {
             option.classList.remove('active');
+        }
+    });
+    // Handle new theme option cards
+    const themeOptionCards = document.querySelectorAll('.theme-option-card');
+    themeOptionCards.forEach(card => {
+        if (card.dataset.theme === activeTheme) {
+            card.classList.add('active');
+        } else {
+            card.classList.remove('active');
         }
     });
 }
@@ -234,10 +292,20 @@ function initTheme() {
     updateThemeUI(savedTheme);
 }
 
-// Theme option click handlers
+// Theme option click handlers (old style)
 document.querySelectorAll('.theme-option').forEach(option => {
     option.addEventListener('click', () => {
         const theme = option.dataset.theme;
+        localStorage.setItem('chatTheme', theme);
+        applyTheme(theme);
+        updateThemeUI(theme);
+    });
+});
+
+// Theme option card click handlers (new style)
+document.querySelectorAll('.theme-option-card').forEach(card => {
+    card.addEventListener('click', () => {
+        const theme = card.dataset.theme;
         localStorage.setItem('chatTheme', theme);
         applyTheme(theme);
         updateThemeUI(theme);
@@ -482,6 +550,10 @@ function selectRoom(roomId) {
     messageInput.disabled = false;
     messageInput.placeholder = `Сообщение в #${currentRoom.title}`;
     sendBtn.disabled = false;
+
+    // Clear typing indicator when changing rooms
+    typingUsers = {};
+    updateTypingIndicator();
 
     // Load messages (WebSocket уже подключен глобально)
     loadMessages(roomId);
@@ -1269,6 +1341,91 @@ function checkRateLimit() {
     return true;
 }
 
+// Typing indicator functions
+// ================================
+
+function updateTypingIndicator() {
+    const indicator = document.getElementById('typingIndicator');
+    const typingUsersEl = document.getElementById('typingUsers');
+    const typingTextEl = document.getElementById('typingText');
+    
+    if (!indicator || !typingUsersEl || !typingTextEl) return;
+    
+    const userIds = Object.keys(typingUsers).filter(uid => typingUsers[uid] && typingUsers[uid].username);
+    
+    if (userIds.length === 0) {
+        indicator.classList.add('hidden');
+        return;
+    }
+    
+    indicator.classList.remove('hidden');
+    
+    // Build display text
+    const usernames = userIds.map(uid => typingUsers[uid].username);
+    
+    if (usernames.length === 1) {
+        typingUsersEl.textContent = usernames[0];
+        typingTextEl.textContent = 'печатает...';
+    } else if (usernames.length === 2) {
+        typingUsersEl.textContent = `${usernames[0]} и ${usernames[1]}`;
+        typingTextEl.textContent = 'печатают...';
+    } else if (usernames.length === 3) {
+        typingUsersEl.textContent = `${usernames[0]}, ${usernames[1]} и ${usernames[2]}`;
+        typingTextEl.textContent = 'печатают...';
+    } else {
+        typingUsersEl.textContent = `${usernames.length} пользователей`;
+        typingTextEl.textContent = 'печатают...';
+    }
+}
+
+function handleTypingEvent(data) {
+    if (!currentRoom || data.room_id !== currentRoom.id) return;
+    
+    const userId = data.user_id;
+    const username = data.username;
+    
+    // Don't show typing for self
+    if (currentUser && userId === currentUser.id) return;
+    
+    // Add or update user typing
+    if (typingUsers[userId]) {
+        clearTimeout(typingUsers[userId].timeout);
+    }
+    
+    typingUsers[userId] = {
+        username: username,
+        timeout: setTimeout(() => {
+            delete typingUsers[userId];
+            updateTypingIndicator();
+        }, TYPING_TIMEOUT_MS)
+    };
+    
+    updateTypingIndicator();
+}
+
+function sendTypingEvent() {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !currentRoom) return;
+    
+    ws.send(JSON.stringify({
+        type: 'typing',
+        room_id: currentRoom.id
+    }));
+}
+
+let typingDebounceTimeout = null;
+
+function onInputChanged() {
+    // Clear existing debounce
+    if (typingDebounceTimeout) {
+        clearTimeout(typingDebounceTimeout);
+    }
+    
+    // Send typing event after debounce
+    typingDebounceTimeout = setTimeout(() => {
+        sendTypingEvent();
+    }, TYPING_DEBOUNCE_MS);
+}
+
 async function sendMessage() {
     // Check rate limit before sending
     if (!checkRateLimit()) {
@@ -1313,6 +1470,9 @@ async function sendMessage() {
                 attachments: uploadedAttachments,
                 reply_to_id: replyToMessage?.id ?? null,
             }));
+            
+            // Track sent message for stats
+            connectionStats.messagesSent++;
 
             // Очищаем вложения после отправки
             if (window.attachments) {
@@ -1323,6 +1483,12 @@ async function sendMessage() {
             // Когда придёт через WS с ID — обновим снова
             markCurrentRoomAsRead();
             clearReplyTarget();
+            
+            // Clear own typing indicator after sending
+            if (currentUser) {
+                delete typingUsers[currentUser.id];
+                updateTypingIndicator();
+            }
         } else {
             // WS недоступен — HTTP fallback
             console.warn('[sendMessage] WS not open, using HTTP fallback');
@@ -1378,6 +1544,13 @@ function playVoiceEventSound(kind) {
 // Подключаемся к глобальному WS ОДИН РАЗ при загрузке
 function connectWebSocket() {
     if (ws) return; // уже подключены
+    
+    // Track reconnect if we already had a connection before
+    if (connectionStats.connectedAt !== null) {
+        connectionStats.reconnects++;
+    }
+    
+    updateConnectionStatus('connecting');
 
     wsReady = new Promise((resolve) => {
         const wsUrl = `${getWsUrl()}/ws`;
@@ -1385,6 +1558,9 @@ function connectWebSocket() {
 
         socket.onopen = () => {
             console.log('[WS] Connected globally');
+            // Reset connection stats on new connection
+            connectionStats.connectedAt = Date.now();
+            connectionStats.pingValue = null;
             updateConnectionStatus('connected');
             ws = socket;
             resolve();
@@ -1395,6 +1571,8 @@ function connectWebSocket() {
                 const data = JSON.parse(event.data);
 
                 if (data.type === 'message') {
+                    // Track received message for stats
+                    connectionStats.messagesReceived++;
                     // Если сообщение в ТЕКУЩЕЙ комнате — добавляем в DOM
                     if (currentRoom && data.room_id === currentRoom.id) {
                         if (!messagesList.querySelector(`[data-message-id="${data.id}"]`)) {
@@ -1426,6 +1604,8 @@ function connectWebSocket() {
                     closeReactionPicker();
                 } else if (data.type === 'message_deleted') {
                     applyDeletedMessage(data.message_id, data.body || 'Сообщение удалено');
+                } else if (data.type === 'typing') {
+                    handleTypingEvent(data);
                 } else if (data.type === 'room_joined') {
                     peerConnections.forEach((_, uid) => closePeerConnection(uid));
                     currentVoiceRoomId = data.room_id;
@@ -1510,15 +1690,86 @@ function connectWebSocket() {
 function updateConnectionStatus(status) {
     connectionStatus.classList.remove('connecting', 'connected', 'disconnected');
     connectionStatus.classList.add(status);
-
-    const statusText = {
-        connecting: 'Подключение...',
-        connected: 'Подключено',
-        disconnected: 'Отключено'
-    }[status] || 'Неизвестно';
-
-    connectionStatus.querySelector('.status-text').textContent = statusText;
+    // Status now shown via light bulb icon only - no text needed
+    
+    // Update stats display
+    updateConnectionStatsDisplay();
 }
+
+// Update the connection stats popup display
+function updateConnectionStatsDisplay() {
+    const statusEl = document.getElementById('statsStatus');
+    const uptimeEl = document.getElementById('statsUptime');
+    const sentEl = document.getElementById('statsSent');
+    const receivedEl = document.getElementById('statsReceived');
+    const pingEl = document.getElementById('statsPing');
+    const reconnectsEl = document.getElementById('statsReconnects');
+    
+    if (!statusEl) return;
+    
+    // Status
+    const currentStatus = connectionStatus.classList.contains('connected') ? 'connected' : 
+                          connectionStatus.classList.contains('connecting') ? 'connecting' : 'disconnected';
+    const statusText = currentStatus === 'connected' ? 'Подключено' : 
+                       currentStatus === 'connecting' ? 'Подключение...' : 'Нет связи';
+    statusEl.textContent = statusText;
+    statusEl.className = 'stats-value ' + (currentStatus === 'connected' ? 'good' : 
+                            currentStatus === 'connecting' ? 'warning' : 'bad');
+    
+    // Uptime
+    if (connectionStats.connectedAt) {
+        const uptimeMs = Date.now() - connectionStats.connectedAt;
+        const seconds = Math.floor(uptimeMs / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        if (hours > 0) {
+            uptimeEl.textContent = `${hours}ч ${minutes % 60}м`;
+        } else if (minutes > 0) {
+            uptimeEl.textContent = `${minutes}м ${seconds % 60}с`;
+        } else {
+            uptimeEl.textContent = `${seconds}с`;
+        }
+    } else {
+        uptimeEl.textContent = '-';
+    }
+    
+    // Messages sent/received
+    sentEl.textContent = connectionStats.messagesSent.toString();
+    receivedEl.textContent = connectionStats.messagesReceived.toString();
+    
+    // Ping
+    if (connectionStats.pingValue !== null) {
+        pingEl.textContent = `${connectionStats.pingValue}мс`;
+        pingEl.className = 'stats-value ' + (connectionStats.pingValue < 100 ? 'good' : 
+                                connectionStats.pingValue < 300 ? 'warning' : 'bad');
+    } else {
+        pingEl.textContent = '-';
+        pingEl.className = 'stats-value';
+    }
+    
+    // Reconnects
+    reconnectsEl.textContent = connectionStats.reconnects.toString();
+}
+
+// Toggle connection stats popup
+function toggleConnectionStatsPopup(e) {
+    e.stopPropagation();
+    if (connectionStatsPopup.classList.contains('active')) {
+        connectionStatsPopup.classList.remove('active');
+    } else {
+        updateConnectionStatsDisplay();
+        connectionStatsPopup.classList.add('active');
+    }
+}
+
+// Close connection stats popup when clicking outside
+document.addEventListener('click', (e) => {
+    if (connectionStatsPopup && connectionStatsPopup.classList.contains('active')) {
+        if (!connectionStatus.contains(e.target) && !connectionStatsPopup.contains(e.target)) {
+            connectionStatsPopup.classList.remove('active');
+        }
+    }
+});
 
 // ==========================================
 // MODAL
@@ -1553,9 +1804,10 @@ function renderCurrentUser() {
 
     if (currentUserAvatar) currentUserAvatar.innerHTML = avatarHtml;
 
-    // Кнопка создания комнаты — только для admin
-    if (createRoomBtn) {
-        createRoomBtn.style.display = currentUser.role === 'admin' ? '' : 'none';
+    // Admin tab in settings — only for admin
+    const adminTabBtn = document.querySelector('.admin-tab-btn');
+    if (adminTabBtn) {
+        adminTabBtn.style.display = currentUser.role === 'admin' ? '' : 'none';
     }
 }
 
@@ -1568,14 +1820,45 @@ function openSettingsModal() {
     avatarInput.value = '';
     updateSettingsAvatarPreview(normalizeAvatarUrl(currentUser.avatar_url));
     
+    // Update user preview
+    const displayNameEl = document.getElementById('settingsUserDisplayName');
+    const userTagEl = document.getElementById('settingsUserTag');
+    if (displayNameEl) displayNameEl.textContent = currentUser.display_name || currentUser.username || 'User';
+    if (userTagEl) userTagEl.textContent = '@' + (currentUser.username || 'username');
+    
     // Обновляем UI темы при открытии
     updateThemeUI(getStoredTheme());
+
+    // Sync volume settings from voice chat
+    if (micVolumeSlider && settingsMicVolume) {
+        settingsMicVolume.value = micVolumeSlider.value;
+        settingsMicVolumeValue.textContent = `${micVolumeSlider.value}%`;
+    }
+    if (headphoneVolumeSlider && settingsHeadphoneVolume) {
+        settingsHeadphoneVolume.value = headphoneVolumeSlider.value;
+        settingsHeadphoneVolumeValue.textContent = `${headphoneVolumeSlider.value}%`;
+    }
+
+    // Reset to first tab
+    const firstTabBtn = document.querySelector('.settings-tab-btn');
+    const firstTabPanel = document.querySelector('.settings-tab-panel');
+    if (firstTabBtn && firstTabPanel) {
+        settingsTabBtns.forEach(b => b.classList.remove('active'));
+        settingsTabPanels.forEach(p => p.classList.remove('active'));
+        firstTabBtn.classList.add('active');
+        firstTabPanel.classList.add('active');
+    }
 
     settingsModal.classList.add('active');
 }
 
 function closeSettingsModal() {
     settingsModal.classList.remove('active');
+    // Reset avatar cropper state
+    closeAvatarCropper();
+    window.croppedAvatarData = null;
+    shouldRemoveAvatar = false;
+    avatarInput.value = '';
 }
 
 function updateSettingsAvatarPreview(avatarUrl) {
@@ -1593,9 +1876,20 @@ async function saveSettings() {
     formData.append('username', settingsUsername.value.trim());
     formData.append('remove_avatar', shouldRemoveAvatar ? 'true' : 'false');
 
-    const file = avatarInput.files?.[0];
-    if (file) {
-        formData.append('avatar', file);
+    // Check for cropped avatar data first
+    if (window.croppedAvatarData) {
+        // Convert base64 to blob
+        const response = await fetch(window.croppedAvatarData);
+        const blob = await response.blob();
+        const croppedFile = new File([blob], 'avatar.png', { type: 'image/png' });
+        formData.append('avatar', croppedFile);
+        window.croppedAvatarData = null; // Clear after use
+    } else {
+        // Use original file input if no cropped data
+        const file = avatarInput.files?.[0];
+        if (file) {
+            formData.append('avatar', file);
+        }
     }
 
     try {
@@ -1655,6 +1949,7 @@ if (sendBtn) {
     sendBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        sendMessage(); // Вызываем отправку сообщения
     });
 }
 
@@ -1680,6 +1975,8 @@ messageInput.addEventListener('input', () => {
     sendBtn.disabled = !messageInput.value.trim();
     // Check for text selection (for popup)
     checkTextSelection();
+    // Send typing indicator event
+    onInputChanged();
 });
 
 // Check for text selection to show popup
@@ -2035,10 +2332,16 @@ createRoomModal.addEventListener('click', (e) => {
     }
 });
 
-settingsBtn.addEventListener('click', openSettingsModal);
+// Settings button - uses sidebar button
+if (settingsBtnSidebar) {
+    settingsBtnSidebar.addEventListener('click', openSettingsModal);
+}
+// Note: settingsBtn (header button) was removed - use settingsBtnSidebar instead
 
 // Activities (Game) Modal
 function openActivitiesModal() {
+    if (!activitiesModal) return;
+    
     activitiesModal.classList.add('active');
     // Reset to placeholder state
     gameFrame.classList.remove('active');
@@ -2053,8 +2356,8 @@ function closeActivitiesModal() {
     activitiesPlaceholder.classList.remove('hidden');
 }
 
-function launchGame() {
-    // Path to your game (Blackjack)
+function launchGame(gameType = 'blackjack') {
+    // Path to your game
     const gamePath = './games/blackjack.html';
     
     gameFrame.src = gamePath;
@@ -2067,6 +2370,8 @@ function launchGame() {
     }, 500);
 }
 
+// Blackjack is now the only game in the modal
+
 // Click on game area to focus it
 document.querySelector('.activities-content').addEventListener('click', () => {
     if (gameFrame.classList.contains('active')) {
@@ -2075,15 +2380,38 @@ document.querySelector('.activities-content').addEventListener('click', () => {
 });
 
 // Event listeners for activities modal
-activitiesBtn.addEventListener('click', openActivitiesModal);
-activitiesCloseBtn.addEventListener('click', closeActivitiesModal);
-activitiesOverlay.addEventListener('click', closeActivitiesModal);
-launchGameBtn.addEventListener('click', launchGame);
+if (activitiesBtn) {
+    activitiesBtn.addEventListener('click', openActivitiesModal);
+}
+if (activitiesCloseBtn) {
+    activitiesCloseBtn.addEventListener('click', closeActivitiesModal);
+}
+if (activitiesOverlay) {
+    activitiesOverlay.addEventListener('click', closeActivitiesModal);
+}
+if (launchGameBtn) {
+    launchGameBtn.addEventListener('click', () => launchGame('blackjack'));
+}
 
-// Open game in new tab
-openNewTabBtn.addEventListener('click', () => {
-    window.open('./games/blackjack.html', '_blank');
-});
+// Wordle button - opens in its own modal
+if (launchWordleBtn) {
+    launchWordleBtn.addEventListener('click', () => {
+        closeActivitiesModal();
+        if (typeof initWordle === 'function') {
+            initWordle();
+        }
+        if (typeof openWordleModal === 'function') {
+            openWordleModal();
+        }
+    });
+}
+
+// Open game in new tab - default to blackjack
+if (openNewTabBtn) {
+    openNewTabBtn.addEventListener('click', () => {
+        window.open('./games/blackjack.html', '_blank');
+    });
+}
 
 // Close modal with Escape key
 document.addEventListener('keydown', (e) => {
@@ -2143,27 +2471,211 @@ document.addEventListener('keyup', (e) => {
     }
 });
 
-// DND (Do Not Disturb) button
+// DND (Do Not Disturb) button - now uses avatar
 function updateDndButtonState() {
+    if (!window.notifications) return;
+    
     const isDnd = window.notifications.isDoNotDisturbEnabled();
-    if (isDnd) {
-        dndBtn.classList.add('active');
-        dndBtn.title = 'Режим "Не беспокоить" включён';
-    } else {
-        dndBtn.classList.remove('active');
-        dndBtn.title = 'Включить режим "Не беспокоить"';
+    
+    // Update avatar status indicator instead of old dndBtn
+    if (currentUserAvatar) {
+        if (isDnd) {
+            currentUserAvatar.classList.add('dnd');
+        } else {
+            currentUserAvatar.classList.remove('dnd');
+        }
+    }
+    
+    // Keep old button for backwards compatibility if it exists
+    if (dndBtn) {
+        if (isDnd) {
+            dndBtn.classList.add('active');
+            dndBtn.title = 'Режим "Не беспокоить" включён';
+        } else {
+            dndBtn.classList.remove('active');
+            dndBtn.title = 'Включить режим "Не беспокоить"';
+        }
     }
 }
 
-dndBtn.addEventListener('click', () => {
-    window.notifications.toggleDoNotDisturb();
+// DND button - now handled via avatar dropdown, keeping for backwards compatibility
+if (dndBtn) {
+    dndBtn.addEventListener('click', () => {
+        window.notifications.toggleDoNotDisturb();
+        updateDndButtonState();
+    });
+
+    // Initialize DND button state
     updateDndButtonState();
+}
+// (Variables already declared at top of file: avatarDropdown, settingsBtnSidebar, activitiesTab)
+
+// Toggle avatar dropdown on click
+if (currentUserAvatar) {
+    currentUserAvatar.addEventListener('click', (e) => {
+        e.stopPropagation();
+        avatarDropdown.classList.toggle('active');
+        
+        // Close other dropdowns
+        if (avatarDropdown.classList.contains('active')) {
+            // Reposition dropdown based on avatar position
+            const rect = currentUserAvatar.getBoundingClientRect();
+            avatarDropdown.style.left = '10px';
+            avatarDropdown.style.right = '10px';
+        }
+    });
+}
+
+// Status selection from dropdown
+if (avatarDropdown) {
+    avatarDropdown.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            const status = e.currentTarget.dataset.status;
+            
+            if (status === 'dnd') {
+                // Enable DND mode
+                window.notifications.setDoNotDisturb(true);
+                currentUserAvatar.classList.add('dnd');
+            } else if (status === 'online') {
+                // Disable DND mode
+                window.notifications.setDoNotDisturb(false);
+                currentUserAvatar.classList.remove('dnd');
+            }
+            
+            updateDndButtonState();
+            avatarDropdown.classList.remove('active');
+        });
+    });
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+    if (avatarDropdown && avatarDropdown.classList.contains('active')) {
+        if (!avatarDropdown.contains(e.target) && !currentUserAvatar.contains(e.target)) {
+            avatarDropdown.classList.remove('active');
+        }
+    }
 });
 
-// Initialize DND button state
-updateDndButtonState();
+// Activities tab handler
+if (activitiesTab) {
+    activitiesTab.addEventListener('click', () => {
+        // Open activities/games modal
+        openActivitiesModal();
+    });
+}
 
-logoutBtn.addEventListener('click', logout);
+// Update avatar status indicator based on DND state
+function updateAvatarStatusIndicator() {
+    if (currentUserAvatar) {
+        const isDnd = window.notifications && window.notifications.isDoNotDisturb;
+        if (isDnd) {
+            currentUserAvatar.classList.add('dnd');
+        } else {
+            currentUserAvatar.classList.remove('dnd');
+        }
+    }
+}
+
+// Update avatar indicator when DND changes
+const originalToggleDnd = window.notifications?.toggleDoNotDisturb;
+if (window.notifications) {
+    window.notifications.toggleDoNotDisturb = function(...args) {
+        const result = originalToggleDnd?.apply(this, args);
+        updateAvatarStatusIndicator();
+        updateDndButtonState();
+        return result;
+    };
+}
+
+// Logout with confirmation modal
+logoutBtn.addEventListener('click', () => {
+    logoutConfirmModal.classList.add('active');
+});
+
+cancelLogoutBtn.addEventListener('click', () => {
+    logoutConfirmModal.classList.remove('active');
+});
+
+confirmLogoutBtn.addEventListener('click', () => {
+    logoutConfirmModal.classList.remove('active');
+    logout();
+});
+
+logoutConfirmModal.addEventListener('click', (e) => {
+    if (e.target === logoutConfirmModal) {
+        logoutConfirmModal.classList.remove('active');
+    }
+});
+
+// Settings tab switching
+settingsTabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabId = btn.dataset.tab;
+        
+        // Update button states
+        settingsTabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Update panel visibility
+        settingsTabPanels.forEach(panel => {
+            panel.classList.remove('active');
+            if (panel.id === `tab-${tabId}`) {
+                panel.classList.add('active');
+            }
+        });
+    });
+});
+
+// Volume settings sync between voice chat and settings
+function syncVolumeSettings() {
+    if (micVolumeSlider && settingsMicVolume) {
+        settingsMicVolume.value = micVolumeSlider.value;
+        settingsMicVolumeValue.textContent = `${micVolumeSlider.value}%`;
+    }
+    if (headphoneVolumeSlider && settingsHeadphoneVolume) {
+        settingsHeadphoneVolume.value = headphoneVolumeSlider.value;
+        settingsHeadphoneVolumeValue.textContent = `${headphoneVolumeSlider.value}%`;
+    }
+}
+
+// Initialize volume sync
+if (micVolumeSlider) {
+    micVolumeSlider.addEventListener('input', () => {
+        if (settingsMicVolume) {
+            settingsMicVolume.value = micVolumeSlider.value;
+            settingsMicVolumeValue.textContent = `${micVolumeSlider.value}%`;
+        }
+    });
+}
+
+if (headphoneVolumeSlider) {
+    headphoneVolumeSlider.addEventListener('input', () => {
+        if (settingsHeadphoneVolume) {
+            settingsHeadphoneVolume.value = headphoneVolumeSlider.value;
+            settingsHeadphoneVolumeValue.textContent = `${headphoneVolumeSlider.value}%`;
+        }
+    });
+}
+
+// Settings volume sliders (bidirectional sync)
+if (settingsMicVolume) {
+    settingsMicVolume.addEventListener('input', () => {
+        settingsMicVolumeValue.textContent = `${settingsMicVolume.value}%`;
+        if (micVolumeSlider) {
+            micVolumeSlider.value = settingsMicVolume.value;
+        }
+    });
+}
+
+if (settingsHeadphoneVolume) {
+    settingsHeadphoneVolume.addEventListener('input', () => {
+        settingsHeadphoneVolumeValue.textContent = `${settingsHeadphoneVolume.value}%`;
+        if (headphoneVolumeSlider) {
+            headphoneVolumeSlider.value = settingsHeadphoneVolume.value;
+        }
+    });
+}
 
 closeSettingsBtn.addEventListener('click', closeSettingsModal);
 cancelSettingsBtn.addEventListener('click', closeSettingsModal);
@@ -2186,7 +2698,261 @@ avatarInput.addEventListener('change', () => {
 
     shouldRemoveAvatar = false;
     const objectUrl = URL.createObjectURL(file);
-    updateSettingsAvatarPreview(objectUrl);
+    
+    // Open cropper with the image
+    openAvatarCropper(objectUrl);
+});
+
+// Avatar Cropper Functions
+let baseScale = 1; // Initial fit scale
+
+let cropperCanvas = null;
+let cropperCanvasCtx = null;
+
+function openAvatarCropper(imageUrl) {
+    cropperImageData = imageUrl;
+    panX = 0;
+    panY = 0;
+    
+    // Create or reuse canvas for preview
+    if (!cropperCanvas) {
+        cropperCanvas = document.createElement('canvas');
+        cropperCanvas.width = 240;
+        cropperCanvas.height = 240;
+        cropperCanvasCtx = cropperCanvas.getContext('2d');
+        
+        // Replace img with canvas in DOM
+        const preview = document.getElementById('avatarCropperPreview');
+        preview.innerHTML = '';
+        preview.appendChild(cropperCanvas);
+    }
+    
+    cropperImage.src = imageUrl;
+    cropperImage.onload = () => {
+        // Store original image
+        cropperOriginalImage = new Image();
+        cropperOriginalImage.src = imageUrl;
+        
+        // Fit image to container initially
+        fitImageToContainer();
+    };
+    
+    // Show cropper container
+    avatarCropperContainer.style.display = 'block';
+    
+    // Initialize drag after a small delay
+    setTimeout(initCropperDrag, 100);
+}
+
+function fitImageToContainer() {
+    if (!cropperImage.naturalWidth || !cropperCanvasCtx) return;
+    
+    const canvasWidth = 240;
+    const canvasHeight = 240;
+    
+    // Calculate scale to COVER the canvas (like object-fit: cover)
+    const scaleX = canvasWidth / cropperImage.naturalWidth;
+    const scaleY = canvasHeight / cropperImage.naturalHeight;
+    baseScale = Math.max(scaleX, scaleY);
+    
+    // Set slider range: 0.5x to 2.5x of base scale
+    cropperZoomSlider.min = baseScale * 0.5;
+    cropperZoomSlider.max = baseScale * 2.5;
+    cropperZoomSlider.value = baseScale;
+    
+    cropScale = baseScale;
+    panX = 0;
+    panY = 0;
+    
+    renderCropperPreview();
+}
+
+function renderCropperPreview() {
+    if (!cropperCanvasCtx || !cropperOriginalImage) return;
+    
+    const canvasWidth = 240;
+    const canvasHeight = 240;
+    
+    // Clear canvas
+    cropperCanvasCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+    
+    // Calculate displayed size
+    const displayWidth = cropperOriginalImage.naturalWidth * (cropScale / baseScale);
+    const displayHeight = cropperOriginalImage.naturalHeight * (cropScale / baseScale);
+    
+    // Calculate offset to center + pan
+    const offsetX = (canvasWidth - displayWidth) / 2 + panX;
+    const offsetY = (canvasHeight - displayHeight) / 2 + panY;
+    
+    // Draw image with clipping to circle (using composite operation)
+    cropperCanvasCtx.save();
+    
+    // Create circular clipping path
+    cropperCanvasCtx.beginPath();
+    cropperCanvasCtx.arc(canvasWidth / 2, canvasHeight / 2, canvasWidth / 2, 0, Math.PI * 2);
+    cropperCanvasCtx.clip();
+    
+    // Draw the image
+    cropperCanvasCtx.drawImage(
+        cropperOriginalImage,
+        offsetX, offsetY, displayWidth, displayHeight
+    );
+    
+    cropperCanvasCtx.restore();
+}
+
+// Zoom slider handler
+cropperZoomSlider?.addEventListener('input', (e) => {
+    cropScale = parseFloat(e.target.value);
+    renderCropperPreview();
+});
+
+// Close cropper
+closeCropperBtn?.addEventListener('click', closeAvatarCropper);
+cancelCropBtn?.addEventListener('click', closeAvatarCropper);
+
+function closeAvatarCropper() {
+    avatarCropperContainer.style.display = 'none';
+    cropperImageData = null;
+    cropperOriginalImage = null;
+    panX = 0;
+    panY = 0;
+    baseScale = 1;
+    cropScale = 1;
+    avatarInput.value = '';
+    
+    // Restore original HTML with img element
+    const preview = document.getElementById('avatarCropperPreview');
+    if (preview) {
+        preview.innerHTML = '<div class="avatar-cropper-preview-inner" id="cropperPreviewInner"><img id="cropperImage" src="" alt="Crop preview"></div>';
+    }
+    cropperCanvas = null;
+    cropperCanvasCtx = null;
+}
+
+// Apply crop
+applyCropBtn?.addEventListener('click', async () => {
+    if (!cropperOriginalImage) return;
+    
+    // Create final cropped image at outputSize x outputSize
+    const canvas = document.createElement('canvas');
+    canvas.width = outputSize;
+    canvas.height = outputSize;
+    const ctx = canvas.getContext('2d');
+    
+    // Use the same logic as the preview - just scale to output size
+    const containerSize = 240;
+    const displayScale = cropScale / baseScale;
+    const displayedWidth = cropperOriginalImage.naturalWidth * displayScale;
+    const displayedHeight = cropperOriginalImage.naturalHeight * displayScale;
+    
+    const offsetX = (containerSize - displayedWidth) / 2 + panX;
+    const offsetY = (containerSize - displayedHeight) / 2 + panY;
+    
+    const sourceX = (-offsetX / displayScale);
+    const sourceY = (-offsetY / displayScale);
+    const sourceWidth = containerSize / displayScale;
+    const sourceHeight = containerSize / displayScale;
+    
+    // Draw cropped image
+    ctx.drawImage(
+        cropperOriginalImage,
+        sourceX, sourceY, sourceWidth, sourceHeight,
+        0, 0, outputSize, outputSize
+    );
+    
+    // Update preview with cropped image
+    const croppedUrl = canvas.toDataURL('image/png');
+    updateSettingsAvatarPreview(croppedUrl);
+    
+    // Store cropped data for saving
+    window.croppedAvatarData = croppedUrl;
+    
+    closeAvatarCropper();
+});
+
+// Drag to pan functionality for cropper
+let isDragging = false;
+let dragStartX, dragStartY;
+let initialPanX, initialPanY;
+
+function initCropperDrag() {
+    if (!cropperCanvas) return;
+    
+    cropperCanvas.style.cursor = 'grab';
+    
+    // Remove old handler if exists
+    cropperCanvas.onmousedown = null;
+    
+    cropperCanvas.onmousedown = (e) => {
+        e.preventDefault();
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        initialPanX = panX;
+        initialPanY = panY;
+        cropperCanvas.style.cursor = 'grabbing';
+    };
+    
+    // Global mouse handlers
+    document.onmousemove = (e) => {
+        if (!isDragging) return;
+        
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        
+        // Calculate new pan position
+        let newPanX = initialPanX + dx;
+        let newPanY = initialPanY + dy;
+        
+        // Limit pan so image doesn't go completely off screen
+        const displayScale = cropScale / baseScale;
+        const displayedWidth = cropperImage.naturalWidth * displayScale;
+        const displayedHeight = cropperImage.naturalHeight * displayScale;
+        const containerSize = 240;
+        
+        // Max pan is when image edge touches container edge
+        const maxPan = (containerSize - displayedWidth) / 2;
+        const maxPanY = (containerSize - displayedHeight) / 2;
+        
+        // If image is larger than container, allow panning
+        // If image is smaller, center it
+        if (displayedWidth > containerSize) {
+            panX = Math.max(maxPan, Math.min(-maxPan, newPanX));
+        } else {
+            panX = 0;
+        }
+        
+        if (displayedHeight > containerSize) {
+            panY = Math.max(maxPanY, Math.min(-maxPanY, newPanY));
+        } else {
+            panY = 0;
+        }
+        
+        renderCropperPreview();
+    };
+    
+    document.onmouseup = () => {
+        isDragging = false;
+        if (cropperCanvas) {
+            cropperCanvas.style.cursor = 'grab';
+        }
+    };
+}
+
+// Update user preview when typing
+settingsDisplayName?.addEventListener('input', () => {
+    const displayNameEl = document.getElementById('settingsUserDisplayName');
+    if (displayNameEl) {
+        displayNameEl.textContent = settingsDisplayName.value || 'Display Name';
+    }
+});
+
+settingsUsername?.addEventListener('input', () => {
+    const userTagEl = document.getElementById('settingsUserTag');
+    if (userTagEl) {
+        userTagEl.textContent = '@' + (settingsUsername.value || 'username');
+    }
 });
 
 settingsForm.addEventListener('submit', async (e) => {
@@ -2205,9 +2971,118 @@ document.getElementById('attachBtn').addEventListener('click', () => {
 // ==========================================
 
 let presenceInterval = null;
+let currentSearch = '';
+let currentPage = 1;
+const usersPerPage = 30;
+let totalUsers = 0;
 
 /**
- * Загрузить список онлайн пользователей в текущей комнате.
+ * Загрузить список всех пользователей с разделением на онлайн/оффлайн.
+ */
+async function loadAllUsers() {
+    if (!currentRoom) {
+        document.getElementById('usersCount').textContent = '0';
+        document.getElementById('usersList').innerHTML = `
+            <div class="placeholder-message">
+                <span class="placeholder-icon">👥</span>
+                <p>Выберите комнату</p>
+            </div>
+        `;
+        return;
+    }
+
+    try {
+        const offset = (currentPage - 1) * usersPerPage;
+        let url = `${getApiUrl()}/rooms/${currentRoom.id}/users?limit=${usersPerPage}&offset=${offset}&sort_by=last_seen&sort_order=desc`;
+        
+        // Add search query
+        if (currentSearch) {
+            url += `&search=${encodeURIComponent(currentSearch)}`;
+        }
+
+        const response = await fetchWithAuth(url);
+
+        if (!response.ok) {
+            throw new Error('Failed to load users');
+        }
+
+        const data = await response.json();
+        const users = data.users || [];
+        totalUsers = data.total || 0;
+
+        // Обновляем счётчик
+        document.getElementById('usersCount').textContent = totalUsers;
+
+        // Обновляем пагинацию
+        updatePagination();
+
+        // Отображаем список
+        const usersList = document.getElementById('usersList');
+
+        if (users.length === 0) {
+            usersList.innerHTML = `
+                <div class="placeholder-message">
+                    <span class="placeholder-icon">👤</span>
+                    <p>${currentSearch ? 'Пользователи не найдены' : 'Никого нет в списке'}</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Просто показываем всех пользователей одним списком
+        usersList.innerHTML = users.map(user => renderUserItem(user)).join('');
+    } catch (err) {
+        console.error('Failed to load users:', err);
+        // Fallback to old online-only endpoint
+        loadOnlineUsers();
+    }
+}
+
+/**
+ * Render a single user item.
+ */
+function renderUserItem(user) {
+    const displayName = user.display_name || user.username;
+    const avatarUrl = normalizeAvatarUrl(user.avatar_url);
+    const initial = displayName[0]?.toUpperCase() || 'U';
+
+    const avatarHtml = avatarUrl
+        ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
+        : `<span>${initial}</span>`;
+
+    const statusClass = user.is_online ? 'online' : 'offline';
+    const itemClass = user.is_online ? 'user-item' : 'user-item offline';
+    const lastSeenText = user.is_online ? '' : (user.last_seen_formatted || '');
+
+    return `
+        <div class="${itemClass}">
+            <div class="user-avatar">${avatarHtml}</div>
+            <div class="user-info">
+                <div class="user-display-name">${escapeHtml(displayName)}</div>
+                <div class="user-username">@${escapeHtml(user.username)}</div>
+                ${!user.is_online ? `<div class="user-last-seen offline">${escapeHtml(lastSeenText)}</div>` : ''}
+            </div>
+            <div class="user-status ${statusClass}"></div>
+        </div>
+    `;
+}
+
+/**
+ * Update pagination controls.
+ */
+function updatePagination() {
+    const totalPages = Math.ceil(totalUsers / usersPerPage);
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    const pageInfo = document.getElementById('pageInfo');
+
+    if (prevBtn) prevBtn.disabled = currentPage <= 1;
+    if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+    if (pageInfo) pageInfo.textContent = `${currentPage} / ${totalPages || 1}`;
+}
+
+/**
+ * Загрузить список онлайн пользователей в текущей комнате (legacy).
  */
 async function loadOnlineUsers() {
     if (!currentRoom) {
@@ -2272,6 +3147,39 @@ async function loadOnlineUsers() {
 }
 
 /**
+ * Handle search input.
+ */
+let searchTimeout = null;
+function handleSearchInput(event) {
+    const input = event.target;
+    clearTimeout(searchTimeout);
+    
+    searchTimeout = setTimeout(() => {
+        currentSearch = input.value.trim();
+        currentPage = 1;
+        loadAllUsers();
+    }, 300);
+}
+
+/**
+ * Handle pagination.
+ */
+function handlePrevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        loadAllUsers();
+    }
+}
+
+function handleNextPage() {
+    const totalPages = Math.ceil(totalUsers / usersPerPage);
+    if (currentPage < totalPages) {
+        currentPage++;
+        loadAllUsers();
+    }
+}
+
+/**
  * Heartbeat — сообщаем серверу что мы ещё здесь.
  */
 async function sendPresenceHeartbeat() {
@@ -2293,12 +3201,12 @@ async function sendPresenceHeartbeat() {
 function startPresenceTracking() {
     if (presenceInterval) return;
 
-    // Загружаем онлайн пользователей сразу
-    loadOnlineUsers();
+    // Загружаем всех пользователей сразу
+    loadAllUsers();
 
     // Обновляем каждые 10 секунд
     presenceInterval = setInterval(() => {
-        loadOnlineUsers();
+        loadAllUsers();
         sendPresenceHeartbeat();
     }, 10000);
 }
@@ -2311,6 +3219,31 @@ function stopPresenceTracking() {
         clearInterval(presenceInterval);
         presenceInterval = null;
     }
+    // Reset search state when leaving room
+    currentSearch = '';
+    currentPage = 1;
+    
+    // Clear search input
+    const searchInput = document.getElementById('usersSearch');
+    if (searchInput) searchInput.value = '';
+}
+
+/**
+ * Initialize users sidebar event listeners.
+ */
+function initUsersSidebar() {
+    // Search input
+    const searchInput = document.getElementById('usersSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', handleSearchInput);
+    }
+    
+    // Pagination buttons
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    
+    if (prevBtn) prevBtn.addEventListener('click', handlePrevPage);
+    if (nextBtn) nextBtn.addEventListener('click', handleNextPage);
 }
 
 // ==========================================
@@ -2851,6 +3784,14 @@ async function init() {
     connectWebSocket();
     completeLoadingTask('Подключение');
     
+    // Add click listener for connection stats popup
+    if (connectionStatus) {
+        connectionStatus.addEventListener('click', toggleConnectionStatsPopup);
+    }
+    
+    // Инициализируем сайдбар пользователей
+    initUsersSidebar();
+    
     // Скрываем экран загрузки
     hideLoadingScreen();
 }
@@ -2859,3 +3800,351 @@ async function init() {
 initLoadingScreen();
 
 init();
+
+// =============================================
+// Admin Panel Functions
+// =============================================
+
+// Admin elements
+const createInviteBtn = document.getElementById('createInviteBtn');
+const inviteMaxUses = document.getElementById('inviteMaxUses');
+const inviteExpiresIn = document.getElementById('inviteExpiresIn');
+const invitesListBody = document.getElementById('invitesListBody');
+
+// Load rooms for admin panel
+async function loadAdminRooms() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    
+    try {
+        const response = await fetch('/rooms', {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) throw new Error('Failed to load rooms');
+        
+        const rooms = await response.json();
+        renderAdminRoomsList(rooms);
+        
+    } catch (err) {
+        console.error('Error loading rooms:', err);
+    }
+}
+
+// Render rooms list in admin panel
+function renderAdminRoomsList(rooms) {
+    const adminRoomsListBody = document.getElementById('adminRoomsListBody');
+    if (!adminRoomsListBody) return;
+    
+    if (!rooms || rooms.length === 0) {
+        adminRoomsListBody.innerHTML = '<div class="admin-rooms-empty">Нет комнат</div>';
+        return;
+    }
+    
+    adminRoomsListBody.innerHTML = rooms.map(room => {
+        const createdAt = room.created_at 
+            ? new Date(room.created_at).toLocaleString('ru-RU')
+            : '—';
+        
+        return `
+            <div class="admin-room-row">
+                <span class="admin-room-name">${escapeHtml(room.title)}</span>
+                <span class="admin-room-created">${createdAt}</span>
+                <span class="admin-room-actions">
+                    <button class="admin-room-delete-btn" data-id="${room.id}" title="Удалить">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </button>
+                </span>
+            </div>
+        `;
+    }).join('');
+    
+    // Add delete event listeners
+    adminRoomsListBody.querySelectorAll('.admin-room-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const roomId = btn.dataset.id;
+            if (confirm('Вы уверены, что хотите удалить эту комнату?')) {
+                await deleteRoom(roomId);
+            }
+        });
+    });
+}
+
+// Delete room
+async function deleteRoom(roomId) {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    
+    try {
+        const response = await fetch(`/rooms/${roomId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to delete room');
+        }
+        
+        adminNotify('Комната удалена', 'success');
+        
+        // Reload rooms and stats
+        await loadAdminRooms();
+        await loadAdminStats();
+        
+    } catch (err) {
+        console.error('Error deleting room:', err);
+        adminNotify(err.message || 'Ошибка при удалении комнаты', 'error');
+    }
+}
+
+// Create room from admin panel
+async function adminCreateRoom() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    
+    const roomNameInput = document.getElementById('adminRoomName');
+    const roomDescInput = document.getElementById('adminRoomDesc');
+    
+    const title = roomNameInput?.value.trim();
+    if (!title) {
+        adminNotify('Введите название комнаты', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/rooms', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                title: title,
+                description: roomDescInput?.value.trim() || ''
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create room');
+        }
+        
+        const room = await response.json();
+        adminNotify('Комната создана!', 'success');
+        
+        // Clear form
+        if (roomNameInput) roomNameInput.value = '';
+        if (roomDescInput) roomDescInput.value = '';
+        
+        // Reload rooms and stats
+        await loadAdminRooms();
+        await loadAdminStats();
+        
+    } catch (err) {
+        console.error('Error creating room:', err);
+        adminNotify(err.message || 'Ошибка при создании комнаты', 'error');
+    }
+}
+
+// Load invites list
+async function loadInvites() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    
+    try {
+        const response = await fetch('/api/admin/invites', {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) throw new Error('Failed to load invites');
+        
+        const invites = await response.json();
+        renderInvitesList(invites);
+        
+    } catch (err) {
+        console.error('Error loading invites:', err);
+    }
+}
+
+// Render invites list
+function renderInvitesList(invites) {
+    if (!invitesListBody) return;
+    
+    if (!invites || invites.length === 0) {
+        invitesListBody.innerHTML = '<div class="invites-empty">Нет пригласительных кодов</div>';
+        return;
+    }
+    
+    invitesListBody.innerHTML = invites.map(invite => {
+        const expiresText = invite.expires_at 
+            ? new Date(invite.expires_at).toLocaleString('ru-RU')
+            : 'Бессрочно';
+        
+        const usesText = invite.max_uses 
+            ? `${invite.current_uses}/${invite.max_uses}`
+            : '∞';
+        
+        const isExpired = invite.expires_at && new Date(invite.expires_at) < new Date();
+        const isRevoked = invite.revoked;
+        const canRevoke = !isRevoked && !isExpired;
+        
+        return `
+            <div class="invite-row ${isRevoked ? 'revoked' : ''} ${isExpired ? 'expired' : ''}">
+                <span class="invite-code">${escapeHtml(invite.code)}</span>
+                <span class="invite-uses">${usesText}</span>
+                <span class="invite-expires">${expiresText}</span>
+                <span class="invite-actions">
+                    <button class="invite-copy-btn" data-code="${escapeHtml(invite.code)}" title="Копировать">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                    </button>
+                    ${canRevoke ? `
+                        <button class="invite-revoke-btn" data-id="${invite.id}" title="Отозвать">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                            </svg>
+                        </button>
+                    ` : ''}
+                    ${isRevoked ? '<span class="invite-status-revoked">Отозван</span>' : ''}
+                    ${isExpired && !isRevoked ? '<span class="invite-status-expired">Истёк</span>' : ''}
+                </span>
+            </div>
+        `;
+    }).join('');
+    
+    // Add event listeners
+    invitesListBody.querySelectorAll('.invite-copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const code = btn.dataset.code;
+            navigator.clipboard.writeText(code).then(() => {
+                adminNotify('Код скопирован!', 'success');
+            });
+        });
+    });
+    
+    invitesListBody.querySelectorAll('.invite-revoke-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const inviteId = btn.dataset.id;
+            await revokeInvite(inviteId);
+        });
+    });
+}
+
+// Create new invite
+async function createInvite() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    
+    const maxUses = parseInt(inviteMaxUses?.value || '1');
+    const expiresIn = parseInt(inviteExpiresIn?.value || '24');
+    
+    try {
+        const response = await fetch('/api/admin/invites', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                max_uses: maxUses,
+                expires_in_hours: expiresIn
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create invite');
+        }
+        
+        const invite = await response.json();
+        adminNotify('Пригласительный код создан!', 'success');
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(invite.code);
+        adminNotify('Код скопирован в буфер обмена!', 'success');
+        
+        // Reload invites list and stats
+        await loadInvites();
+        await loadAdminStats();
+        
+    } catch (err) {
+        console.error('Error creating invite:', err);
+        adminNotify(err.message || 'Ошибка при создании кода', 'error');
+    }
+}
+
+// Revoke invite
+async function revokeInvite(inviteId) {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    
+    try {
+        const response = await fetch(`/api/admin/invites/${inviteId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to revoke invite');
+        }
+        
+        adminNotify('Пригласительный код отозван', 'success');
+        
+        // Reload invites list and stats
+        await loadInvites();
+        await loadAdminStats();
+        
+    } catch (err) {
+        console.error('Error revoking invite:', err);
+        adminNotify(err.message || 'Ошибка при отзыве кода', 'error');
+    }
+}
+
+// Load admin data when admin tab is opened
+function handleAdminTabOpen() {
+    if (currentUser && currentUser.role === 'admin') {
+        loadAdminRooms();
+        loadInvites();
+    }
+}
+
+// Simple notification function
+function adminNotify(message, type = 'info') {
+    // Create toast notification
+    const existing = document.querySelector('.admin-toast');
+    if (existing) existing.remove();
+    
+    const toast = document.createElement('div');
+    toast.className = `admin-toast admin-toast-${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 2500);
+}
+
+// Admin room form elements
+const adminCreateRoomBtn = document.getElementById('adminCreateRoomBtn');
+
+// Add event listeners for admin panel
+if (createInviteBtn) {
+    createInviteBtn.addEventListener('click', createInvite);
+}
+
+if (adminCreateRoomBtn) {
+    adminCreateRoomBtn.addEventListener('click', adminCreateRoom);
+}
+
+// Listen for tab changes to load admin data
+document.addEventListener('click', (e) => {
+    const tabBtn = e.target.closest('.settings-tab-btn');
+    if (tabBtn && tabBtn.dataset.tab === 'admin') {
+        handleAdminTabOpen();
+    }
+});

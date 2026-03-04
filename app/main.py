@@ -6,7 +6,7 @@ from typing import Callable
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
 
 from app.infra.db import engine
 from app.infra.redis import redis_client
@@ -84,6 +84,10 @@ async def add_cross_origin_headers(request: Request, call_next: Callable):
 @app.get("/")
 async def root():
     return RedirectResponse(url="main.html")
+
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse("favicon.ico")
 
 app.include_router(http_router, tags=["HTTP"]) # Add a router with HTTP endpoints
 app.include_router(ws_router, tags=["Websocket"]) # Add a router with WebSockets endpoints

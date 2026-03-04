@@ -110,6 +110,14 @@ async def global_websocket_endpoint(
 
     print(f"[WS] {username} connected globally")
 
+    # Устанавливаем статус пользователя как онлайн
+    try:
+        async with SessionLocal() as db:
+            from app.services.presence import set_user_online
+            await set_user_online(db, user_id)
+    except Exception as e:
+        print(f"[WS] Error setting user online: {e}")
+
     stop_event = asyncio.Event()
 
     await websocket.send_json({"type": "connected", "user": {"id": user_id}})
@@ -321,6 +329,29 @@ async def global_websocket_endpoint(
                         await broadcast_voice(room_id, {"type": "speaking", "room_id": room_id, "user_id": user_id, "speaking": speaking})
                     continue
 
+                # Typing indicator
+                if msg_type == "typing":
+                    room_id = data.get("room_id")
+                    if not room_id:
+                        continue
+                    
+                    # Get username for display
+                    typing_username = username
+                    
+                    payload = {
+                        "type": "typing",
+                        "room_id": room_id,
+                        "user_id": user_id,
+                        "username": typing_username,
+                    }
+                    
+                    # Broadcast to all subscribers of this room (except sender)
+                    if redis:
+                        await redis.publish(f"room:{room_id}", json.dumps(payload))
+                    else:
+                        await websocket.send_json(payload)
+                    continue
+
                 if msg_type in {"rtc_offer", "rtc_answer", "rtc_ice"}:
                     room_id = data.get("room_id")
                     target_user_id = data.get("target_user_id")
@@ -471,6 +502,14 @@ async def global_websocket_endpoint(
             await pubsub.aclose()
         except Exception as e:
             print(f"[WS] Cleanup error: {e}")
+
+    # Устанавливаем статус пользователя как оффлайн
+    try:
+        async with SessionLocal() as db:
+            from app.services.presence import set_user_offline
+            await set_user_offline(db, user_id)
+    except Exception as e:
+        print(f"[WS] Error setting user offline: {e}")
 
     print(f"[WS] {username} disconnected")
 

@@ -33,7 +33,7 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                     </svg>
-                    <span>Активности</span>
+                    <span>Игры</span>
                 </div>
                 <button class="activities-close-btn" id="activitiesCloseBtn">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -51,21 +51,22 @@
                         </svg>
                     </div>
                     <h3>Активности</h3>
-                    <p>Запустите игру, нажав на кнопку ниже</p>
+                    <p>Выберите игру</p>
                     <div class="activities-buttons">
                         <button class="btn-primary" id="launchGameBtn">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                                <line x1="2" y1="10" x2="22" y2="10"></line>
                             </svg>
-                            Запустить в окне
+                            Блэкджек
                         </button>
-                        <button class="btn-secondary" id="openNewTabBtn">
+                        <button class="btn-secondary" id="launchWordleBtn">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                <polyline points="15 3 21 3 21 9"></polyline>
-                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
                             </svg>
-                            Открыть в новой вкладке
+                            Wordle
                         </button>
                     </div>
                 </div>
@@ -101,18 +102,25 @@
                         <div class="current-user-name" id="currentUserName">Пользователь</div>
                         <div class="current-user-username" id="currentUserUsername">@username</div>
                     </div>
-                    <button class="dnd-btn-sidebar" id="dndBtn" title="Не беспокоить">
+                    <button class="settings-btn-sidebar" id="settingsBtnSidebar" title="Настройки">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18.36 6.64A9 9 0 0 1 20.5 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.5 0 2.91.37 4.18 1.02"></path>
-                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                         </svg>
-                        <span class="dnd-indicator"></span>
                     </button>
+                    <!-- Avatar Dropdown Menu -->
+                    <div class="avatar-dropdown" id="avatarDropdown">
+                        <div class="dropdown-header">Сменить статус</div>
+                        <button class="dropdown-item" data-status="online">
+                            <span class="status-indicator online"></span>
+                            <span>В сети</span>
+                        </button>
+                        <button class="dropdown-item" data-status="dnd">
+                            <span class="status-indicator dnd"></span>
+                            <span>Не беспокоить</span>
+                        </button>
+                    </div>
                 </div>
-                <button class="create-room-btn" id="createRoomBtn">
-                    <span class="btn-icon">+</span>
-                    <span class="btn-text">Создать комнату</span>
-                </button>
             </div>
         </aside>
 
@@ -124,21 +132,46 @@
                     <h1 class="room-name" id="roomName">Выберите комнату</h1>
                 </div>
                 <div class="header-right">
-                    <button class="icon-btn activities-btn" id="activitiesBtn" title="Активности">
+                    <button class="icon-btn games-btn" id="activitiesTab" title="Игры и активности">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                         </svg>
                     </button>
-                    <div class="connection-status connecting" id="connectionStatus">
-                        <span class="status-dot"></span>
-                        <span class="status-text">Подключение...</span>
-                    </div>
-                    <button class="icon-btn settings-btn" id="settingsBtn" title="Настройки">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M12 1v6m0 6v6m9-9h-6m-6 0H3"></path>
+                    <div class="connection-status connecting" id="connectionStatus" style="cursor: pointer;" title="Нажмите для статистики">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="status-bulb">
+                            <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4.5 12.5c.5 2 2.5 3.5 4.5 4.5 2-1 4-2.5 4.5-4.5A7 7 0 0 0 12 2z"></path>
                         </svg>
-                    </button>
+                    </div>
+                    <!-- Connection Stats Popup -->
+                    <div class="connection-stats-popup" id="connectionStatsPopup">
+                        <div class="stats-popup-header">Статистика подключения</div>
+                        <div class="stats-popup-content">
+                            <div class="stats-row">
+                                <span class="stats-label">Статус:</span>
+                                <span class="stats-value" id="statsStatus">-</span>
+                            </div>
+                            <div class="stats-row">
+                                <span class="stats-label">Время в сети:</span>
+                                <span class="stats-value" id="statsUptime">-</span>
+                            </div>
+                            <div class="stats-row">
+                                <span class="stats-label">Отправлено:</span>
+                                <span class="stats-value" id="statsSent">0</span>
+                            </div>
+                            <div class="stats-row">
+                                <span class="stats-label">Получено:</span>
+                                <span class="stats-value" id="statsReceived">0</span>
+                            </div>
+                            <div class="stats-row">
+                                <span class="stats-label">Пинг:</span>
+                                <span class="stats-value" id="statsPing">-</span>
+                            </div>
+                            <div class="stats-row">
+                                <span class="stats-label">Переподключений:</span>
+                                <span class="stats-value" id="statsReconnects">0</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </header>
 
@@ -184,6 +217,17 @@
             </div>
 
             <div class="message-input-container">
+                <!-- Typing Indicator -->
+                <div class="typing-indicator hidden" id="typingIndicator">
+                    <span class="dots">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </span>
+                    <span class="typing-users" id="typingUsers"></span>
+                    <span class="typing-text" id="typingText"></span>
+                </div>
+
                 <form class="message-form" id="messageForm">
                     <div class="input-wrapper">
                         <button type="button" class="attach-btn" id="attachBtn" title="Прикрепить файлы">
@@ -229,10 +273,20 @@
                 <h3 class="sidebar-title">Участники</h3>
                 <span class="users-count" id="usersCount">0</span>
             </div>
+            <!-- Search input for users -->
+            <div class="users-search">
+                <input type="text" id="usersSearch" placeholder="Поиск..." class="search-input">
+            </div>
             <div class="users-list" id="usersList">
                 <div class="placeholder-message">
-                    <p>Список участников появится в следующем обновлении</p>
+                    <p>Список участников загружается...</p>
                 </div>
+            </div>
+            <!-- Pagination controls -->
+            <div class="users-pagination" id="usersPagination">
+                <button class="pagination-btn" id="prevPage" disabled>&larr;</button>
+                <span class="page-info" id="pageInfo">1</span>
+                <button class="pagination-btn" id="nextPage" disabled>&rarr;</button>
             </div>
         </aside>
     </div>
@@ -272,53 +326,341 @@
 
     <!-- Settings Modal -->
     <div class="modal-overlay" id="settingsModal">
-        <div class="modal-content settings-modal-content">
-            <div class="modal-header">
-                <h3>Настройки профиля</h3>
-                <button class="modal-close" id="closeSettingsBtn">&times;</button>
+        <div class="modal-content settings-modal-content settings-modal-tabs">
+            <div class="settings-tabs-sidebar">
+                <div class="settings-tabs-header">
+                    <h3>Настройки</h3>
+                    <button class="modal-close" id="closeSettingsBtn">&times;</button>
+                </div>
+                <nav class="settings-tabs-nav">
+                    <button class="settings-tab-btn active" data-tab="account">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <span>Аккаунт</span>
+                    </button>
+                    <button class="settings-tab-btn" data-tab="appearance">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                        <span>Оформление</span>
+                    </button>
+                    <button class="settings-tab-btn" data-tab="audio">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                        <span>Аудио</span>
+                    </button>
+                    <button class="settings-tab-btn admin-tab-btn" data-tab="admin" style="display: none;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            <path d="M9 12l2 2 4-4"></path>
+                        </svg>
+                        <span>Админ-панель</span>
+                    </button>
+                    <button class="settings-tab-btn" data-tab="danger">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        <span>Выход</span>
+                    </button>
+                </nav>
             </div>
-            <form id="settingsForm">
-                <div class="settings-avatar-section">
-                    <div class="settings-avatar-preview" id="settingsAvatarPreview"></div>
-                    <div class="settings-avatar-controls">
-                        <label class="btn-secondary file-label" for="avatarInput">Выбрать аватар</label>
-                        <input type="file" id="avatarInput" accept="image/*">
-                        <button type="button" class="btn-secondary" id="removeAvatarBtn">Удалить аватар</button>
+            <div class="settings-tabs-content">
+                <!-- Account Tab -->
+                <div class="settings-tab-panel active" id="tab-account">
+                    <form id="settingsForm">
+                        <h4 class="settings-section-title">Информация профиля</h4>
+                        <div class="settings-avatar-section">
+                            <div class="settings-avatar-preview" id="settingsAvatarPreview"></div>
+                            <div class="settings-user-preview">
+                                <div class="settings-user-name" id="settingsUserDisplayName">Display Name</div>
+                                <div class="settings-user-tag" id="settingsUserTag">@username</div>
+                            </div>
+                            <div class="settings-avatar-actions">
+                                <label class="settings-upload-btn" for="avatarInput">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                        <polyline points="21 15 16 10 5 21"></polyline>
+                                    </svg>
+                                    Загрузить
+                                </label>
+                                <input type="file" id="avatarInput" accept="image/*">
+                                <button type="button" class="settings-remove-btn removeAvatarBtn" id="removeAvatarBtn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                    Удалить
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Avatar Cropper -->
+                        <div class="avatar-cropper-container" id="avatarCropperContainer" style="display: none;">
+                            <div class="avatar-cropper-header">
+                                <h4>Редактирование аватарки</h4>
+                                <button type="button" class="cropper-close-btn" id="closeCropperBtn">&times;</button>
+                            </div>
+                            <div class="avatar-cropper-body">
+                                <div class="avatar-cropper-preview" id="avatarCropperPreview">
+                                    <div class="avatar-cropper-preview-inner" id="cropperPreviewInner">
+                                        <img id="cropperImage" src="" alt="Crop preview">
+                                    </div>
+                                </div>
+                                <div class="avatar-cropper-controls">
+                                    <div class="cropper-zoom-label">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="11" cy="11" r="8"></circle>
+                                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                            <line x1="11" y1="8" x2="11" y2="14"></line>
+                                            <line x1="8" y1="11" x2="14" y2="11"></line>
+                                        </svg>
+                                        <span>Масштаб</span>
+                                    </div>
+                                    <input type="range" class="cropper-zoom-slider" id="cropperZoomSlider" min="0.1" max="3" step="0.05" value="1">
+                                </div>
+                            </div>
+                            <div class="avatar-cropper-footer">
+                                <button type="button" class="btn-secondary" id="cancelCropBtn">Отмена</button>
+                                <button type="button" class="btn-primary" id="applyCropBtn">Сохранить аватарку</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="settingsDisplayName">Отображаемое имя</label>
+                            <input type="text" id="settingsDisplayName" maxlength="50" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="settingsUsername">Username</label>
+                            <input type="text" id="settingsUsername" maxlength="32" required>
+                        </div>
+                        <div class="modal-actions settings-modal-actions">
+                            <button type="button" class="btn-secondary" id="cancelSettingsBtn">Отмена</button>
+                            <button type="submit" class="btn-primary">Сохранить</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Appearance Tab -->
+                <div class="settings-tab-panel" id="tab-appearance">
+                    <h4 class="settings-section-title">Тема интерфейса</h4>
+                    <div class="theme-options-compact">
+                        <div class="theme-option-card active" data-theme="standard">
+                            <div class="theme-card-preview theme-card-standard"></div>
+                            <div class="theme-card-info">
+                                <span class="theme-card-name">Стандартная</span>
+                                <span class="theme-card-desc">Тёмная тема</span>
+                            </div>
+                        </div>
+                        <div class="theme-option-card" data-theme="light">
+                            <div class="theme-card-preview theme-card-light"></div>
+                            <div class="theme-card-info">
+                                <span class="theme-card-name">Светлая</span>
+                                <span class="theme-card-desc">Светлый дизайн</span>
+                            </div>
+                        </div>
+                        <div class="theme-option-card" data-theme="amoled">
+                            <div class="theme-card-preview theme-card-amoled"></div>
+                            <div class="theme-card-info">
+                                <span class="theme-card-name">AMOLED</span>
+                                <span class="theme-card-desc">Чёрный OLED</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="settingsDisplayName">Отображаемое имя</label>
-                    <input type="text" id="settingsDisplayName" maxlength="50" required>
-                </div>
-                <div class="form-group">
-                    <label for="settingsUsername">Username</label>
-                    <input type="text" id="settingsUsername" maxlength="32" required>
-                </div>
-                <div class="theme-section">
-                    <div class="theme-section-title">Тема</div>
-                    <div class="theme-options">
-                        <div class="theme-option active" data-theme="standard">
-                            <div class="theme-option-icon standard">🌙</div>
-                            <span class="theme-option-label">Стандартная</span>
+
+                <!-- Audio Tab -->
+                <div class="settings-tab-panel" id="tab-audio">
+                    <h4 class="settings-section-title">Настройки аудио</h4>
+                    <div class="audio-settings-grid">
+                        <div class="audio-setting-item">
+                            <div class="audio-setting-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                                </svg>
+                            </div>
+                            <div class="audio-setting-control">
+                                <label for="settingsMicVolume">Громкость микрофона</label>
+                                <div class="slider-container">
+                                    <input type="range" id="settingsMicVolume" min="0" max="100" value="100" class="settings-volume-slider">
+                                    <span class="volume-value-display" id="settingsMicVolumeValue">100%</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="theme-option" data-theme="light">
-                            <div class="theme-option-icon light">☀️</div>
-                            <span class="theme-option-label">Светлая</span>
+                        <div class="audio-setting-item">
+                            <div class="audio-setting-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                                </svg>
+                            </div>
+                            <div class="audio-setting-control">
+                                <label for="settingsHeadphoneVolume">Громкость наушников</label>
+                                <div class="slider-container">
+                                    <input type="range" id="settingsHeadphoneVolume" min="0" max="100" value="100" class="settings-volume-slider">
+                                    <span class="volume-value-display" id="settingsHeadphoneVolumeValue">100%</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="theme-option" data-theme="amoled">
-                            <div class="theme-option-icon amoled">⚫</div>
-                            <span class="theme-option-label">AMOLED</span>
+                    </div>
+                    <div class="audio-tip">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        <span>Эти настройки применяются к голосовым комнатам</span>
+                    </div>
+                </div>
+
+                <!-- Danger/Logout Tab -->
+                <div class="settings-tab-panel" id="tab-danger">
+                    <h4 class="settings-section-title">Опасная зона</h4>
+                    <div class="danger-zone">
+                        <p class="danger-zone-text">Выйти из аккаунта на этом устройстве</p>
+                        <button type="button" class="btn-logout-full" id="logoutBtn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                <polyline points="16 17 21 12 16 7"></polyline>
+                                <line x1="21" y1="12" x2="9" y2="12"></line>
+                            </svg>
+                            Выйти из аккаунта
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Admin Tab -->
+                <div class="settings-tab-panel" id="tab-admin">
+                    <h4 class="settings-section-title">Управление системой</h4>
+                    <div class="admin-panel-container">
+                        <!-- Rooms Management Section -->
+                        <div class="admin-section">
+                            <div class="admin-section-header">
+                                <div class="admin-section-icon rooms-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                                    </svg>
+                                </div>
+                                <div class="admin-section-title">
+                                    <h5>Управление комнатами</h5>
+                                    <p>Создание и удаление чат-комнат</p>
+                                </div>
+                            </div>
+                            <div class="admin-section-content">
+                                <div class="admin-room-form">
+                                    <div class="admin-room-form-group">
+                                        <input type="text" id="adminRoomName" placeholder="Название комнаты" maxlength="100">
+                                    </div>
+                                    <div class="admin-room-form-group">
+                                        <input type="text" id="adminRoomDesc" placeholder="Описание (опционально)" maxlength="500">
+                                    </div>
+                                    <button type="button" class="btn-primary" id="adminCreateRoomBtn">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        </svg>
+                                        Создать
+                                    </button>
+                                </div>
+                                <div class="admin-rooms-list">
+                                    <div class="admin-rooms-list-header">
+                                        <span>Название</span>
+                                        <span>Создана</span>
+                                        <span>Действия</span>
+                                    </div>
+                                    <div class="admin-rooms-list-body" id="adminRoomsListBody">
+                                        <!-- Rooms will be loaded here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Invite Codes Section -->
+                        <div class="admin-section">
+                            <div class="admin-section-header">
+                                <div class="admin-section-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                                        <polyline points="10 17 15 12 10 7"></polyline>
+                                        <line x1="15" y1="12" x2="3" y2="12"></line>
+                                    </svg>
+                                </div>
+                                <div class="admin-section-title">
+                                    <h5>Пригласительные коды</h5>
+                                    <p>Создание и управление инвайтами для регистрации</p>
+                                </div>
+                            </div>
+                            <div class="admin-section-content">
+                                <div class="invite-form-row">
+                                    <div class="invite-form-group">
+                                        <label for="inviteMaxUses">Лимит использований</label>
+                                        <input type="number" id="inviteMaxUses" min="1" max="100" value="1">
+                                    </div>
+                                    <div class="invite-form-group">
+                                        <label for="inviteExpiresIn">Истекает через (часов)</label>
+                                        <input type="number" id="inviteExpiresIn" min="1" max="168" value="24">
+                                    </div>
+                                    <button type="button" class="btn-primary" id="createInviteBtn">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        </svg>
+                                        Создать код
+                                    </button>
+                                </div>
+                                <div class="invites-list" id="invitesList">
+                                    <div class="invites-list-header">
+                                        <span>Код</span>
+                                        <span>Использовано</span>
+                                        <span>Истекает</span>
+                                        <span>Действия</span>
+                                    </div>
+                                    <div class="invites-list-body" id="invitesListBody">
+                                        <!-- Invites will be loaded here -->
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="logout-section">
-                    <button type="button" class="btn-logout" id="logoutBtn">Выйти из аккаунта</button>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" id="cancelSettingsBtn">Отмена</button>
-                    <button type="submit" class="btn-primary">Сохранить</button>
-                </div>
-            </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal-overlay" id="logoutConfirmModal">
+        <div class="modal-content confirm-modal">
+            <div class="confirm-modal-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+            </div>
+            <h3 class="confirm-modal-title">Выйти из аккаунта?</h3>
+            <p class="confirm-modal-text">Вы уверены, что хотите выйти? После выхода вам нужно будет войти снова.</p>
+            <div class="confirm-modal-actions">
+                <button type="button" class="btn-secondary" id="cancelLogoutBtn">Отмена</button>
+                <button type="button" class="btn-danger" id="confirmLogoutBtn">Выйти</button>
+            </div>
         </div>
     </div>
 
