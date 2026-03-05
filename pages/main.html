@@ -664,6 +664,41 @@
         </div>
     </div>
 
+    <!-- User Profile Popup -->
+    <div class="user-profile-popup hidden" id="userProfilePopup">
+        <div class="user-profile-backdrop" id="userProfileBackdrop"></div>
+        <div class="user-profile-card">
+            <div class="user-profile-header">
+                <div class="user-profile-avatar" id="userProfileAvatar">
+                    <img src="" alt="" class="user-profile-avatar-img">
+                </div>
+            </div>
+            <div class="user-profile-info">
+                <div class="user-profile-name" id="userProfileName"></div>
+                <div class="user-profile-username" id="userProfileUsername"></div>
+            </div>
+            <div class="user-profile-divider"></div>
+            <div class="user-profile-member-since">
+                <span class="user-profile-label">Участник с</span>
+                <span class="user-profile-value" id="userProfileMemberSince"></span>
+            </div>
+            <div class="user-profile-actions">
+                <button class="user-profile-action-btn" id="userProfileMessageBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    Написать сообщение
+                </button>
+            </div>
+            <button class="user-profile-close-btn" id="userProfileCloseBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
+
     <script src="js/config.js"></script>
     <script src="js/notifications.js"></script>
     <script src="js/attachments.js"></script>

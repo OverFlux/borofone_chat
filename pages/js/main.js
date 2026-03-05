@@ -9,6 +9,17 @@ function getApiUrl() {
     return window.location.origin;
 }
 
+// Simple notification function (fallback if not defined elsewhere)
+function showNotification(message, type = 'info') {
+    console.log(`[${type}] ${message}`);
+    // Try to use existing notification system, otherwise use browser alert
+    if (typeof window.createToast === 'function') {
+        window.createToast(message, type);
+    } else if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+    }
+}
+
 function getWsUrl() {
     if (typeof WS_URL !== 'undefined') return WS_URL;
     return window.location.origin.replace(/^http/, 'ws');
@@ -135,6 +146,10 @@ const voiceLeaveSound = new Audio('./sounds/voice_leave.wav');
 voiceJoinSound.preload = 'auto';
 voiceLeaveSound.preload = 'auto';
 
+// Profile message button sound
+const profileMessageSound = new Audio('./sounds/net-idi-na.mp3');
+profileMessageSound.preload = 'auto';
+
 const participantVolumes = JSON.parse(localStorage.getItem('participantVolumes') || "{}");
 let micGainValue = 1;
 let headphonesGainValue = 1;
@@ -200,6 +215,218 @@ const settingsUsername = document.getElementById('settingsUsername');
 const avatarInput = document.getElementById('avatarInput');
 const removeAvatarBtn = document.getElementById('removeAvatarBtn');
 const settingsAvatarPreview = document.getElementById('settingsAvatarPreview');
+
+// User profile popup elements
+const userProfilePopup = document.getElementById('userProfilePopup');
+const userProfileBackdrop = document.getElementById('userProfileBackdrop');
+const userProfileCloseBtn = document.getElementById('userProfileCloseBtn');
+const userProfileMessageBtn = document.getElementById('userProfileMessageBtn');
+const userProfileAvatar = document.getElementById('userProfileAvatar');
+const userProfileName = document.getElementById('userProfileName');
+const userProfileUsername = document.getElementById('userProfileUsername');
+const userProfileMemberSince = document.getElementById('userProfileMemberSince');
+
+// Store current profile user ID
+let currentProfileUserId = null;
+
+// Function to fetch user profile from API
+async function fetchUserProfile(userId) {
+    try {
+        const response = await fetchWithAuth(`${getApiUrl()}/auth/users/${userId}`);
+        if (!response.ok) {
+            if (response.status === 404) {
+                showNotification('Пользователь не найден', 'error');
+            } else {
+                showNotification('Ошибка загрузки профиля', 'error');
+            }
+            return null;
+        }
+        return await response.json();
+    } catch (err) {
+        console.error('Failed to fetch user profile:', err);
+        showNotification('Ошибка загрузки профиля', 'error');
+        return null;
+    }
+}
+
+// Function to show user profile popup
+function showUserProfile(userId, clickEvent = null) {
+    currentProfileUserId = userId;
+    userProfilePopup.classList.remove('hidden');
+    
+    // Show loading state with animation
+    userProfileName.textContent = 'Загрузка...';
+    userProfileUsername.textContent = '';
+    userProfileMemberSince.textContent = '';
+    userProfileAvatar.innerHTML = '<div class="user-profile-avatar-placeholder">?</div>';
+    userProfileMessageBtn.disabled = true;
+    userProfileMessageBtn.innerHTML = '<div class="user-profile-loading-spinner"></div>';
+    
+    // Position popup near the click or center if no click event
+    const card = userProfilePopup.querySelector('.user-profile-card');
+    if (card) {
+        if (clickEvent && clickEvent.clientX && clickEvent.clientY) {
+            // Position near the clicked element (Discord-style)
+            let posX = clickEvent.clientX + 20;
+            let posY = clickEvent.clientY - 50;
+            
+            // Adjust if popup would go off screen
+            const popupWidth = 260;
+            const popupHeight = 320;
+            
+            // Horizontal adjustment
+            if (posX + popupWidth > window.innerWidth - 20) {
+                posX = clickEvent.clientX - popupWidth - 20;
+            }
+            // Vertical adjustment
+            if (posY + popupHeight > window.innerHeight - 20) {
+                posY = window.innerHeight - popupHeight - 20;
+            }
+            if (posY < 20) {
+                posY = 20;
+            }
+            
+            card.style.left = posX + 'px';
+            card.style.top = posY + 'px';
+            card.style.transform = 'none';
+        } else {
+            // Center on screen
+            card.style.left = '50%';
+            card.style.top = '50%';
+            card.style.transform = 'translate(-50%, -50%)';
+        }
+    }
+    
+    // Fetch user data
+    fetchUserProfile(userId).then(user => {
+        if (!user) {
+            hideUserProfile();
+            return;
+        }
+        
+        // Update profile data
+        userProfileName.textContent = user.display_name || user.username;
+        userProfileUsername.textContent = '@' + user.username;
+        
+        // Format member since date
+        const createdDate = new Date(user.created_at);
+        const formattedDate = createdDate.toLocaleDateString('ru-RU', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+        userProfileMemberSince.textContent = formattedDate;
+        
+        // Set avatar
+        if (user.avatar_url) {
+            const avatarUrl = normalizeAvatarUrl(user.avatar_url);
+            userProfileAvatar.innerHTML = `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(user.display_name || user.username)}" class="user-profile-avatar-img">`;
+        } else {
+            const initial = (user.display_name || user.username)[0]?.toUpperCase() || 'U';
+            userProfileAvatar.innerHTML = `<div class="user-profile-avatar-placeholder">${initial}</div>`;
+        }
+        
+        // Enable/disable message button based on whether it's the current user
+        userProfileMessageBtn.disabled = (userId === currentUser?.id);
+        userProfileMessageBtn.innerHTML = userId === currentUser?.id 
+            ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> Это вы'
+            : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg> Написать';
+    });
+}
+
+// Function to hide user profile popup
+function hideUserProfile() {
+    userProfilePopup.classList.add('hidden');
+    currentProfileUserId = null;
+}
+
+// Handle profile close button click
+if (userProfileCloseBtn) {
+    userProfileCloseBtn.addEventListener('click', hideUserProfile);
+}
+
+// Handle backdrop click to close
+if (userProfileBackdrop) {
+    userProfileBackdrop.addEventListener('click', hideUserProfile);
+}
+
+// Handle message button click
+if (userProfileMessageBtn) {
+    userProfileMessageBtn.addEventListener('click', () => {
+        if (currentProfileUserId && currentProfileUserId !== currentUser?.id) {
+            // Play sound
+            try {
+                profileMessageSound.currentTime = 0;
+                profileMessageSound.play().catch(err => {
+                    console.warn('[Profile] Sound playback failed:', err);
+                });
+            } catch (err) {
+                console.warn('[Profile] Sound error:', err);
+            }
+            // Close profile and start a DM (future feature - for now just close)
+            hideUserProfile();
+            showNotification('Личные сообщения скоро будут доступны!', 'info');
+        }
+    });
+}
+
+// Handle ESC key to close profile
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && userProfilePopup && !userProfilePopup.classList.contains('hidden')) {
+        hideUserProfile();
+    }
+});
+
+// Function to attach profile click handler to message avatar
+function attachProfileClickHandlerToMessage(messageEl, userId) {
+    const avatar = messageEl.querySelector('.message-avatar');
+    if (avatar) {
+        avatar.style.cursor = 'pointer';
+        avatar.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showUserProfile(userId, e);
+        });
+        
+        // Also handle img if present
+        const avatarImg = messageEl.querySelector('.avatar-media--message');
+        if (avatarImg) {
+            avatarImg.style.cursor = 'pointer';
+        }
+    }
+}
+
+// Function to attach profile click handler to user list item
+function attachProfileClickHandlerToUserItem(userItemEl, userId) {
+    const avatar = userItemEl.querySelector('.user-avatar');
+    if (avatar) {
+        avatar.style.cursor = 'pointer';
+        avatar.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showUserProfile(userId, e);
+        });
+        
+        // Also make the whole item clickable
+        userItemEl.style.cursor = 'pointer';
+        userItemEl.addEventListener('click', (e) => {
+            showUserProfile(userId, e);
+        });
+    }
+}
+
+// Attach click handlers to all user items in the users list
+function attachClickHandlersToUserList() {
+    const usersList = document.getElementById('usersList');
+    if (!usersList) return;
+    
+    const userItems = usersList.querySelectorAll('.user-item');
+    userItems.forEach(item => {
+        const userId = item.dataset.userId;
+        if (userId) {
+            attachProfileClickHandlerToUserItem(item, parseInt(userId, 10));
+        }
+    });
+}
+
 const avatarCropperContainer = document.getElementById('avatarCropperContainer');
 const cropperImage = document.getElementById('cropperImage');
 const cropperPreviewInner = document.getElementById('cropperPreviewInner');
@@ -698,6 +925,12 @@ function addMessage(msg, animate = false) {
 
     messagesList.appendChild(messageEl);
     if (animate) scrollToBottomWithImages();
+    
+    // Attach profile click handler to message avatar
+    const userId = msg.user?.id || messageEl.dataset.userId;
+    if (userId) {
+        attachProfileClickHandlerToMessage(messageEl, parseInt(userId, 10));
+    }
 }
 
 
@@ -1808,6 +2041,12 @@ function renderCurrentUser() {
     const adminTabBtn = document.querySelector('.admin-tab-btn');
     if (adminTabBtn) {
         adminTabBtn.style.display = currentUser.role === 'admin' ? '' : 'none';
+    }
+
+    // Кнопка создать аудио — только для админов
+    const createVoiceRoomBtn = document.getElementById('createVoiceRoomBtn');
+    if (createVoiceRoomBtn) {
+        createVoiceRoomBtn.style.display = currentUser.role === 'admin' ? '' : 'none';
     }
 }
 
@@ -3031,6 +3270,9 @@ async function loadAllUsers() {
 
         // Просто показываем всех пользователей одним списком
         usersList.innerHTML = users.map(user => renderUserItem(user)).join('');
+        
+        // Attach click handlers to user items
+        attachClickHandlersToUserList();
     } catch (err) {
         console.error('Failed to load users:', err);
         // Fallback to old online-only endpoint
@@ -3055,7 +3297,7 @@ function renderUserItem(user) {
     const lastSeenText = user.is_online ? '' : (user.last_seen_formatted || '');
 
     return `
-        <div class="${itemClass}">
+        <div class="${itemClass}" data-user-id="${user.id}">
             <div class="user-avatar">${avatarHtml}</div>
             <div class="user-info">
                 <div class="user-display-name">${escapeHtml(displayName)}</div>
@@ -3131,7 +3373,7 @@ async function loadOnlineUsers() {
                 : `<span>${initial}</span>`;
 
             return `
-                <div class="user-item">
+                <div class="user-item" data-user-id="${user.id}">
                     <div class="user-avatar">${avatarHtml}</div>
                     <div class="user-info">
                         <div class="user-display-name">${escapeHtml(displayName)}</div>
@@ -3141,6 +3383,9 @@ async function loadOnlineUsers() {
                 </div>
             `;
         }).join('');
+        
+        // Attach click handlers to user items
+        attachClickHandlersToUserList();
     } catch (err) {
         console.error('Failed to load online users:', err);
     }

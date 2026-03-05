@@ -119,6 +119,24 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+class UserProfileResponse(BaseModel):
+    """
+    Схема ответа с публичной информацией о профиле пользователя.
+    
+    Используется в GET /auth/users/{user_id}.
+    """
+    id: int
+    username: str
+    display_name: str
+    avatar_url: str | None
+    role: str
+    is_active: bool
+    created_at: str  # ISO 8601
+
+    class Config:
+        from_attributes = True
+
+
 # === INVITE MANAGEMENT ===
 
 class InviteCreateRequest(BaseModel):

@@ -38,6 +38,7 @@
     --scrollbar-track: rgba(255, 255, 255, 0.05);
     --scrollbar-thumb: rgba(255, 255, 255, 0.15);
     --inset-border: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    --panel-bg: rgba(0, 0, 0, 0.2);
 }
 
 /* Белая тема (Light) */
@@ -61,6 +62,41 @@
     --scrollbar-track: rgba(0, 0, 0, 0.03);
     --scrollbar-thumb: rgba(0, 0, 0, 0.15);
     --inset-border: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+    --panel-bg: rgba(255, 255, 255, 0.8);
+}
+
+/* Белая тема (Light) */
+[data-theme="light"] .message-reaction-picker {
+    background: linear-gradient(135deg, rgba(255,255,255,0.85), rgba(255,255,255,0.6));
+    border-color: rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+[data-theme="light"] .message-plus-btn,
+[data-theme="light"] .message-reply-btn {
+    background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.5));
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .message-plus-btn:hover,
+[data-theme="light"] .message-reply-btn:hover {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7));
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 0 0 2px var(--accent);
+}
+
+[data-theme="light"] .message-context-menu {
+    background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7));
+    border-color: rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+[data-theme="light"] .message-context-menu button:hover {
+    background: linear-gradient(135deg, rgba(0,0,0,0.05), rgba(0,0,0,0.02));
 }
 
 /* AMOLED тема (тёмная с чистым чёрным) */
@@ -84,6 +120,24 @@
     --scrollbar-track: rgba(255, 255, 255, 0.01);
     --scrollbar-thumb: rgba(255, 255, 255, 0.06);
     --inset-border: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+    --panel-bg: #000000;
+}
+
+[data-theme="amoled"] .message-reaction-picker,
+[data-theme="amoled"] .message-plus-btn,
+[data-theme="amoled"] .message-context-menu,
+[data-theme="amoled"] .message-reply-btn {
+    background: rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="amoled"] .message-context-menu {
+    background: rgba(0, 0, 0, 0.7) !important;
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.5);
 }
 
 /* AMOLED - дополнительные стили для полного чёрного */
@@ -108,8 +162,8 @@
 [data-theme="amoled"] .dropdown-menu,
 [data-theme="amoled"] .avatar-dropdown,
 [data-theme="amoled"] .context-menu {
-    background: #000000 !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
+    background: var(--modal-bg) !important;
+    border-color: var(--glass-border) !important;
 }
 
 body {
@@ -3425,14 +3479,320 @@ body {
     display: flex;
     gap: 4px;
     margin-top: 6px;
-    opacity: 0.8;
-    padding: 4px;
-    border-radius: 10px;
-    background: #000000;
-    border: 1px solid rgba(255,255,255,0.08);
+    padding: 6px 8px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.1);
+    animation: pickerFadeIn 0.2s ease;
+}
+
+@keyframes pickerFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .hidden { display: none !important; }
+
+/* ==========================================
+   USER PROFILE POPUP (Full Liquid Glass - Site Style)
+   ========================================== */
+
+.user-profile-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2000;
+    pointer-events: none;
+}
+
+.user-profile-popup.hidden {
+    display: none;
+}
+
+.user-profile-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+}
+
+.user-profile-card {
+    position: absolute;
+    width: 260px;
+    /* Full Liquid Glass Design */
+    background: var(--glass-bg, rgba(30, 31, 34, 0.75));
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.06));
+    border-radius: 14px;
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+    pointer-events: auto;
+    transform-origin: top left;
+    animation: profilePopupIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes profilePopupIn {
+    from {
+        opacity: 0;
+        transform: scale(0.92) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Banner removed - full liquid glass */
+.user-profile-banner {
+    display: none;
+}
+
+.user-profile-header {
+    position: relative;
+    padding: 16px 14px 12px;
+    z-index: 1;
+}
+
+.user-profile-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--bg-primary, #1e1f22);
+    border: 3px solid var(--glass-bg, rgba(30, 31, 34, 0.75));
+    box-shadow: 
+        0 4px 16px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    animation: avatarPopIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+@keyframes avatarPopIn {
+    from {
+        transform: scale(0.5);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.user-profile-avatar:hover {
+    transform: scale(1.06);
+    box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.5),
+        0 0 0 2px var(--accent, #DB734F),
+        0 0 20px var(--accent-glow, rgba(219, 115, 79, 0.25));
+}
+
+.user-profile-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.user-profile-avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--accent, #DB734F), #b56040);
+    color: white;
+    font-size: 28px;
+    font-weight: 700;
+    border-radius: 50%;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.user-profile-info {
+    padding: 8px 14px 6px;
+    animation: fadeInUp 0.25s ease 0.15s both;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.user-profile-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary, #fafafa);
+    margin-bottom: 1px;
+    letter-spacing: -0.01em;
+}
+
+.user-profile-username {
+    font-size: 12px;
+    color: var(--text-secondary, rgba(255, 255, 255, 0.55));
+    font-weight: 500;
+}
+
+.user-profile-divider {
+    height: 1px;
+    background: var(--glass-border, rgba(255, 255, 255, 0.05));
+    margin: 6px 14px;
+}
+
+.user-profile-member-since {
+    padding: 4px 14px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    animation: fadeInUp 0.25s ease 0.2s both;
+}
+
+.user-profile-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary, rgba(255, 255, 255, 0.45));
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.user-profile-value {
+    font-size: 12px;
+    color: var(--text-secondary, rgba(255, 255, 255, 0.65));
+    font-weight: 500;
+}
+
+.user-profile-actions {
+    padding: 4px 14px 14px;
+    display: flex;
+    gap: 8px;
+    animation: fadeInUp 0.25s ease 0.25s both;
+}
+
+.user-profile-action-btn {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 8px 10px;
+    background: var(--accent, #DB734F);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px var(--accent-glow, rgba(219, 115, 79, 0.25));
+    overflow: hidden;
+}
+
+.user-profile-action-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 100%);
+    pointer-events: none;
+}
+
+.user-profile-action-btn:hover {
+    background: var(--accent-hover, #e88d6d);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--accent-glow, rgba(219, 115, 79, 0.35));
+}
+
+.user-profile-action-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px var(--accent-glow, rgba(219, 115, 79, 0.25));
+}
+
+.user-profile-close-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.25);
+    border: none;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.65);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    opacity: 0;
+    animation: fadeIn 0.15s ease 0.3s forwards;
+    z-index: 10;
+}
+
+@keyframes fadeIn {
+    to { opacity: 1; }
+}
+
+.user-profile-close-btn:hover {
+    background: rgba(0, 0, 0, 0.4);
+    color: white;
+    transform: scale(1.1);
+}
+
+/* Loading state */
+.user-profile-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    gap: 12px;
+}
+
+.user-profile-loading-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid rgba(255, 255, 255, 0.08);
+    border-top-color: var(--accent, #DB734F);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.user-profile-loading-text {
+    color: var(--text-secondary, rgba(255, 255, 255, 0.5));
+    font-size: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .user-profile-card {
+        width: calc(100% - 32px);
+        max-width: 260px;
+    }
+}
 
 .message {
     position: relative;
@@ -3453,20 +3813,31 @@ body {
 }
 
 .message-plus-btn {
-    border: 1px solid rgba(255,255,255,0.08);
-    background: #000000;
+    border: 1px solid var(--glass-border);
+    background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
     color: var(--text-primary);
-    border-radius: 8px;
-    width: 28px;
-    height: 28px;
+    border-radius: 10px;
+    width: 32px;
+    height: 32px;
     cursor: pointer;
-    font-size: 14px;
-    filter: saturate(0);
-    transition: filter 0.2s ease;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .message-plus-btn:hover {
-    filter: saturate(1);
+    background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
+    transform: scale(1.08);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 0 0 2px var(--accent);
+}
+
+.message-plus-btn:active {
+    transform: scale(0.95);
 }
 
 .message-plus-btn:focus-visible,
@@ -3486,14 +3857,23 @@ body {
 .message-context-menu {
     position: fixed;
     z-index: 9999;
-    background: #000000;
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px;
-    padding: 6px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
     gap: 4px;
     min-width: 220px;
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    box-shadow: 0 18px 45px rgba(5, 8, 20, 0.45), inset 0 1px 0 rgba(255,255,255,0.15);
+    animation: contextMenuFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes contextMenuFadeIn {
+    from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .message-context-menu button {
@@ -3501,13 +3881,23 @@ body {
     color: var(--text-primary);
     border: none;
     text-align: left;
-    padding: 8px;
-    border-radius: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
     cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .message-context-menu button:hover {
-    background: rgba(255,255,255,0.08);
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.04));
+    transform: translateX(4px);
+}
+
+.message-context-menu button:active {
+    transform: scale(0.98);
 }
 
 .reply-preview {
@@ -3545,13 +3935,31 @@ body {
 }
 
 .message-reply-btn {
-    border: 1px solid rgba(255,255,255,0.08);
-    background: #000000;
+    border: 1px solid var(--glass-border);
+    background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
     color: var(--text-primary);
-    border-radius: 8px;
-    width: 28px;
-    height: 28px;
+    border-radius: 10px;
+    width: 32px;
+    height: 32px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.message-reply-btn:hover {
+    background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
+    transform: scale(1.08);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 0 0 2px var(--accent);
+}
+
+.message-reply-btn:active {
+    transform: scale(0.95);
 }
 
 .message-reply:hover {

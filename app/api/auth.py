@@ -23,6 +23,7 @@ from app.schemas.auth import (
     RegisterRequest,
     MessageResponse,
     UserResponse,
+    UserProfileResponse,
 )
 from app.security import (
     create_access_token,
@@ -305,6 +306,36 @@ async def get_me(current_user: User = Depends(get_current_user)):
         is_active=current_user.is_active,
         created_at=current_user.created_at.isoformat()
     )
+
+
+@router.get("/users/{user_id}", response_model=UserProfileResponse)
+async def get_user_profile(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Получение публичного профиля пользователя по ID.
+    
+    Возвращает публичную информацию: имя, аватар, username, дату регистрации.
+    """
+    stmt = select(User).where(User.id == user_id)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return UserProfileResponse(
+        id=user.id,
+        username=user.username,
+        display_name=user.display_name,
+        avatar_url=user.avatar_url,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at.isoformat()
+    )
+
 
 @router.put("/profile", response_model=UserResponse)
 async def update_profile(
