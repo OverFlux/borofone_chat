@@ -13,7 +13,7 @@ from datetime import datetime, timezone, date
 from typing import Optional
 from dataclasses import dataclass, asdict
 
-from app.infra.redis import redis_client
+from app.infra.redis import get_redis_client
 from app.services.wordle_words_ru import WORD_LIST_RU
 from app.services.wordle_words_en import WORD_LIST_EN
 
@@ -108,10 +108,11 @@ def get_stats_key(user_id: int, language: str = "ru") -> str:
 async def get_or_create_game(user_id: int, language: str = "ru") -> WordleGame:
     """Get existing game or create new one for today."""
     key = get_game_key(user_id, language)
+    redis = get_redis_client()
     
-    if redis_client:
+    if redis:
         try:
-            data = await redis_client.get(key)
+            data = await redis.get(key)
             if data:
                 game_data = json.loads(data)
                 word = game_data.get("word")
@@ -136,14 +137,15 @@ async def get_or_create_game(user_id: int, language: str = "ru") -> WordleGame:
 async def save_game(user_id: int, game: WordleGame, language: str = "ru") -> None:
     """Save game state to Redis."""
     key = get_game_key(user_id, language)
-    if redis_client:
+    redis = get_redis_client()
+    if redis:
         try:
             # Expire at end of day
             now = datetime.now(timezone.utc)
             end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59, tzinfo=timezone.utc)
             ttl = int((end_of_day - now).total_seconds()) + 60  # Add 1 minute buffer
             
-            await redis_client.setex(key, ttl, json.dumps(game.to_dict()))
+            await redis.setex(key, ttl, json.dumps(game.to_dict()))
         except Exception as e:
             print(f"⚠️ Failed to save Wordle game: {e}")
 
@@ -151,10 +153,11 @@ async def save_game(user_id: int, game: WordleGame, language: str = "ru") -> Non
 async def get_stats(user_id: int, language: str = "ru") -> WordleStats:
     """Get player statistics."""
     key = get_stats_key(user_id, language)
+    redis = get_redis_client()
     
-    if redis_client:
+    if redis:
         try:
-            data = await redis_client.get(key)
+            data = await redis.get(key)
             if data:
                 stats_data = json.loads(data)
                 return WordleStats(**stats_data)
@@ -167,10 +170,11 @@ async def get_stats(user_id: int, language: str = "ru") -> WordleStats:
 async def save_stats(user_id: int, stats: WordleStats, language: str = "ru") -> None:
     """Save player statistics."""
     key = get_stats_key(user_id, language)
-    if redis_client:
+    redis = get_redis_client()
+    if redis:
         try:
             # Stats persist for 1 year
-            await redis_client.setex(key, 365 * 24 * 60 * 60, json.dumps(stats.to_dict()))
+            await redis.setex(key, 365 * 24 * 60 * 60, json.dumps(stats.to_dict()))
         except Exception as e:
             print(f"⚠️ Failed to save Wordle stats: {e}")
 

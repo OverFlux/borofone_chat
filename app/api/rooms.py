@@ -80,12 +80,13 @@ async def get_online_users_in_room(
     Returns:
         List[dict]: Список пользователей с полями id, username, display_name, avatar_url
     """
-    from app.infra.redis import redis_client
+    from app.infra.redis import get_redis_client
     from app.services.presence import get_online_users
     from sqlalchemy import select
     
     # Получаем ID онлайн пользователей из Redis
-    online_ids = await get_online_users(redis_client, room_id)
+    redis = get_redis_client()
+    online_ids = await get_online_users(redis, room_id)
     
     if not online_ids:
         return []
@@ -194,6 +195,7 @@ async def sync_users_status(
     current_user: User = Depends(get_current_user),
 ):
     """Синхронизировать статусы пользователей (проверить кто оффлайн)."""
-    from app.infra.redis import redis_client
-    await check_and_update_offline_users(db, redis_client)
+    from app.infra.redis import get_redis_client
+    redis = get_redis_client()
+    await check_and_update_offline_users(db, redis)
     return {"status": "synced"}

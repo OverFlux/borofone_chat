@@ -110,8 +110,8 @@
                 return 'http://localhost:8000';
             }
 
-            if (url.port && url.port !== '8000') {
-                return `${url.protocol}//${url.hostname}:8000`;
+            if (url.port && url.port !== '8000' && url.port !== '9443') {
+                return `${url.protocol}//${url.hostname}:${url.port}`;
             }
 
             return url.origin;

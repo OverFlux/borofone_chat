@@ -16,7 +16,7 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload, joinedload
 
-from app.infra.redis import redis_client
+from app.infra.redis import get_redis_client
 from app.models import Message, Attachment
 from app.schemas.messages import MessageCreate
 
@@ -56,6 +56,10 @@ async def create_message_with_nonce(
     Returns:
         Message с загруженными attachments
     """
+
+    # Получаем Redis клиент если не передан
+    if redis is None:
+        redis = get_redis_client()
 
     # Helper для создания сообщения с вложениями
     async def _create_message_with_attachments() -> Message:
@@ -130,12 +134,15 @@ async def create_message_with_nonce(
         return await _create_message_with_attachments()
 
     # === CASE 2: Redis available - full deduplication ===
+    if redis is None:
+        redis = get_redis_client()
+    
     try:
         # Trying to atomically capture nonce
-        acquired = await redis_client.set(key, PENDING, nx=True, ex=NONCE_TTL_SECONDS)
+        acquired = await redis.set(key, PENDING, nx=True, ex=NONCE_TTL_SECONDS)
 
         if not acquired:
-            val = await redis_client.get(key)
+            val = await redis.get(key)
 
             if val and val != PENDING:
                 # Message already created (msg_id in Redis)
@@ -169,15 +176,15 @@ async def create_message_with_nonce(
         try:
             msg = await _create_message_with_attachments()
         except Exception:
-            await redis_client.delete(key)
+            await redis.delete(key)
             raise
 
         # Publish msg_id to Redis (for future duplicates)
         # XX checks that the key exists (protects against TTL expiration)
-        ok = await redis_client.set(key, str(msg.id), xx=True, ex=NONCE_TTL_SECONDS)
+        ok = await redis.set(key, str(msg.id), xx=True, ex=NONCE_TTL_SECONDS)
         if not ok:
             # TTL expired - delete key for cleanup
-            await redis_client.delete(key)
+            await redis.delete(key)
 
         return msg
 

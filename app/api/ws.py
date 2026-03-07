@@ -80,8 +80,8 @@ async def global_websocket_endpoint(
     pubsub = None
 
     try:
-        from app.infra.redis import redis_client
-        redis = redis_client
+        from app.infra.redis import get_redis_client
+        redis = get_redis_client()
         if redis:
             await redis.ping()
     except Exception as e:

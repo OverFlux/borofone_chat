@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, FileResponse, HTMLResponse
 
 from app.infra.db import engine
-from app.infra.redis import redis_client
+from app.infra.redis import get_redis_client
 from app.models import Base
 from app.api.http import router as http_router
 from app.api.ws import router as ws_router
@@ -42,6 +42,14 @@ if RADMIN_IP:
 CUSTOM_ORIGINS = os.getenv("ALLOWED_ORIGINS", "")
 if CUSTOM_ORIGINS:
     ALLOWED_ORIGINS.extend([origin.strip() for origin in CUSTOM_ORIGINS.split(",") if origin.strip()])
+
+# Добавляем IP адрес VPS для HTTPS
+ALLOWED_ORIGINS.extend([
+    "https://91.132.161.44",
+    "https://91.132.161.44:9443",
+    "http://91.132.161.44",
+    "http://91.132.161.44:8000",
+])
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

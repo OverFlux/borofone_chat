@@ -142,15 +142,17 @@ async def get_all_users_with_status(
     Returns:
         Кортеж (список пользователей, общее количество)
     """
-    from app.infra.redis import redis_client
+    from app.infra.redis import get_redis_client
     
     # Получаем ID онлайн пользователей в комнате
     online_ids = set()
-    if room_id and redis_client:
-        try:
-            online_ids = set(await get_online_users(redis_client, room_id))
-        except Exception as e:
-            print(f"[Presence] Error getting online IDs: {e}")
+    if room_id:
+        redis = get_redis_client()
+        if redis:
+            try:
+                online_ids = set(await get_online_users(redis, room_id))
+            except Exception as e:
+                print(f"[Presence] Error getting online IDs: {e}")
     
     # Базовый запрос - все активные пользователи
     stmt = select(User).where(User.is_active == True)
