@@ -6,7 +6,7 @@ from typing import Callable
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, FileResponse, HTMLResponse
 
 from app.infra.db import engine
 from app.infra.redis import redis_client
@@ -88,6 +88,72 @@ async def root():
 @app.get("/favicon.ico")
 async def favicon():
     return FileResponse("favicon.ico")
+
+# Endpoint to list custom emojis
+@app.get("/api/emoji")
+async def list_custom_emojis():
+    """List all custom emoji files in the pages/emoji folder"""
+    import os
+    emoji_dir = "pages/emoji"
+    if os.path.isdir(emoji_dir):
+        emojis = [f for f in os.listdir(emoji_dir) if f.lower().endswith(('.gif', '.png', '.jpg', '.jpeg', '.webp'))]
+        return {"emojis": emojis}
+    return {"emojis": []}
+
+# Endpoint to list stickers
+@app.get("/api/stickers")
+async def list_stickers():
+    """List all stickers in the pages/stickers folder"""
+    import os
+    sticker_dir = "pages/stickers"
+    if os.path.isdir(sticker_dir):
+        # Support png, jpg, gif, webp, exclude README files
+        stickers = [f for f in os.listdir(sticker_dir) 
+                   if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')) 
+                   and not f.lower().startswith('readme')]
+        return {"stickers": stickers}
+    return {"stickers": []}
+
+# Endpoint to list GIFs
+@app.get("/api/gifs")
+async def list_gifs():
+    """List all GIFs in the pages/gifs folder"""
+    import os
+    gifs_dir = "pages/gifs"
+    if os.path.isdir(gifs_dir):
+        # Exclude README files
+        gifs = [f for f in os.listdir(gifs_dir) 
+               if f.lower().endswith(('.gif', '.webp')) and not f.lower().startswith('readme')]
+        return {"gifs": gifs}
+    return {"gifs": []}
+
+# Endpoint to get all media (emoji, stickers, gifs) at once
+@app.get("/api/media")
+async def list_all_media():
+    """List all custom emoji, stickers, and GIFs in one call"""
+    import os
+    
+    result = {"emojis": [], "stickers": [], "gifs": []}
+    
+    # Emoji folder
+    emoji_dir = "pages/emoji"
+    if os.path.isdir(emoji_dir):
+        result["emojis"] = [f for f in os.listdir(emoji_dir) if f.lower().endswith(('.gif', '.png', '.jpg', '.jpeg', '.webp'))]
+    
+    # Stickers folder
+    sticker_dir = "pages/stickers"
+    if os.path.isdir(sticker_dir):
+        result["stickers"] = [f for f in os.listdir(sticker_dir) 
+                             if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))
+                             and not f.lower().startswith('readme')]
+    
+    # GIFs folder
+    gifs_dir = "pages/gifs"
+    if os.path.isdir(gifs_dir):
+        result["gifs"] = [f for f in os.listdir(gifs_dir) 
+                         if f.lower().endswith(('.gif', '.webp')) and not f.lower().startswith('readme')]
+    
+    return result
 
 app.include_router(http_router, tags=["HTTP"]) # Add a router with HTTP endpoints
 app.include_router(ws_router, tags=["Websocket"]) # Add a router with WebSockets endpoints

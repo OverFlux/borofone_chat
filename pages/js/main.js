@@ -364,6 +364,505 @@ const ALL_EMOJI_OPTIONS = [
 let replyToMessage = null;
 let activeReactionPickerFor = null;
 
+// ==========================================
+// EMOJI PICKER DATA
+// ==========================================
+
+const EMOJI_CATEGORIES = {
+    custom: {
+        name: 'Кастомные',
+        emojis: [],
+        isCustom: true,
+        path: '/emoji/'
+    },
+    smileys: {
+        name: 'Улыбки и эмоции',
+        emojis: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '☺️', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖']
+    },
+    animals: {
+        name: 'Животные и природа',
+        emojis: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🦟', '🦗', '🕷️', '🦂', '🐢', '🐍', '🦎', '🦖', '🦕', '🐙', '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🦣', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🦬', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐩', '🦮', '🐕‍🦺', '🐈', '🐈‍⬛', '🪶', '🐓', '🦃', '🦤', '🦚', '🦜', '🦢', '🦩', '🕊️', '🐇', '🦝', '🦨', '🦡', '🦫', '🦦', '🦥', '🐁', '🐀', '🐿️', '🦔']
+    },
+    food: {
+        name: 'Еда и напитки',
+        emojis: ['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽', '🥕', '🫒', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🫓', '🥪', '🥙', '🧆', '🌮', '🌯', '🫔', '🥗', '🥘', '🫕', '🥫', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯', '🥛', '🍼', '☕', '🫖', '🍵', '🧃', '🥤', '🧋', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧉', '🍾', '🧊']
+    },
+    activities: {
+        name: 'Активность и спорт',
+        emojis: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️', '🤼', '🤸', '🤺', '⛹️', '🤾', '🏌️', '🏇', '🧘', '🏄', '🏊', '🤽', '🚣', '🧗', '🚴', '🚵', '🎪', '🎭', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🪘', '🎷', '🎺', '🪗', '🎸', '🪕', '🎻', '🪈', '🎲', '♟️', '🎯', '🎳', '🎮', '🎰', '🧩', '🎠', '🎡', '🎢', '💎', '🎪', '🎫', '🎟️', '🎫']
+    },
+    travel: {
+        name: 'Путешествия и места',
+        emojis: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🏍️', '🛵', '🚲', '🛴', '🛺', '🚨', '🚔', '🚍', '🚘', '🚖', '🚡', '🚠', '🚟', '🚃', '🚋', '🚞', '🚝', '🚄', '🚅', '🚈', '🚂', '🚆', '🚇', '🚊', '🚉', '✈️', '🛫', '🛬', '🛩️', '💺', '🛰️', '🚀', '🛸', '🚁', '🛶', '⛵', '🚤', '🛥️', '🛳️', '⛴️', '🚢', '⚓', '🪝', '⛽', '🚧', '🚦', '🚥', '🗺️', '🗿', '🗽', '🗼', '🏰', '🏯', '🏟️', '🎡', '🎢', '🎠', '⛲', '⛱️', '🏖️', '🏝️', '🏜️', '🌋', '⛰️', '🏔️', '🗻', '🏕️', '⛺', '🛖', '🏠', '🏡', '🏘️', '🏚️', '🏗️', '🏭', '🏢', '🏬', '🏣', '🏤', '🏥', '🏦', '🏨', '🏪', '🏫', '🏩', '💒', '🏛️', '⛪', '🕌', '🕍', '🛕', '🕋', '⛩️']
+    },
+    objects: {
+        name: 'Предметы',
+        emojis: ['⌚', '📱', '📲', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '🖲️', '🕹️', '🗜️', '💽', '💾', '💿', '📀', '📼', '📷', '📸', '📹', '🎥', '📽️', '🎞️', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙️', '🎚️', '🎛️', '🧭', '⏱️', '⏲️', '⏰', '🕰️', '⌛', '⏳', '📡', '🔋', '🔌', '💡', '🔦', '🕯️', '🪔', '🧯', '🛢️', '💸', '💵', '💴', '💶', '💷', '🪙', '💰', '💳', '💎', '⚖️', '🪜', '🧰', '🪛', '🔧', '🔨', '⚒️', '🛠️', '⛏️', '🪚', '🔩', '⚙️', '🪤', '🧱', '⛓️', '🧲', '🔫', '💣', '🧨', '🪓', '🔪', '🗡️', '⚔️', '🛡️', '🚬', '⚰️', '🪦', '⚱️', '🏺', '🔮', '📿', '🧿', '💈', '⚗️', '🔭', '🔬', '🕳️', '🩹', '🩺', '💊', '💉', '🩸', '🧬', '🦠', '🧫', '🧪', '🌡️', '🧹', '🪠', '🧺', '🧻', '🚽', '🚰', '🚿', '🛁', '🛀', '🧼', '🪥', '🪒', '🧽', '🪣', '🧴', '🛎️', '🔑', '🗝️', '🚪', '🪑', '🛋️', '🛏️', '🛌', '🧸', '🪆', '🖼️', '🪞', '🪟', '🛍️', '🛒', '🎁', '🎈', '🎏', '🎀', '🪄', '🪅', '🎊', '🎉', '🎎', '🏮', '🎐', '🧧', '✉️', '📩', '📨', '📧', '💌', '📥', '📤', '📦', '🏷️', '🪧', '📪', '📫', '📬', '📭', '📮', '📯', '📜', '📃', '📄', '📑', '🧾', '📊', '📈', '📉', '🗒️', '🗓️', '📆', '📅', '🗑️', '📇', '🗃️', '🗳️', '🗄️', '📋', '📁', '📂', '🗂️', '🗞️', '📰', '📓', '📔', '📒', '📕', '📗', '📘', '📙', '📚', '📖', '🔖', '🧷', '🔗', '📎', '🖇️', '📐', '📏', '🧮', '📌', '📍', '✂️', '🖊️', '🖋️', '✒️', '🖌️', '🖍️', '📝', '✏️', '🔍', '🔎', '🔏', '🔐', '🔒', '🔓']
+    },
+    symbols: {
+        name: 'Символы',
+        emojis: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐', '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️', '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🛗', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🚹', '🚺', '🚼', '⚧️', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', '🆖', '🆗', '🆙', '🆒', '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '🔢', '#️⃣', '*️⃣', '⏏️', '▶️', '⏸️', '⏯️', '⏹️', '⏺️', '⏭️', '⏮️', '⏩', '⏪', '⏫', '⏬', '◀️', '🔼', '🔽', '➡️', '⬅️', '⬆️', '⬇️', '↗️', '↘️', '↙️', '↖️', '↕️', '↔️', '↪️', '↩️', '⤴️', '⤵️', '🔀', '🔁', '🔂', '🔄', '🔃', '🎵', '🎶', '➕', '➖', '➗', '✖️', '♾️', '💲', '💱', '™️', '©️', '®️', '〰️', '➰', '➿', '🔚', '🔙', '🔛', '🔝', '🔜', '✔️', '☑️', '🔘', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '🔺', '🔻', '🔸', '🔹', '🔶', '🔷', '🔳', '🔲', '▪️', '▫️', '◾', '◽', '◼️', '◻️', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '⬛', '⬜', '🟫', '🔈', '🔇', '🔉', '🔊', '🔔', '🔕', '📣', '📢', '💬', '💭', '🗯️', '♠️', '♣️', '♥️', '♦️', '🃏', '🎴', '🀄', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛', '🕜', '🕝', '🕞', '🕟', '🕠', '🕡', '🕢', '🕣', '🕤', '🕥', '🕦', '🕧']
+    },
+    flags: {
+        name: 'Флаги',
+        emojis: ['🏳️', '🏴', '🏴‍☠️', '🏁', '🚩', '🎌', '🏳️‍🌈', '🏳️‍⚧️', '🏴‍☠️', '🇺🇸', '🇬🇧', '🇷🇺', '🇺🇦', '🇧🇾', '🇰🇿', '🇪🇸', '🇫🇷', '🇩🇪', '🇮🇹', '🇯🇵', '🇰🇷', '🇨🇳', '🇮🇳', '🇧🇷', '🇲🇽', '🇨🇦', '🇦🇺', '🇳🇱', '🇵🇱', '🇨🇭', '🇸🇪', '🇳🇴', '🇩🇰', '🇫🇮', '🇵🇹', '🇬🇷', '🇹🇷', '🇿🇦', '🇪🇬', '🇮🇱', '🇸🇦', '🇦🇪', '🇹🇭', '🇻🇳', '🇮🇩', '🇵🇭', '🇲🇾', '🇸🇬', '🇳🇵', '🇱🇰', '🇧🇩', '🇵🇰', '🇮🇷', '🇮🇶', '🇰🇼', '🇶🇦', '🇧🇭', '🇴🇲', '🇾🇪', '🇸🇾', '🇱🇧', '🇸🇩', '🇸🇸', '🇪🇹', '🇪🇷', '🇩🇯', '🇰🇪', '🇹🇿', '🇺🇬', '🇷🇼', '🇧🇮', '🇪🇿', '🇳🇪', '🇸🇳', '🇬🇳', '🇸🇱', '🇱🇷', '🇨🇮', '🇬🇭', '🇳🇬', '🇬🇲', '🇬🇦', '🇸🇿', '🇱🇸', '🇧🇼', '🇳🇦', '🇲🇿', '🇿🇦', '🇱🇽', '🇲🇬', '🇲🇱', '🇨🇲', '🇨🇫', '🇹🇩', '🇨🇬', '🇨🇩', '🇷🇬', '🇦🇴', '🇿🇲', '🇲🇼', '🇲🇦', '🇩🇿', '🇱🇾', '🇹🇳', '🇲🇹', '🇨🇾', '🇭🇷', '🇷🇸', '🇸🇮', '🇲🇪', '🇧🇦', '🇲🇰', '🇦🇱', '🇲🇩', '🇺🇦', '🇪🇪', '🇱🇻', '🇱🇹', '🇱🇺', '🇧🇪', '🇳🇱', '🇱🇺', '🇭🇺', '🇦🇹', '🇨🇿', '🇸🇰', '🇮🇪', '🇬🇮', '🇻🇦', '🇸🇲', '🇦🇩', '🇲🇨', '🇲🇦', '🇯🇪', '🇬🇪', '🇦🇲', '🇦🇿', '🇬🇪', '🇰🇬', '🇹🇯', '🇹🇲', '🇺🇿', '🇦🇫', '🇦🇱', '🇧🇹', '🇧🇳', '🇰🇭', '🇱🇦', '🇲🇲', '🇲🇳', '🇲🇬', '🇵🇬', '🇸🇧', '🇻🇺', '🇼🇸', '🇲🇵', '🇬🇺', '🇵🇫', '🇵🇳', '🇳🇷', '🇳🇫', '🇹🇰', '🇸🇭', '🇲🇶', '🇬🇵', '🇩🇬', '🇦🇬', '🇦🇮', '🇧🇧', '🇨🇼', '🇨🇩', '🇨🇬', '🇩🇲', '🇬🇩', '🇭🇹', '🇯🇲', '🇰🇳', '🇱🇨', '🇲🇫', '🇲🇸', '🇳🇵', '🇰🇷', '🇵🇲', '🇸🇭', '🇸🇨', '🇸🇩', '🇸🇸', '🇸🇹', '🇹🇨', '🇹🇩', '🇹🇬', '🇹🇹', '🇹🇻', '🇻🇬', '🇻🇮']
+    }
+};
+
+// Emoji picker state
+let activeEmojiCategory = 'custom';
+let emojiPicker = null;
+let emojiBtn = null;
+let emojiGrid = null;
+
+function initEmojiPicker() {
+    emojiPicker = document.getElementById('emojiPicker');
+    emojiBtn = document.getElementById('emojiBtn');
+    emojiGrid = document.getElementById('emojiGrid');
+
+    if (!emojiPicker || !emojiBtn || !emojiGrid) {
+        console.warn('[emoji] Elements not found');
+        return;
+    }
+
+    // Toggle emoji picker on button click
+    emojiBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleEmojiPicker();
+    });
+
+    // Close picker when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!emojiPicker.contains(e.target) && e.target !== emojiBtn && !emojiBtn.contains(e.target)) {
+            closeEmojiPicker();
+        }
+    });
+
+    // Tab switching (Эмодзи, Стикеры, Гифки)
+    const tabBtns = emojiPicker.querySelectorAll('.emoji-tab');
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            const tab = btn.dataset.tab;
+            
+            // Hide all content sections
+            const contents = emojiPicker.querySelectorAll('.emoji-content');
+            contents.forEach(c => c.classList.add('hidden'));
+            
+            // Show selected content
+            if (tab === 'emoji') {
+                document.getElementById('emojiContent').classList.remove('hidden');
+            } else if (tab === 'stickers') {
+                document.getElementById('stickersContent').classList.remove('hidden');
+                // Load stickers if not loaded
+                if (stickers.length === 0) {
+                    loadStickers();
+                }
+            } else if (tab === 'gifs') {
+                document.getElementById('gifsContent').classList.remove('hidden');
+                // Load gifs if not loaded
+                if (gifs.length === 0) {
+                    loadGifs();
+                }
+            }
+        });
+    });
+
+    // Category buttons within emoji tab
+    const categoryBtns = emojiPicker.querySelectorAll('.emoji-category-btn');
+    categoryBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            categoryBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeEmojiCategory = btn.dataset.category;
+            renderEmojis(activeEmojiCategory);
+        });
+    });
+
+    // Initial render
+    renderEmojis('custom');
+    
+    // Load all media for shortcode support and emoji picker
+    loadAllMedia();
+}
+
+// Load all media (emoji, stickers, gifs) at once
+async function loadAllMedia() {
+    try {
+        const response = await fetch('/api/media?_=' + Date.now());
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.emojis && data.emojis.length > 0) {
+                customEmojis = data.emojis;
+                console.log('[media] Emojis loaded:', customEmojis.length);
+                // Render if on custom emoji category
+                if (activeEmojiCategory === 'custom') {
+                    renderCustomEmojis();
+                }
+            }
+            
+            if (data.stickers && data.stickers.length > 0) {
+                stickers = data.stickers;
+                console.log('[media] Stickers loaded:', stickers.length);
+                renderStickers();
+            }
+            
+            if (data.gifs && data.gifs.length > 0) {
+                gifs = data.gifs;
+                console.log('[media] GIFs loaded:', gifs.length);
+                renderGifs();
+            }
+            
+            console.log('[media] All media loaded');
+        }
+    } catch (err) {
+        console.warn('[media] Could not load media:', err);
+        // Fallback to individual loads
+        loadCustomEmojis();
+        loadStickers();
+        loadGifs();
+    }
+}
+
+function toggleEmojiPicker() {
+    if (emojiPicker.classList.contains('hidden')) {
+        openEmojiPicker();
+    } else {
+        closeEmojiPicker();
+    }
+}
+
+function openEmojiPicker() {
+    emojiPicker.classList.remove('hidden');
+    
+    // Reset tab to emoji
+    const tabBtns = emojiPicker.querySelectorAll('.emoji-tab');
+    tabBtns.forEach(b => b.classList.remove('active'));
+    const emojiTab = emojiPicker.querySelector('[data-tab="emoji"]');
+    if (emojiTab) emojiTab.classList.add('active');
+    
+    // Show emoji content, hide others
+    const contents = emojiPicker.querySelectorAll('.emoji-content');
+    contents.forEach(c => c.classList.add('hidden'));
+    document.getElementById('emojiContent').classList.remove('hidden');
+    
+    // Reset category
+    const activeBtn = emojiPicker.querySelector('.emoji-category-btn.active');
+    if (activeBtn) {
+        activeBtn.classList.remove('active');
+    }
+    const defaultBtn = emojiPicker.querySelector('[data-category="custom"]');
+    if (defaultBtn) defaultBtn.classList.add('active');
+    activeEmojiCategory = 'custom';
+    renderEmojis('custom');
+}
+
+function closeEmojiPicker() {
+    emojiPicker.classList.add('hidden');
+}
+
+// Custom emoji files cache
+let customEmojis = ['Anime.gif']; // Default, will be loaded from server
+let stickers = []; // Stickers cache
+let gifs = []; // GIFs cache
+
+// Load custom emojis from server
+async function loadCustomEmojis() {
+    try {
+        // Add timestamp to prevent caching
+        const response = await fetch('/api/emoji?_=' + Date.now());
+        if (response.ok) {
+            const data = await response.json();
+            if (data.emojis && data.emojis.length > 0) {
+                customEmojis = data.emojis;
+                console.log('[emoji] Custom emojis loaded:', customEmojis.length);
+                // Always re-render when emojis are loaded
+                renderCustomEmojis();
+            }
+        }
+    } catch (err) {
+        console.warn('[emoji] Could not load custom emojis:', err);
+    }
+}
+
+// Load stickers from server
+async function loadStickers() {
+    const stickersGrid = document.getElementById('stickersGrid');
+    if (!stickersGrid) {
+        console.warn('[stickers] Stickers grid not found in DOM');
+        return;
+    }
+    
+    stickersGrid.innerHTML = '<div class="emoji-loading">Загрузка стикеров...</div>';
+    
+    try {
+        const response = await fetch('/api/stickers?_=' + Date.now());
+        if (response.ok) {
+            const data = await response.json();
+            if (data.stickers && data.stickers.length > 0) {
+                stickers = data.stickers;
+                console.log('[stickers] Stickers loaded:', stickers.length);
+                renderStickers();
+            } else {
+                stickersGrid.innerHTML = '<div class="emoji-empty">Нет доступных стикеров</div>';
+            }
+        } else {
+            stickersGrid.innerHTML = '<div class="emoji-empty">Не удалось загрузить стикеры</div>';
+        }
+    } catch (err) {
+        console.warn('[stickers] Could not load stickers:', err);
+        stickersGrid.innerHTML = '<div class="emoji-empty">Ошибка загрузки стикеров</div>';
+    }
+}
+
+// Render stickers in the grid
+function renderStickers() {
+    const stickersGrid = document.getElementById('stickersGrid');
+    if (!stickersGrid) return;
+    
+    if (stickers.length === 0) {
+        stickersGrid.innerHTML = '<div class="emoji-empty">Нет доступных стикеров</div>';
+        return;
+    }
+    
+    stickersGrid.innerHTML = '';
+    
+    stickers.forEach(stickerFile => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sticker-item';
+        btn.title = stickerFile.replace(/\.(png|jpg|gif|webp)$/i, '');
+        
+        const img = document.createElement('img');
+        img.src = '/stickers/' + stickerFile;
+        img.alt = stickerFile;
+        img.loading = 'lazy';
+        
+        btn.appendChild(img);
+        btn.addEventListener('click', () => insertSticker('/stickers/' + stickerFile, stickerFile, true));
+        stickersGrid.appendChild(btn);
+    });
+}
+
+// Insert sticker into message input
+function insertSticker(stickerUrl, stickerName, autoSend = false) {
+    const messageInput = document.getElementById('messageInput');
+    if (!messageInput) return;
+    
+    // Insert sticker as markdown image tag
+    const name = stickerName.replace(/\.(png|jpg|gif|webp)$/i, '');
+    const stickerMarkdown = `![${name}](${stickerUrl})`;
+    
+    const start = messageInput.selectionStart;
+    const end = messageInput.selectionEnd;
+    const text = messageInput.value;
+    
+    messageInput.value = text.substring(0, start) + stickerMarkdown + text.substring(end);
+    
+    // Move cursor after sticker
+    const newPos = start + stickerMarkdown.length;
+    messageInput.setSelectionRange(newPos, newPos);
+    messageInput.focus();
+    
+    closeEmojiPicker();
+    
+    // Auto-send if requested
+    if (autoSend) {
+        sendMessage();
+    }
+}
+
+// Load GIFs from server
+async function loadGifs() {
+    const gifsGrid = document.getElementById('gifsGrid');
+    if (!gifsGrid) {
+        console.warn('[gifs] GIFs grid not found in DOM');
+        return;
+    }
+    
+    gifsGrid.innerHTML = '<div class="emoji-loading">Загрузка гифок...</div>';
+    
+    try {
+        const response = await fetch('/api/gifs?_=' + Date.now());
+        if (response.ok) {
+            const data = await response.json();
+            if (data.gifs && data.gifs.length > 0) {
+                gifs = data.gifs;
+                console.log('[gifs] GIFs loaded:', gifs.length);
+                renderGifs();
+            } else {
+                gifsGrid.innerHTML = '<div class="emoji-empty">Нет доступных гифок</div>';
+            }
+        } else {
+            gifsGrid.innerHTML = '<div class="emoji-empty">Не удалось загрузить гифки</div>';
+        }
+    } catch (err) {
+        console.warn('[gifs] Could not load gifs:', err);
+        gifsGrid.innerHTML = '<div class="emoji-empty">Ошибка загрузки гифок</div>';
+    }
+}
+
+// Render GIFs in the grid
+function renderGifs() {
+    const gifsGrid = document.getElementById('gifsGrid');
+    if (!gifsGrid) return;
+    
+    if (gifs.length === 0) {
+        gifsGrid.innerHTML = '<div class="emoji-empty">Нет доступных гифок</div>';
+        return;
+    }
+    
+    gifsGrid.innerHTML = '';
+    
+    gifs.forEach(gifFile => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'gif-item';
+        btn.title = gifFile.replace(/\.(gif|webp)$/i, '');
+        
+        const img = document.createElement('img');
+        img.src = '/gifs/' + gifFile;
+        img.alt = gifFile;
+        img.loading = 'lazy';
+        
+        btn.appendChild(img);
+        btn.addEventListener('click', () => insertGif('/gifs/' + gifFile, gifFile, true));
+        gifsGrid.appendChild(btn);
+    });
+}
+
+// Insert GIF into message input
+function insertGif(gifUrl, gifName, autoSend = false) {
+    const messageInput = document.getElementById('messageInput');
+    if (!messageInput) return;
+    
+    // Insert GIF as markdown image tag
+    const name = gifName.replace(/\.(gif|webp)$/i, '');
+    const gifMarkdown = `![${name}](${gifUrl})`;
+    
+    const start = messageInput.selectionStart;
+    const end = messageInput.selectionEnd;
+    const text = messageInput.value;
+    
+    messageInput.value = text.substring(0, start) + gifMarkdown + text.substring(end);
+    
+    // Move cursor after GIF
+    const newPos = start + gifMarkdown.length;
+    messageInput.setSelectionRange(newPos, newPos);
+    messageInput.focus();
+    
+    closeEmojiPicker();
+    
+    // Auto-send if requested
+    if (autoSend) {
+        sendMessage();
+    }
+}
+
+function renderEmojis(category) {
+    if (!emojiGrid || !EMOJI_CATEGORIES[category]) return;
+
+    const cat = EMOJI_CATEGORIES[category];
+    
+    // Handle custom emoji category (GIFs)
+    if (cat.isCustom) {
+        renderCustomEmojis();
+        return;
+    }
+
+    const emojis = cat.emojis;
+    emojiGrid.innerHTML = '';
+
+    emojis.forEach(emoji => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'emoji-item';
+        btn.textContent = emoji;
+        btn.addEventListener('click', () => insertEmoji(emoji));
+        emojiGrid.appendChild(btn);
+    });
+}
+
+function renderCustomEmojis() {
+    emojiGrid.innerHTML = '';
+    
+    if (customEmojis.length === 0) {
+        emojiGrid.innerHTML = '<div class="emoji-no-custom">Загрузка кастомных эмодзи...</div>';
+        loadCustomEmojis();  // Trigger load if empty
+        return;
+    }
+
+    customEmojis.forEach(emojiFile => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'emoji-item custom-emoji-item';
+        // Remove any image extension from the title
+        btn.title = emojiFile.replace(/\.(gif|png|jpg|jpeg|webp)$/i, '');
+        
+        const img = document.createElement('img');
+        img.src = '/emoji/' + emojiFile;
+        img.alt = emojiFile;
+        img.className = 'custom-emoji-img';
+        
+        btn.appendChild(img);
+        btn.addEventListener('click', () => insertCustomEmoji('/emoji/' + emojiFile));
+        emojiGrid.appendChild(btn);
+    });
+}
+
+function insertCustomEmoji(emojiUrl) {
+    const messageInput = document.getElementById('messageInput');
+    if (!messageInput) return;
+
+    // Insert custom emoji as markdown image tag (like Discord)
+    const emojiName = emojiUrl.split('/').pop().replace('.gif', '');
+    const emojiMarkdown = `![${emojiName}](${emojiUrl})`;
+    
+    // Insert at cursor position
+    const start = messageInput.selectionStart;
+    const end = messageInput.selectionEnd;
+    const text = messageInput.value;
+
+    messageInput.value = text.substring(0, start) + emojiMarkdown + text.substring(end);
+
+    // Move cursor after emoji
+    const newPos = start + emojiMarkdown.length;
+    messageInput.setSelectionRange(newPos, newPos);
+    messageInput.focus();
+
+    // Close picker after selection
+    closeEmojiPicker();
+
+    // Trigger input event to update UI
+    messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function insertEmoji(emoji) {
+    const messageInput = document.getElementById('messageInput');
+    if (!messageInput) return;
+
+    // Insert emoji at cursor position
+    const start = messageInput.selectionStart;
+    const end = messageInput.selectionEnd;
+    const text = messageInput.value;
+
+    messageInput.value = text.substring(0, start) + emoji + text.substring(end);
+
+    // Move cursor after emoji
+    const newPos = start + emoji.length;
+    messageInput.setSelectionRange(newPos, newPos);
+    messageInput.focus();
+
+    // Close picker after selection
+    closeEmojiPicker();
+
+    // Trigger input event to update UI
+    messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 let voiceRooms = [];
 let currentVoiceRoomId = null;
 let voiceParticipants = [];
@@ -1165,7 +1664,7 @@ function addMessage(msg, animate = false) {
     // Скрываем текст если пустой и есть вложения
     const isDeleted = Boolean(msg.is_deleted);
     messageEl.dataset.isDeleted = isDeleted ? '1' : '0';
-    const bodyText = msg.body ? parseMarkdown(escapeHtml(msg.body)) : '';
+    const bodyText = msg.body ? parseMarkdownWithEscaping(msg.body) : '';
     const bodyHtml = bodyText ? `<div class="message-text${isDeleted ? ' message-text--deleted' : ''}">${bodyText}</div>` : '';
 
     const reactionsHtml = renderReactions(msg.reactions || []);
@@ -1265,7 +1764,7 @@ function renderReplyPreview(replyTo) {
     const user = replyTo.user?.display_name || replyTo.user?.username || 'Unknown';
     const body = (replyTo.body || '').trim();
     const shortBody = body.length > 120 ? `${body.slice(0, 120)}...` : body;
-    return `<button class="message-reply" data-jump-to-message="${replyTo.id}" type="button">↩ <strong>${escapeHtml(user)}</strong>: ${parseMarkdown(escapeHtml(shortBody || '[вложение]'))}</button>`;
+    return `<button class="message-reply" data-jump-to-message="${replyTo.id}" type="button">↩ <strong>${escapeHtml(user)}</strong>: ${parseMarkdownWithEscaping(shortBody || '[вложение]')}</button>`;
 }
 
 function jumpToMessage(messageId) {
@@ -1757,6 +2256,119 @@ function escapeHtml(text) {
 }
 
 /**
+ * Parse markdown with escaping - processes markdown syntax BEFORE escaping HTML
+ * This allows ![image](url) syntax to work correctly while still preventing XSS
+ */
+function parseMarkdownWithEscaping(text) {
+    if (!text) return '';
+    
+    // First protect markdown syntax characters from escaping
+    // We need to preserve: ![](), [](), **, __, ~~, `, #, >, -, *
+    let protected = text;
+    
+    // Protect markdown image syntax ![alt](url) - temporarily replace
+    const imageMatches = [];
+    protected = protected.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+        const placeholder = `__MD_IMAGE_${imageMatches.length}__`;
+        imageMatches.push({ alt, url, original: match });
+        return placeholder;
+    });
+    
+    // Protect markdown link syntax [text](url)
+    const linkMatches = [];
+    protected = protected.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+        const placeholder = `__MD_LINK_${linkMatches.length}__`;
+        linkMatches.push({ text, url, original: match });
+        return placeholder;
+    });
+    
+    // Escape HTML in the remaining text
+    let escaped = escapeHtml(protected);
+    
+    // Restore markdown images
+    imageMatches.forEach((item, index) => {
+        const placeholder = `__MD_IMAGE_${index}__`;
+        const imgTag = `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.alt)}" class="md-image" loading="lazy">`;
+        escaped = escaped.replace(placeholder, imgTag);
+    });
+    
+    // Restore markdown links
+    linkMatches.forEach((item, index) => {
+        const placeholder = `__MD_LINK_${index}__`;
+        const linkTag = `<a href="${escapeHtml(item.url)}" class="md-link" target="_blank" rel="noopener noreferrer">${escapeHtml(item.text)}</a>`;
+        escaped = escaped.replace(placeholder, linkTag);
+    });
+    
+    // Now process the rest of markdown (bold, italic, etc.) - these are already safe since we escaped HTML first
+    let html = escaped;
+    
+    // Process shortcodes like !troll, !hello, etc. to images
+    // Only match shortcodes at start of line/after whitespace, followed by whitespace or end
+    html = html.replace(/(^|\s)!([a-zA-Z0-9_-]+)(?=\s|$)/g, (match, prefix, shortcode) => {
+        // Check if this shortcode matches any known media
+        const exts = ['.gif', '.png', '.jpg', '.jpeg', '.webp'];
+        for (const ext of exts) {
+            const filename = shortcode + ext;
+            // Check in emoji folder
+            if (customEmojis.includes(filename)) {
+                return prefix + `<img src="/emoji/${escapeHtml(filename)}" alt="${escapeHtml(shortcode)}" class="md-image" loading="lazy">`;
+            }
+            // Check in stickers folder
+            if (stickers.includes(filename)) {
+                return prefix + `<img src="/stickers/${escapeHtml(filename)}" alt="${escapeHtml(shortcode)}" class="md-image" loading="lazy">`;
+            }
+            // Check in gifs folder
+            if (gifs.includes(filename)) {
+                return prefix + `<img src="/gifs/${escapeHtml(filename)}" alt="${escapeHtml(shortcode)}" class="md-image" loading="lazy">`;
+            }
+        }
+        // If no match, return original text
+        return match;
+    });
+    
+    // Code blocks (```code```)
+    html = html.replace(/```([\s\S]*?)```/g, '<pre class="md-code-block"><code>$1</code></pre>');
+    
+    // Inline code (`code`)
+    html = html.replace(/`([^`]+)`/g, '<code class="md-inline">$1</code>');
+    
+    // Strikethrough (~~text~~)
+    html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+    
+    // Bold (**text** or __text__)
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+    
+    // Italic (*text* or _text_)
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+    
+    // Headers (### H3, ## H2, # H1)
+    html = html.replace(/^### (.+)$/gm, '<h4 class="md-h4">$1</h4>');
+    html = html.replace(/^## (.+)$/gm, '<h3 class="md-h3">$1</h3>');
+    html = html.replace(/^# (.+)$/gm, '<h2 class="md-h2">$1</h2>');
+    
+    // Blockquotes (> quote)
+    html = html.replace(/^&gt; (.+)$/gm, '<blockquote class="md-blockquote">$1</blockquote>');
+    
+    // Unordered lists (- item or * item)
+    html = html.replace(/^[*-] (.+)$/gm, '<li class="md-li">$1</li>');
+    
+    // Auto-link URLs (http:// or https://)
+    // This regex matches URLs that are not already inside markdown link syntax
+    html = html.replace(/(<a[^>]*>[^<]*<\/a>)|(https?:\/\/[^\s<]+)/g, (match, markdownLink, plainUrl) => {
+        if (markdownLink) return markdownLink;
+        // Add target="_blank" for security
+        return `<a href="${plainUrl}" class="md-link" target="_blank" rel="noopener noreferrer">${plainUrl}</a>`;
+    });
+    
+    // Convert line breaks to <br>
+    html = html.replace(/\n/g, '<br>');
+    
+    return html;
+}
+
+/**
  * Parse markdown syntax to HTML
  * NOTE: This function should be called AFTER escapeHtml to prevent XSS
  * Supports: bold, italic, strikethrough, inline code, code blocks, links, headers, lists, blockquotes
@@ -1765,6 +2377,33 @@ function parseMarkdown(text) {
     if (!text) return '';
     
     let html = text;
+    
+    // First, process markdown images ![alt](url) - must be before shortcodes to avoid conflicts
+    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="md-image" loading="lazy">');
+    
+    // Then, process shortcodes like !troll, !hello, etc. to images
+    // Only match shortcodes at start of line/after whitespace, followed by whitespace or end
+    html = html.replace(/(^|\s)!([a-zA-Z0-9_-]+)(?=\s|$)/g, (match, prefix, shortcode) => {
+        // Check if this shortcode matches any known media
+        const exts = ['.gif', '.png', '.jpg', '.jpeg', '.webp'];
+        for (const ext of exts) {
+            const filename = shortcode + ext;
+            // Check in emoji folder
+            if (customEmojis.includes(filename)) {
+                return prefix + `<img src="/emoji/${filename}" alt="${shortcode}" class="md-image" loading="lazy">`;
+            }
+            // Check in stickers folder
+            if (stickers.includes(filename)) {
+                return prefix + `<img src="/stickers/${filename}" alt="${shortcode}" class="md-image" loading="lazy">`;
+            }
+            // Check in gifs folder
+            if (gifs.includes(filename)) {
+                return prefix + `<img src="/gifs/${filename}" alt="${shortcode}" class="md-image" loading="lazy">`;
+            }
+        }
+        // If no match, return original text
+        return match;
+    });
     
     // Code blocks (```code```) - must be first to avoid conflicts
     html = html.replace(/```([\s\S]*?)```/g, '<pre class="md-code-block"><code>$1</code></pre>');
@@ -1796,6 +2435,14 @@ function parseMarkdown(text) {
     
     // Links [text](url)
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="md-link" target="_blank" rel="noopener noreferrer">$1</a>');
+    
+    // Auto-link URLs (http:// or https://)
+    // This regex matches URLs that are not already inside markdown link syntax
+    html = html.replace(/(<a[^>]*>[^<]*<\/a>)|(https?:\/\/[^\s<]+)/g, (match, markdownLink, plainUrl) => {
+        if (markdownLink) return markdownLink;
+        // Add target="_blank" for security
+        return `<a href="${plainUrl}" class="md-link" target="_blank" rel="noopener noreferrer">${plainUrl}</a>`;
+    });
     
     // Convert line breaks to <br>
     html = html.replace(/\n/g, '<br>');
@@ -2699,7 +3346,15 @@ messageInput.addEventListener('keydown', (e) => {
                 e.preventDefault();
                 applyMarkdownFormat('strikethrough');
                 break;
+            case 'e':
+                e.preventDefault();
+                toggleEmojiPicker();
+                break;
         }
+    }
+    // Escape to close emoji picker
+    if (e.key === 'Escape') {
+        closeEmojiPicker();
     }
 });
 
@@ -5373,6 +6028,34 @@ async function init() {
     
     // Инициализируем сайдбар пользователей
     initUsersSidebar();
+    
+    // Инициализируем emoji picker
+    initEmojiPicker();
+    
+    // Инициализируем Twemoji для Discord-подобных эмодзи
+    if (typeof twemoji !== 'undefined') {
+        twemoji.parse(document.body, {
+            base: 'https://cdn.jsdelivr.net/npm/twemoji@14.0.2/',
+            ext: '.svg',
+            size: '36x36'
+        });
+    }
+    
+    // Глобальный keyboard shortcut для открытия emoji picker
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+E or Cmd+E anywhere to open emoji picker
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+            // Don't interfere if user is typing in an input
+            const target = e.target;
+            const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+            
+            if (isInput && target.id !== 'emojiSearch') {
+                // If in message input, just prevent default and toggle
+                e.preventDefault();
+            }
+            toggleEmojiPicker();
+        }
+    });
     
     // Ждём подключения WebSocket перед скрытием экрана загрузки
     // Добавляем safety timeout на случай, если WebSocket не подключится
