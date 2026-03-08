@@ -4471,6 +4471,11 @@ async function loadAllUsers() {
         // Просто показываем всех пользователей одним списком
         usersList.innerHTML = users.map(user => renderUserItem(user)).join('');
         
+        // Обновляем мобильный счётчик пользователей
+        if (window.renderMobileUsers) {
+            window.renderMobileUsers();
+        }
+        
         // Attach click handlers to user items
         attachClickHandlersToUserList();
     } catch (err) {
@@ -4594,6 +4599,11 @@ async function loadOnlineUsers() {
         attachClickHandlersToUserList();
     } catch (err) {
         console.error('Failed to load online users:', err);
+    }
+    
+    // Обновляем мобильный счётчик пользователей
+    if (window.renderMobileUsers) {
+        window.renderMobileUsers();
     }
 }
 
@@ -6081,6 +6091,197 @@ async function init() {
 
 // Инициализируем экран загрузки
 initLoadingScreen();
+
+// =============================================
+// Mobile Menu Functions (PWA)
+// =============================================
+function initMobileMenu() {
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const roomsSidebar = document.getElementById('roomsSidebar');
+    const sidebarOverlay = document.getElementById('roomsSidebarOverlay');
+    
+    if (!mobileMenuBtn || !roomsSidebar) return;
+    
+    // Показываем кнопку только на мобильных
+    const checkMobile = () => {
+        if (window.innerWidth <= 640) {
+            mobileMenuBtn.style.display = 'flex';
+            // Показываем sidebar
+            roomsSidebar.style.display = 'flex';
+        } else {
+            mobileMenuBtn.style.display = 'none';
+            roomsSidebar.classList.remove('active');
+            roomsSidebar.style.display = '';
+            if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+        }
+    };
+    
+    // Проверяем при загрузке и при ресайзе
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    // Открытие меню
+    mobileMenuBtn.addEventListener('click', () => {
+        // Добавляем inline стили для гарантии
+        roomsSidebar.style.position = 'fixed';
+        roomsSidebar.style.left = '0';
+        roomsSidebar.style.top = '0';
+        roomsSidebar.style.bottom = '0';
+        roomsSidebar.style.width = '85%';
+        roomsSidebar.style.maxWidth = '300px';
+        roomsSidebar.style.zIndex = '1000';
+        roomsSidebar.style.transform = 'translateX(0)';
+        roomsSidebar.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        roomsSidebar.style.borderRadius = '0';
+        roomsSidebar.style.margin = '8px 0 8px 8px';
+        roomsSidebar.style.display = 'flex';
+        
+        roomsSidebar.classList.add('active');
+        if (sidebarOverlay) {
+            sidebarOverlay.style.position = 'fixed';
+            sidebarOverlay.style.top = '0';
+            sidebarOverlay.style.left = '0';
+            sidebarOverlay.style.right = '0';
+            sidebarOverlay.style.bottom = '0';
+            sidebarOverlay.style.background = 'rgba(0, 0, 0, 0.6)';
+            sidebarOverlay.style.zIndex = '999';
+            sidebarOverlay.classList.add('active');
+        }
+        document.body.style.overflow = 'hidden';
+    });
+    
+    // Закрытие по оверлею
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', () => {
+            roomsSidebar.classList.remove('active');
+            roomsSidebar.style.transform = 'translateX(-100%)';
+            sidebarOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+        });
+    }
+    
+    // Закрытие меню при выборе комнаты (на мобильных)
+    const roomsList = document.getElementById('roomsList');
+    if (roomsList) {
+        roomsList.addEventListener('click', (e) => {
+            if (e.target.closest('.room-item') && window.innerWidth <= 640) {
+                roomsSidebar.classList.remove('active');
+                roomsSidebar.style.transform = 'translateX(-100%)';
+                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    }
+}
+
+// =============================================
+// Mobile Users Sidebar Functions (PWA)
+// =============================================
+function initMobileUsersSidebar() {
+    const mobileUsersBtn = document.getElementById('mobileUsersBtn');
+    const usersSidebar = document.getElementById('usersSidebar');
+    const usersSidebarOverlay = document.getElementById('usersSidebarOverlay');
+    
+    if (!mobileUsersBtn || !usersSidebar) return;
+    
+    // Показываем кнопку только на мобильных
+    const checkMobile = () => {
+        if (window.innerWidth <= 640) {
+            mobileUsersBtn.style.display = 'flex';
+        } else {
+            mobileUsersBtn.style.display = 'none';
+            usersSidebar.classList.remove('active');
+            if (usersSidebarOverlay) usersSidebarOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    };
+    
+    // Проверяем при загрузке и при ресайзе
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    // Открытие users sidebar
+    mobileUsersBtn.addEventListener('click', () => {
+        // Просто добавляем класс active - CSS сделает всю работу
+        usersSidebar.classList.add('active');
+        if (usersSidebarOverlay) {
+            usersSidebarOverlay.classList.add('active');
+        }
+        document.body.style.overflow = 'hidden';
+    });
+    
+    // Закрытие по оверлею
+    if (usersSidebarOverlay) {
+        usersSidebarOverlay.addEventListener('click', () => {
+            usersSidebar.classList.remove('active');
+            usersSidebarOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+        });
+    }
+    
+    // Swipe gestures для мобильных
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const minSwipeDistance = 50;
+    
+    // Swipe на чате - свайп вправо открывает список пользователей
+    const chatContainer = document.querySelector('.chat-container') || document.querySelector('.messages-container');
+    if (chatContainer) {
+        chatContainer.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+        
+        chatContainer.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, { passive: true });
+    }
+    
+    // Swipe на сайдбаре - свайп влево закрывает его
+    usersSidebar.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    
+    usersSidebar.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSidebarSwipe();
+    }, { passive: true });
+    
+    function handleSwipe() {
+        const swipeDistance = touchEndX - touchStartX;
+        // Свайп вправо - открыть сайдбар
+        if (swipeDistance > minSwipeDistance && window.innerWidth <= 640) {
+            // Проверяем, что сайдбар еще не открыт
+            if (!usersSidebar.classList.contains('active')) {
+                usersSidebar.classList.add('active');
+                if (usersSidebarOverlay) {
+                    usersSidebarOverlay.classList.add('active');
+                }
+                document.body.style.overflow = 'hidden';
+            }
+        }
+    }
+    
+    function handleSidebarSwipe() {
+        const swipeDistance = touchEndX - touchStartX;
+        // Свайп влево - закрыть сайдбар
+        if (swipeDistance < -minSwipeDistance && window.innerWidth <= 640) {
+            if (usersSidebar.classList.contains('active')) {
+                usersSidebar.classList.remove('active');
+                if (usersSidebarOverlay) {
+                    usersSidebarOverlay.classList.remove('active');
+                }
+                document.body.style.overflow = '';
+            }
+        }
+    }
+}
+
+// Инициализируем мобильное меню
+initMobileMenu();
+
+// Инициализируем мобильную панель пользователей
+initMobileUsersSidebar();
 
 init();
 

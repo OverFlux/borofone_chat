@@ -284,6 +284,13 @@ mkcert "yourip" localhost
 
 maybe next time
 
+## for vps
+
+git pull origin main
+docker-compose -f docker-compose.prod.yml build --no-cache api
+docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.prod.yml up -d
+
 ## Sources
 
 Gitbook: <https://qqracha.gitbook.io/qqracha-docs/vKWuRLooKQWdYTCfU3pv>

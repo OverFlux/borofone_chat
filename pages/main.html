@@ -2,8 +2,20 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#DB734F">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Borofone">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="description" content="Borofone Chat - Чат с играми, голосовыми комнатами и Wordle">
     <title>Borofone Chat</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23DB734F' rx='20' width='100' height='100'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white' font-family='system-ui'>B</text></svg>">
+    
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles/main.css">
     <link rel="stylesheet" href="styles/notifications.css">
@@ -82,8 +94,11 @@
     </div>
 
     <div class="app-container">
+        <!-- Mobile sidebar overlay -->
+        <div class="rooms-sidebar-overlay" id="roomsSidebarOverlay"></div>
+        
         <!-- Rooms Sidebar -->
-        <aside class="rooms-sidebar">
+        <aside class="rooms-sidebar" id="roomsSidebar" style="display: none;">
             <div class="sidebar-header">
                 <div class="logo-container">
                     <div class="logo-shape"></div>
@@ -129,6 +144,24 @@
         <main class="chat-main">
             <header class="chat-header">
                 <div class="header-left">
+                    <!-- Mobile menu button -->
+                    <button class="mobile-menu-btn icon-btn" id="mobileMenuBtn" title="Меню" style="display: none;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <!-- Mobile users button -->
+                    <button class="mobile-users-btn icon-btn" id="mobileUsersBtn" title="Пользователи" style="display: none;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        <span class="mobile-users-count" id="mobileUsersCount" style="display: none;"></span>
+                    </button>
                     <div class="room-indicator"></div>
                     <h1 class="room-name" id="roomName">Выберите комнату</h1>
                 </div>
@@ -334,6 +367,9 @@
                 </div>
             </div>
         </main>
+
+        <!-- Mobile users sidebar overlay -->
+        <div class="users-sidebar-overlay" id="usersSidebarOverlay"></div>
 
         <!-- Users Sidebar -->
         <aside class="users-sidebar" id="usersSidebar">
@@ -1018,6 +1054,111 @@
     <script src="js/wordle.js"></script>
     <script src="js/main.js"></script>
 </body>
+
+<!-- PWA Service Worker Registration -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then((registration) => {
+                    console.log('SW registered:', registration.scope);
+                    
+                    // Проверяем обновления
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // Новая версия доступна
+                                if (confirm('Доступна новая версия приложения. Обновить?')) {
+                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                    location.reload();
+                                }
+                            }
+                        });
+                    });
+                })
+                .catch((error) => {
+                    console.error('SW registration failed:', error);
+                });
+        });
+    }
+    
+    // PWA Install Prompt
+    let deferredPrompt;
+    const installBanner = document.createElement('div');
+    installBanner.className = 'pwa-install-banner';
+    installBanner.innerHTML = `
+        <div style="
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #DB734F, #e88d6d);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: system-ui, -apple-system, sans-serif;
+            animation: slideUp 0.3s ease;
+        ">
+            <span>Установить приложение?</span>
+            <button id="installYes" style="
+                background: white;
+                color: #DB734F;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+            ">Да</button>
+            <button id="installNo" style="
+                background: transparent;
+                color: white;
+                border: 1px solid rgba(255,255,255,0.5);
+                padding: 8px 12px;
+                border-radius: 8px;
+                cursor: pointer;
+            ">Нет</button>
+        </div>
+    `;
+    
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        
+        // Показываем баннер только если не установлено
+        if (!window.matchMedia('(display-mode: standalone)').matches) {
+            setTimeout(() => {
+                document.body.appendChild(installBanner);
+            }, 3000);
+        }
+    });
+    
+    document.getElementById('installYes')?.addEventListener('click', async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                console.log('App installed');
+            }
+            deferredPrompt = null;
+        }
+        installBanner.remove();
+    });
+    
+    document.getElementById('installNo')?.addEventListener('click', () => {
+        installBanner.remove();
+    });
+    
+    // Скрываем баннер если приложение уже установлено
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+        installBanner.style.display = 'none';
+    }
+</script>
 </html>
 
 
