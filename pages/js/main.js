@@ -2,6 +2,19 @@
 // API CONFIGURATION
 // ==========================================
 
+// PWA Service Worker Registration
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+                console.log('[PWA] Service Worker зарегистрирован:', registration.scope);
+            })
+            .catch((error) => {
+                console.error('[PWA] Ошибка регистрации Service Worker:', error);
+            });
+    });
+}
+
 // API_URL и WS_URL определяются в config.js
 // Если config.js не загрузился, используем window.location.origin
 function getApiUrl() {
