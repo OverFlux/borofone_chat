@@ -894,6 +894,9 @@ let micAudioContext = null;
 let micGainNode = null;
 let processedOutboundStream = null;
 
+// Web Audio GainNodes for remote participants (allows gain > 1.0 unlike audio.volume)
+const remoteAudioGainNodes = new Map(); // userId -> { audioCtx, gainNode }
+
 let localScreenStream = null;
 let pendingScreenStream = null;
 let isScreenShareStopping = false;
@@ -5717,10 +5720,22 @@ function createPeerConnection(targetUserId) {
             audio.id = `remote-audio-${targetUserId}`;
             audio.autoplay = true;
             audio.srcObject = remoteStream;
-            const participantVolume = participantVolumes[targetUserId] ?? 1;
-            audio.volume = Math.max(0, Math.min(2, participantVolume * headphonesGainValue));
-            audio.muted = isDeafened;
+            // Mute the HTML element — actual playback with amplification goes through GainNode below
+            audio.muted = true;
             document.body.appendChild(audio);
+
+            // Route audio through Web Audio GainNode (supports gain > 1.0 for real amplification)
+            let gainEntry = remoteAudioGainNodes.get(targetUserId);
+            if (gainEntry) {
+                try { gainEntry.audioCtx.close(); } catch (e) {}
+            }
+            const audioCtx = new AudioContext();
+            const gainNode = audioCtx.createGain();
+            gainEntry = { audioCtx, gainNode };
+            remoteAudioGainNodes.set(targetUserId, gainEntry);
+            const participantVolume = participantVolumes[targetUserId] ?? 1;
+            gainNode.gain.value = isDeafened ? 0 : participantVolume * headphonesGainValue;
+            audioCtx.createMediaStreamSource(remoteStream).connect(gainNode).connect(audioCtx.destination);
 
             event.track.onended = () => {
                 const stream = remoteAudioStreams.get(targetUserId);
@@ -5731,6 +5746,12 @@ function createPeerConnection(targetUserId) {
                 const remoteAudio = document.getElementById(`remote-audio-${targetUserId}`);
                 if (remoteAudio) {
                     remoteAudio.remove();
+                }
+                // Clean up GainNode AudioContext
+                const ge = remoteAudioGainNodes.get(targetUserId);
+                if (ge) {
+                    try { ge.audioCtx.close(); } catch (e) {}
+                    remoteAudioGainNodes.delete(targetUserId);
                 }
             };
             return;
@@ -5845,7 +5866,16 @@ function setDeafen(nextDeafened) {
     isDeafened = nextDeafened;
     const me = voiceParticipants.find(p => p.user_id === currentUser?.id);
     if (me) { me.deafened = isDeafened; renderVoiceParticipantsGrid(); renderVoiceRooms(); }
-    document.querySelectorAll('[id^="remote-audio-"]').forEach(audio => { audio.muted = isDeafened; });
+    document.querySelectorAll('[id^="remote-audio-"]').forEach(audio => {
+        const uid = Number((audio.id || '').replace('remote-audio-', ''));
+        const gainEntry = remoteAudioGainNodes.get(uid);
+        if (gainEntry) {
+            const participantVolume = participantVolumes[uid] ?? 1;
+            gainEntry.gainNode.gain.value = isDeafened ? 0 : participantVolume * headphonesGainValue;
+        } else {
+            audio.muted = isDeafened;
+        }
+    });
     if (ws && currentVoiceRoomId) ws.send(JSON.stringify({ type: 'set_deafen', room_id: currentVoiceRoomId, deafened: isDeafened }));
     toggleDeafenBtn.textContent = isDeafened ? '🔈 Undeafen' : '🔇 Deafen';
 }
@@ -5854,7 +5884,12 @@ function applyHeadphonesGain() {
     document.querySelectorAll('[id^="remote-audio-"]').forEach((audioEl) => {
         const userId = Number((audioEl.id || '').replace('remote-audio-', ''));
         const participantVolume = participantVolumes[userId] ?? 1;
-        audioEl.volume = Math.max(0, Math.min(2, participantVolume * headphonesGainValue));
+        const gainEntry = remoteAudioGainNodes.get(userId);
+        if (gainEntry) {
+            gainEntry.gainNode.gain.value = isDeafened ? 0 : participantVolume * headphonesGainValue;
+        } else {
+            audioEl.volume = Math.max(0, Math.min(1, participantVolume * headphonesGainValue));
+        }
     });
 }
 
