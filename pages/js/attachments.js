@@ -9,6 +9,21 @@
 
 let attachmentsToSend = [];  // Временное хранилище файлов для отправки
 
+// Global helper functions for use in audio player
+function _resolveFileUrl(path) {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    if (path.startsWith('/')) return path;
+    return '/' + path;
+}
+
+function _escapeHtmlLocal(text) {
+    if (typeof escapeHtml !== 'undefined') return escapeHtml(text);
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Drag and drop state
 let dragDropState = {
     isDragging: false,
@@ -1112,6 +1127,7 @@ function renderMessageAttachments(attachments) {
             ${attachments.map(att => {
                 const isImage = att.mime_type?.startsWith('image/');
                 const isVideo = att.mime_type?.startsWith('video/');
+                const isAudio = att.mime_type?.startsWith('audio/');
                 const fileUrl = resolveFileUrl(att.file_path);
                 
                 if (isImage) {
@@ -1128,6 +1144,9 @@ function renderMessageAttachments(attachments) {
                             </video>
                         </div>
                     `;
+                } else if (isAudio) {
+                    // Render audio player
+                    return createAudioPlayerHTML(att);
                 } else {
                     const size = formatFileSize(att.file_size);
                     return `
@@ -1214,6 +1233,394 @@ function formatFileSize(bytes) {
 // Инициализируем при загрузке скрипта
 initPasteHandler();
 initDragAndDrop();
+
+// ==========================================
+// AUDIO PLAYER FUNCTIONALITY
+// ==========================================
+
+// Global audio player state
+let currentPlayingAudio = null;
+let audioPlayerInstances = new Map();
+
+/**
+ * Format time in seconds to MM:SS format
+ */
+function formatAudioTime(seconds) {
+    if (isNaN(seconds) || !isFinite(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Create an audio player element for a given file
+ */
+function createAudioPlayerHTML(attachment) {
+    const fileUrl = _resolveFileUrl(attachment.file_path);
+    const filename = _escapeHtmlLocal(attachment.filename);
+    const fileId = 'audio-' + Math.random().toString(36).substr(2, 9);
+    const safeFileUrl = _escapeHtmlLocal(fileUrl);
+    
+    return `
+        <div class="audio-player-card" data-file-url="${safeFileUrl}" data-file-id="${fileId}" data-filename="${filename}">
+            <div class="audio-player-main">
+                <button class="audio-player-play-btn-large" title="Play/Pause">
+                    <svg class="audio-player-play-icon-svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    <svg class="audio-player-pause-icon-svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                    <div class="audio-player-loading"></div>
+                </button>
+                <div class="audio-player-waveform">
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                </div>
+            </div>
+            <div class="audio-player-details">
+                <div class="audio-player-name">${filename}</div>
+                <div class="audio-player-progress">
+                    <span class="audio-player-time current">0:00</span>
+                    <div class="audio-player-bar">
+                        <div class="audio-player-bar-fill"></div>
+                    </div>
+                    <span class="audio-player-time duration">0:00</span>
+                </div>
+            </div>
+            <div class="audio-player-volume">
+                <button class="volume-btn" title="Mute">
+                    <svg class="volume-icon-high" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                    </svg>
+                    <svg class="volume-icon-low" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/>
+                    </svg>
+                    <svg class="volume-icon-mute" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                    </svg>
+                </button>
+                <div class="volume-slider-container">
+                    <div class="volume-slider-track">
+                        <div class="volume-slider-fill"></div>
+                    </div>
+                    <div class="volume-slider-handle"></div>
+                </div>
+            </div>
+            <a href="${safeFileUrl}" class="audio-player-download" download="${filename}" title="Download">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+            </a>
+        </div>
+    `;
+}
+
+/**
+ * Initialize audio player event handlers
+ */
+function initAudioPlayer(card) {
+    const fileUrl = card.dataset.fileUrl;
+    const fileId = card.dataset.fileId;
+    
+    // Create audio element
+    const audio = new Audio();
+    audio.preload = 'metadata';
+    audio.src = fileUrl;
+    
+    // Get UI elements
+    const playBtn = card.querySelector('.audio-player-play-btn-large');
+    const playIconSvg = card.querySelector('.audio-player-play-icon-svg');
+    const pauseIconSvg = card.querySelector('.audio-player-pause-icon-svg');
+    const loading = card.querySelector('.audio-player-loading');
+    const waveform = card.querySelector('.audio-player-waveform');
+    const progressBar = card.querySelector('.audio-player-bar');
+    const progressFill = card.querySelector('.audio-player-bar-fill');
+    const currentTime = card.querySelector('.audio-player-time.current');
+    const durationTime = card.querySelector('.audio-player-time.duration');
+    
+    // Get volume elements
+    const volumeBtn = card.querySelector('.volume-btn');
+    const volumeIconHigh = card.querySelector('.volume-icon-high');
+    const volumeIconLow = card.querySelector('.volume-icon-low');
+    const volumeIconMute = card.querySelector('.volume-icon-mute');
+    const volumeSliderContainer = card.querySelector('.volume-slider-container');
+    const volumeSliderFill = card.querySelector('.volume-slider-fill');
+    const volumeSliderHandle = card.querySelector('.volume-slider-handle');
+    
+    // Store audio element
+    audioPlayerInstances.set(fileId, { audio, card });
+    
+    // Audio events
+    audio.addEventListener('loadedmetadata', () => {
+        durationTime.textContent = formatAudioTime(audio.duration);
+        card.classList.remove('loading');
+    });
+    
+    audio.addEventListener('timeupdate', () => {
+        const progress = (audio.currentTime / audio.duration) * 100;
+        progressFill.style.width = progress + '%';
+        currentTime.textContent = formatAudioTime(audio.currentTime);
+    });
+    
+    audio.addEventListener('ended', () => {
+        stopAudioPlayback(fileId);
+    });
+    
+    audio.addEventListener('play', () => {
+        card.classList.add('playing');
+        waveform.classList.add('playing');
+        playIconSvg.style.display = 'none';
+        pauseIconSvg.style.display = 'block';
+    });
+    
+    audio.addEventListener('pause', () => {
+        if (!audio.ended) {
+            card.classList.remove('playing');
+            waveform.classList.remove('playing');
+            playIconSvg.style.display = 'block';
+            pauseIconSvg.style.display = 'none';
+        }
+    });
+    
+    audio.addEventListener('waiting', () => {
+        card.classList.add('loading');
+    });
+    
+    audio.addEventListener('canplay', () => {
+        card.classList.remove('loading');
+    });
+    
+    audio.addEventListener('error', (e) => {
+        console.error('Audio playback error:', e);
+        card.classList.remove('loading');
+        playIconSvg.style.display = 'block';
+        pauseIconSvg.style.display = 'none';
+    });
+    
+    // Play/Pause button click
+    playBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (audio.paused) {
+            playAudio(fileId);
+        } else {
+            pauseAudio(fileId);
+        }
+    });
+    
+    // Progress bar click to seek
+    progressBar.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const rect = progressBar.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percentage = clickX / rect.width;
+        audio.currentTime = percentage * audio.duration;
+    });
+    
+    // Initialize volume (default 25%)
+    let currentVolume = 0.25;
+    let isMuted = false;
+    audio.volume = currentVolume;
+    
+    // Update volume icons and slider
+    const updateVolumeUI = (vol) => {
+        const percentage = vol * 100;
+        volumeSliderFill.style.width = percentage + '%';
+        volumeSliderHandle.style.left = percentage + '%';
+        
+        // Update icon based on volume level
+        volumeIconHigh.style.display = vol > 0.5 ? 'block' : 'none';
+        volumeIconLow.style.display = (vol > 0 && vol <= 0.5) ? 'block' : 'none';
+        volumeIconMute.style.display = vol === 0 ? 'block' : 'none';
+    };
+    updateVolumeUI(currentVolume);
+    
+    // Volume button click - toggle mute
+    volumeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isMuted = !isMuted;
+        if (isMuted) {
+            audio.volume = 0;
+            volumeSliderFill.style.width = '0%';
+            volumeSliderHandle.style.left = '0%';
+            volumeIconHigh.style.display = 'none';
+            volumeIconLow.style.display = 'none';
+            volumeIconMute.style.display = 'block';
+        } else {
+            audio.volume = currentVolume;
+            updateVolumeUI(currentVolume);
+        }
+    });
+    
+    // Volume slider drag
+    let isDraggingVolume = false;
+    
+    const updateVolumeFromSlider = (clientX) => {
+        const rect = volumeSliderContainer.getBoundingClientRect();
+        const percentage = (clientX - rect.left) / rect.width;
+        const clampedVolume = Math.max(0, Math.min(1, percentage));
+        currentVolume = clampedVolume;
+        audio.volume = clampedVolume;
+        isMuted = false;
+        updateVolumeUI(clampedVolume);
+    };
+    
+    volumeSliderContainer.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        isDraggingVolume = true;
+        updateVolumeFromSlider(e.clientX);
+        
+        const onMouseMove = (moveEvent) => {
+            if (isDraggingVolume) {
+                updateVolumeFromSlider(moveEvent.clientX);
+            }
+        };
+        
+        const onMouseUp = () => {
+            isDraggingVolume = false;
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+    
+    volumeSliderContainer.addEventListener('click', (e) => {
+        e.stopPropagation();
+        updateVolumeFromSlider(e.clientX);
+    });
+    
+    // Touch support
+    volumeSliderContainer.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+        isDraggingVolume = true;
+        updateVolumeFromSlider(e.touches[0].clientX);
+        
+        const onTouchMove = (moveEvent) => {
+            if (isDraggingVolume) {
+                updateVolumeFromSlider(moveEvent.touches[0].clientX);
+            }
+        };
+        
+        const onTouchEnd = () => {
+            isDraggingVolume = false;
+            document.removeEventListener('touchmove', onTouchMove);
+            document.removeEventListener('touchend', onTouchEnd);
+        };
+        
+        document.addEventListener('touchmove', onTouchMove, { passive: true });
+        document.addEventListener('touchend', onTouchEnd);
+    }, { passive: true });
+    
+    // Click on card to play/pause (but not on volume controls)
+    card.addEventListener('click', (e) => {
+        if (e.target.closest('.audio-player-download')) return;
+        if (e.target.closest('.audio-player-volume')) return;
+        
+        if (audio.paused) {
+            playAudio(fileId);
+        } else {
+            pauseAudio(fileId);
+        }
+    });
+}
+
+/**
+ * Play audio - stops any currently playing audio first
+ */
+function playAudio(fileId) {
+    // Stop currently playing audio if different
+    if (currentPlayingAudio && currentPlayingAudio !== fileId) {
+        stopAudioPlayback(currentPlayingAudio);
+    }
+    
+    const player = audioPlayerInstances.get(fileId);
+    if (player) {
+        player.audio.play()
+            .then(() => {
+                currentPlayingAudio = fileId;
+            })
+            .catch(err => {
+                console.error('Failed to play audio:', err);
+            });
+    }
+}
+
+/**
+ * Pause audio
+ */
+function pauseAudio(fileId) {
+    const player = audioPlayerInstances.get(fileId);
+    if (player) {
+        player.audio.pause();
+    }
+}
+
+/**
+ * Stop audio playback
+ */
+function stopAudioPlayback(fileId) {
+    const player = audioPlayerInstances.get(fileId);
+    if (player) {
+        player.audio.pause();
+        player.audio.currentTime = 0;
+        player.card.classList.remove('playing');
+        
+        const playIconSvg = player.card.querySelector('.audio-player-play-icon-svg');
+        const pauseIconSvg = player.card.querySelector('.audio-player-pause-icon-svg');
+        const waveform = player.card.querySelector('.audio-player-waveform');
+        
+        if (playIconSvg) playIconSvg.style.display = 'block';
+        if (pauseIconSvg) pauseIconSvg.style.display = 'none';
+        if (waveform) waveform.classList.remove('playing');
+        
+        player.card.querySelector('.audio-player-bar-fill').style.width = '0%';
+        player.card.querySelector('.audio-player-time.current').textContent = '0:00';
+    }
+    
+    if (currentPlayingAudio === fileId) {
+        currentPlayingAudio = null;
+    }
+}
+
+/**
+ * Stop all audio playback
+ */
+function stopAllAudio() {
+    if (currentPlayingAudio) {
+        stopAudioPlayback(currentPlayingAudio);
+    }
+}
+
+/**
+ * Initialize all audio players in the document
+ */
+function initAllAudioPlayers() {
+    document.querySelectorAll('.audio-player-card:not([data-initialized])').forEach(card => {
+        card.dataset.initialized = 'true';
+        initAudioPlayer(card);
+    });
+}
+
+// Listen for new messages and initialize audio players
+document.addEventListener('DOMContentLoaded', () => {
+    initAllAudioPlayers();
+});
+
+// Also export for manual initialization after message rendering
+window.initAudioPlayers = initAllAudioPlayers;
+
+// Export for use elsewhere
+window.audioPlayer = {
+    play: playAudio,
+    pause: pauseAudio,
+    stop: stopAudioPlayback,
+    stopAll: stopAllAudio
+};
 
 // Экспорт для использования в main.js
 window.attachments = {

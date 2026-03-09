@@ -1629,6 +1629,11 @@ async function loadMessages(roomId) {
 
             // Скроллим вниз после загрузки всех сообщений (с ожиданием изображений)
             scrollToBottomInitial();
+            
+            // Initialize audio players for loaded messages
+            if (window.initAudioPlayers) {
+                window.initAudioPlayers();
+            }
 
             // Отмечаем комнату как прочитанную
             if (window.notifications) {
@@ -1724,6 +1729,11 @@ function addMessage(msg, animate = false) {
 
     messagesList.appendChild(messageEl);
     if (animate) scrollToBottomWithImages();
+    
+    // Initialize audio players for new message
+    if (window.initAudioPlayers) {
+        window.initAudioPlayers();
+    }
     
     // Attach profile click handler to message avatar
     const userId = msg.user?.id || messageEl.dataset.userId;
