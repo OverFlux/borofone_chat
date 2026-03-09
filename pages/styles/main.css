@@ -5631,6 +5631,21 @@ body {
 }
 
 .control-group label { font-size: 12px; color: var(--text-secondary); }
+.voice-toggle-setting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.voice-toggle-setting input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+}
+
 .volume-slider { width: 100%; }
 .volume-value { font-size: 12px; color: var(--text-dim); text-align: right; }
 

@@ -888,11 +888,18 @@ const profileMessageSound = new Audio('./sounds/net-idi-na.mp3');
 profileMessageSound.preload = 'auto';
 
 const participantVolumes = JSON.parse(localStorage.getItem('participantVolumes') || "{}");
+const noiseSuppressionStorageKey = 'voiceNoiseSuppressionEnabled';
 let micGainValue = 1;
 let headphonesGainValue = 2;
 let micAudioContext = null;
 let micGainNode = null;
 let processedOutboundStream = null;
+let noiseSuppressionEnabled = localStorage.getItem(noiseSuppressionStorageKey) !== 'false';
+let micHighpassFilter = null;
+let micLowpassFilter = null;
+let micNoiseGate = null;
+let micCompressor = null;
+let micOutputDestination = null;
 
 // Web Audio GainNodes for remote participants (allows gain > 1.0 unlike audio.volume)
 const remoteAudioGainNodes = new Map(); // userId -> { audioCtx, gainNode }
@@ -1224,6 +1231,8 @@ const micVolumeSlider = document.getElementById('micVolumeSlider');
 const headphoneVolumeSlider = document.getElementById('headphoneVolumeSlider');
 const micVolumeValue = document.getElementById('micVolumeValue');
 const headphoneVolumeValue = document.getElementById('headphoneVolumeValue');
+const noiseSuppressionToggle = document.getElementById('noiseSuppressionToggle');
+const noiseSuppressionState = document.getElementById('noiseSuppressionState');
 
 const screenShareModal = document.getElementById('screenShareModal');
 const closeScreenShareModalBtn = document.getElementById('closeScreenShareModalBtn');
@@ -3617,6 +3626,129 @@ micVolumeSlider?.addEventListener('input', () => {
     if (micVolumeValue) micVolumeValue.textContent = `${micVolumeSlider.value}%`;
 });
 
+function updateNoiseSuppressionUi() {
+    if (noiseSuppressionToggle) {
+        noiseSuppressionToggle.checked = noiseSuppressionEnabled;
+    }
+    if (noiseSuppressionState) {
+        noiseSuppressionState.textContent = noiseSuppressionEnabled ? 'On' : 'Off';
+    }
+}
+
+function buildProcessedMicStream(stream) {
+    if (processedOutboundStream) {
+        processedOutboundStream.getTracks().forEach((track) => track.stop());
+    }
+    if (micAudioContext && micAudioContext.state !== 'closed') {
+        micAudioContext.close().catch(() => {});
+    }
+
+    micAudioContext = new AudioContext();
+    const source = micAudioContext.createMediaStreamSource(stream);
+    micGainNode = micAudioContext.createGain();
+    micGainNode.gain.value = micGainValue;
+
+    if (noiseSuppressionEnabled) {
+        micHighpassFilter = micAudioContext.createBiquadFilter();
+        micHighpassFilter.type = 'highpass';
+        micHighpassFilter.frequency.value = 85;
+        micHighpassFilter.Q.value = 0.7;
+
+        micLowpassFilter = micAudioContext.createBiquadFilter();
+        micLowpassFilter.type = 'lowpass';
+        micLowpassFilter.frequency.value = 7600;
+        micLowpassFilter.Q.value = 0.7;
+
+        micNoiseGate = micAudioContext.createDynamicsCompressor();
+        micNoiseGate.threshold.value = -52;
+        micNoiseGate.knee.value = 0;
+        micNoiseGate.ratio.value = 20;
+        micNoiseGate.attack.value = 0.002;
+        micNoiseGate.release.value = 0.12;
+
+        micCompressor = micAudioContext.createDynamicsCompressor();
+        micCompressor.threshold.value = -24;
+        micCompressor.knee.value = 18;
+        micCompressor.ratio.value = 3;
+        micCompressor.attack.value = 0.003;
+        micCompressor.release.value = 0.2;
+
+        source
+            .connect(micHighpassFilter)
+            .connect(micLowpassFilter)
+            .connect(micNoiseGate)
+            .connect(micCompressor)
+            .connect(micGainNode);
+    } else {
+        source.connect(micGainNode);
+        micHighpassFilter = null;
+        micLowpassFilter = null;
+        micNoiseGate = null;
+        micCompressor = null;
+    }
+
+    micOutputDestination = micAudioContext.createMediaStreamDestination();
+    micGainNode.connect(micOutputDestination);
+    processedOutboundStream = micOutputDestination.stream;
+}
+
+async function rebuildLocalVoiceStream() {
+    if (!localStream) return;
+
+    const previousTrack = localStream.getAudioTracks()[0] || null;
+    const previousEnabled = previousTrack ? previousTrack.enabled : !isMuted;
+
+    try {
+        const nextStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+                channelCount: 1,
+                sampleRate: 48000,
+                sampleSize: 16,
+                latency: 0.01,
+            },
+            video: false,
+        });
+
+        const nextTrack = nextStream.getAudioTracks()[0] || null;
+        if (!nextTrack) {
+            nextStream.getTracks().forEach((track) => track.stop());
+            return;
+        }
+
+        nextTrack.enabled = previousEnabled;
+
+        if (localStream) {
+            localStream.getTracks().forEach((track) => track.stop());
+        }
+
+        localStream = nextStream;
+        buildProcessedMicStream(localStream);
+
+        const outboundTrack = processedOutboundStream.getAudioTracks()[0] || nextTrack;
+        peerConnections.forEach((pc) => {
+            const sender = pc.getSenders().find((item) => item.track?.kind === 'audio');
+            if (sender) {
+                sender.replaceTrack(outboundTrack).catch(() => {});
+            }
+        });
+    } catch (_) {
+        noiseSuppressionEnabled = !noiseSuppressionEnabled;
+        localStorage.setItem(noiseSuppressionStorageKey, String(noiseSuppressionEnabled));
+        updateNoiseSuppressionUi();
+        showNotification('Failed to update noise suppression', 'error');
+    }
+}
+
+noiseSuppressionToggle?.addEventListener('change', async () => {
+    noiseSuppressionEnabled = noiseSuppressionToggle.checked;
+    localStorage.setItem(noiseSuppressionStorageKey, String(noiseSuppressionEnabled));
+    updateNoiseSuppressionUi();
+    await rebuildLocalVoiceStream();
+});
+
 headphoneVolumeSlider?.addEventListener('input', () => {
     headphonesGainValue = Number(headphoneVolumeSlider.value) / 100;
     if (headphoneVolumeValue) headphoneVolumeValue.textContent = `${headphoneVolumeSlider.value}%`;
@@ -5610,7 +5742,7 @@ async function ensureLocalStream() {
     localStream = await navigator.mediaDevices.getUserMedia({
         audio: {
             echoCancellation: false,
-            noiseSuppression: true,
+            noiseSuppression: false,
             autoGainControl: false,
             channelCount: 1,
             sampleRate: 48000,
@@ -5620,13 +5752,7 @@ async function ensureLocalStream() {
         video: false,
     });
 
-    micAudioContext = new AudioContext();
-    const source = micAudioContext.createMediaStreamSource(localStream);
-    micGainNode = micAudioContext.createGain();
-    micGainNode.gain.value = micGainValue;
-    const destination = micAudioContext.createMediaStreamDestination();
-    source.connect(micGainNode).connect(destination);
-    processedOutboundStream = destination.stream;
+    buildProcessedMicStream(localStream);
 
     return localStream;
 }
@@ -6049,6 +6175,7 @@ if (micVolumeSlider) micVolumeSlider.value = String(Math.round(micGainValue * 10
 if (headphoneVolumeSlider) headphoneVolumeSlider.value = String(Math.round(headphonesGainValue * 100));
 if (micVolumeValue) micVolumeValue.textContent = `${Math.round(micGainValue * 100)}%`;
 if (headphoneVolumeValue) headphoneVolumeValue.textContent = `${Math.round(headphonesGainValue * 100)}%`;
+updateNoiseSuppressionUi();
 updateScreenShareButtonState();
 renderScreenShareGrid();
 
