@@ -889,7 +889,7 @@ profileMessageSound.preload = 'auto';
 
 const participantVolumes = JSON.parse(localStorage.getItem('participantVolumes') || "{}");
 let micGainValue = 1;
-let headphonesGainValue = 1;
+let headphonesGainValue = 2;
 let micAudioContext = null;
 let micGainNode = null;
 let processedOutboundStream = null;
