@@ -274,6 +274,7 @@ async def global_websocket_endpoint(
                         user_id=user_id,
                         username=user.username,
                         display_name=user.display_name,
+                        avatar_url=user.avatar_url,
                     )
                     if prev_room_id and prev_participant:
                         await broadcast_voice(prev_room_id, {
@@ -283,6 +284,7 @@ async def global_websocket_endpoint(
                                 "user_id": prev_participant.user_id,
                                 "username": prev_participant.username,
                                 "display_name": prev_participant.display_name,
+                                "avatar_url": prev_participant.avatar_url,
                             },
                         })
                         await broadcast_voice_presence(prev_room_id)

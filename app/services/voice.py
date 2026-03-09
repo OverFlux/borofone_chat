@@ -12,6 +12,7 @@ class VoiceParticipant:
     user_id: int
     username: str
     display_name: str
+    avatar_url: str | None
     joined_at: str
     muted: bool = False
     deafened: bool = False
@@ -46,7 +47,7 @@ class VoiceRuntime:
                     return room_id, participant
         return None, None
 
-    async def join_room(self, room_id: int, user_id: int, username: str, display_name: str) -> tuple[list[dict], VoiceParticipant, int | None, VoiceParticipant | None]:
+    async def join_room(self, room_id: int, user_id: int, username: str, display_name: str, avatar_url: str | None = None) -> tuple[list[dict], VoiceParticipant, int | None, VoiceParticipant | None]:
         async with self._lock:
             prev_room_id = self._user_room.get(user_id)
             prev_participant = None
@@ -62,6 +63,7 @@ class VoiceRuntime:
                     user_id=user_id,
                     username=username,
                     display_name=display_name,
+                    avatar_url=avatar_url,
                     joined_at=datetime.now(timezone.utc).isoformat(),
                 )
                 self._rooms[room_id][user_id] = participant
@@ -123,6 +125,7 @@ class VoiceRuntime:
             "user_id": participant.user_id,
             "username": participant.username,
             "display_name": participant.display_name,
+            "avatar_url": participant.avatar_url,
             "joined_at": participant.joined_at,
             "muted": participant.muted,
             "deafened": participant.deafened,

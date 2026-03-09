@@ -1220,6 +1220,8 @@ const screenShareStage = document.getElementById('screenShareStage');
 const screenShareGrid = document.getElementById('screenShareGrid');
 const screenShareCount = document.getElementById('screenShareCount');
 const localAudioControls = document.getElementById('localAudioControls');
+const voiceSettingsPanel = document.getElementById('voiceSettingsPanel');
+const toggleVoiceSettingsBtn = document.getElementById('toggleVoiceSettingsBtn');
 const micVolumeSlider = document.getElementById('micVolumeSlider');
 const headphoneVolumeSlider = document.getElementById('headphoneVolumeSlider');
 const micVolumeValue = document.getElementById('micVolumeValue');
@@ -2853,6 +2855,7 @@ function connectWebSocket() {
                     currentVoiceRoomId = data.room_id;
                     voiceParticipants = data.participants || [];
                     voiceRoomParticipantsByRoom[data.room_id] = voiceParticipants;
+                    if (voiceOverlay) voiceOverlay.classList.add('in-room');
                     renderVoiceRooms();
                     renderVoiceParticipantsGrid();
                     syncRemoteScreensWithParticipants();
@@ -4939,12 +4942,23 @@ function renderVoiceRooms() {
     toggleDeafenBtn.disabled = !controlsVisible;
     toggleScreenShareBtn.disabled = !controlsVisible;
     leaveVoiceBtn.disabled = !controlsVisible;
-    if (voiceControls) voiceControls.style.display = controlsVisible ? "flex" : "none";
-    if (localAudioControls) localAudioControls.style.display = controlsVisible ? "grid" : "none";
+    if (voiceControls) voiceControls.style.display = controlsVisible ? 'flex' : 'none';
+    if (localAudioControls) localAudioControls.style.display = controlsVisible ? 'grid' : 'none';
+    if (voiceSettingsPanel) {
+        voiceSettingsPanel.classList.toggle('available', controlsVisible);
+        if (!controlsVisible) {
+            setVoiceSettingsOpen(false);
+        }
+    }
     if (screenShareStage) {
-        screenShareStage.classList.toggle('visible', controlsVisible);
+        const hasScreenShare = voiceParticipants.some((participant) => participant.screen_sharing) || !!localScreenStream;
+        screenShareStage.classList.toggle('visible', controlsVisible && hasScreenShare);
     }
     updateScreenShareButtonState();
+    if (controlsVisible) {
+        updateMuteButtonIcon();
+        updateDeafenButtonIcon();
+    }
 }
 
 function renderVoiceParticipantsGrid() {
@@ -4984,15 +4998,18 @@ function renderVoiceParticipantsGrid() {
             : `<span>${initial}</span>`;
 
         return `
-            <div class="${cardClasses}" data-user-id="${participant.user_id}" data-username="${username}">
-                <div class="voice-participant-avatar">
-                    <div class="voice-participant-avatar-media" data-avatar-fallback-target="1">${avatarMarkup}</div>
-                    <div class="voice-participant-status ${statusClass}">${statusIcon}</div>
+            <div class="${cardClasses}" data-user-id="${participant.user_id}" data-username="${username}" title="${displayName}">
+                <div class="voice-participant-avatar-wrap">
+                    <div class="voice-participant-avatar">
+                        <div class="voice-participant-avatar-media" data-avatar-fallback-target="1">${avatarMarkup}</div>
+                        <div class="voice-participant-status ${statusClass}">${statusIcon}</div>
+                    </div>
+                    ${screenBadge}
                 </div>
-                <div class="voice-participant-head"><div class="voice-participant-name" title="${displayName}">${displayName}</div>${screenBadge}</div>
-                <div class="voice-participant-volume">
+                <div class="voice-participant-volume compact">
                     <div class="voice-participant-volume-fill" style="width: ${volumePct}%"></div>
                 </div>
+                <div class="voice-participant-name">${displayName}</div>
             </div>
         `;
     }).join('');
@@ -5127,8 +5144,13 @@ function updateScreenShareButtonState() {
     if (!toggleScreenShareBtn) return;
     const sharing = !!localScreenStream;
     toggleScreenShareBtn.classList.toggle('btn-active', sharing);
-    toggleScreenShareBtn.textContent = sharing ? '🖥 Sharing' : '🖥 Share';
-    toggleScreenShareBtn.title = sharing ? 'Stop screen sharing' : 'Start screen sharing';
+    toggleScreenShareBtn.setAttribute('aria-label', sharing ? 'Stop screen sharing' : 'Start screen sharing');
+    toggleScreenShareBtn.title = sharing ? 'Остановить демонстрацию экрана' : 'Начать демонстрацию экрана';
+    const icon = toggleScreenShareBtn?.querySelector('.voice-control-icon');
+    if (icon) {
+        // Always show monitor icon
+        icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>';
+    }
 }
 
 function renderScreenShareGrid() {
@@ -5147,14 +5169,11 @@ function renderScreenShareGrid() {
 
     screenShareCount.textContent = String(sharingParticipants.length);
     screenShareGrid.innerHTML = '';
+    if (screenShareStage) {
+        screenShareStage.classList.toggle('visible', !!currentVoiceRoomId && sharingParticipants.length > 0);
+    }
 
     if (!sharingParticipants.length) {
-        const empty = document.createElement('div');
-        empty.className = 'screen-share-empty';
-        empty.textContent = currentVoiceRoomId
-            ? 'Nobody is sharing right now'
-            : 'Join a voice room to start sharing';
-        screenShareGrid.appendChild(empty);
         return;
     }
 
@@ -5665,6 +5684,7 @@ function leaveVoiceRoom() {
     const leftRoomId = currentVoiceRoomId;
     currentVoiceRoomId = null;
     voiceParticipants = [];
+    if (voiceOverlay) voiceOverlay.classList.remove('in-room');
     if (leftRoomId) voiceRoomParticipantsByRoom[leftRoomId] = [];
     if (speakingInterval) {
         clearInterval(speakingInterval);
@@ -5859,7 +5879,7 @@ function setMute(nextMuted) {
     if (me) { me.muted = isMuted; me.speaking = false; renderVoiceParticipantsGrid(); renderVoiceRooms(); }
     if (localStream) localStream.getAudioTracks().forEach(t => { t.enabled = !nextMuted; });
     if (ws && currentVoiceRoomId) ws.send(JSON.stringify({ type: 'set_mute', room_id: currentVoiceRoomId, muted: isMuted }));
-    toggleMicBtn.textContent = isMuted ? '🎤 Unmute' : '🎤 Mic';
+    updateMuteButtonIcon();
 }
 
 function setDeafen(nextDeafened) {
@@ -5877,7 +5897,41 @@ function setDeafen(nextDeafened) {
         }
     });
     if (ws && currentVoiceRoomId) ws.send(JSON.stringify({ type: 'set_deafen', room_id: currentVoiceRoomId, deafened: isDeafened }));
-    toggleDeafenBtn.textContent = isDeafened ? '🔈 Undeafen' : '🔇 Deafen';
+    updateDeafenButtonIcon();
+    if (toggleDeafenBtn) {
+        toggleDeafenBtn.setAttribute('aria-label', isDeafened ? 'Disable deafen' : 'Enable deafen');
+        toggleDeafenBtn.title = isDeafened ? 'Включить звук комнаты' : 'Заглушить комнату';
+    }
+}
+
+function updateMuteButtonIcon() {
+    const icon = toggleMicBtn?.querySelector('.voice-control-icon');
+    if (icon) {
+        if (isMuted) {
+            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>';
+        } else {
+            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>';
+        }
+    }
+    if (toggleMicBtn) {
+        toggleMicBtn.setAttribute('aria-label', isMuted ? 'Unmute microphone' : 'Mute microphone');
+        toggleMicBtn.title = isMuted ? 'Включить микрофон' : 'Выключить микрофон';
+        toggleMicBtn.classList.toggle('active', isMuted);
+    }
+}
+
+function updateDeafenButtonIcon() {
+    const icon = toggleDeafenBtn?.querySelector('.voice-control-icon');
+    if (icon) {
+        if (isDeafened) {
+            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
+        } else {
+            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
+        }
+    }
+    if (toggleDeafenBtn) {
+        toggleDeafenBtn.classList.toggle('active', isDeafened);
+    }
 }
 
 function applyHeadphonesGain() {
@@ -6029,15 +6083,137 @@ document.addEventListener('keydown', (event) => {
 
 // Voice overlay collapse functionality
 let isVoiceOverlayCollapsed = false;
+let isVoiceSettingsOpen = false;
+
+function setVoiceSettingsOpen(nextOpen) {
+    isVoiceSettingsOpen = !!nextOpen;
+    if (voiceSettingsPanel) {
+        voiceSettingsPanel.classList.toggle('open', isVoiceSettingsOpen);
+    }
+    if (toggleVoiceSettingsBtn) {
+        toggleVoiceSettingsBtn.classList.toggle('active', isVoiceSettingsOpen);
+        toggleVoiceSettingsBtn.setAttribute('aria-expanded', isVoiceSettingsOpen ? 'true' : 'false');
+    }
+}
 
 collapseVoiceBtn.addEventListener('click', () => {
     isVoiceOverlayCollapsed = !isVoiceOverlayCollapsed;
     voiceOverlay.classList.toggle('collapsed', isVoiceOverlayCollapsed);
     collapseIcon.textContent = isVoiceOverlayCollapsed ? '▶' : '▼';
+    
     if (isVoiceOverlayCollapsed) {
+        // Clear custom height when collapsing
+        voiceOverlay.style.height = '';
+        voiceOverlay.style.maxHeight = '';
+        setVoiceSettingsOpen(false);
+    } else {
+        // Restore saved height when expanding
+        loadVoiceOverlayHeight();
+        updateCollapsedParticipants();
+    }
+    if (!isVoiceOverlayCollapsed) {
         updateCollapsedParticipants();
     }
 });
+
+if (toggleVoiceSettingsBtn) {
+    toggleVoiceSettingsBtn.addEventListener('click', () => {
+        if (!currentVoiceRoomId || isVoiceOverlayCollapsed) return;
+        setVoiceSettingsOpen(!isVoiceSettingsOpen);
+    });
+}
+
+// Voice overlay resize functionality
+const voiceResizeHandle = document.getElementById('voiceResizeHandle');
+let isResizing = false;
+let startY = 0;
+let startHeight = 0;
+const MIN_VOICE_OVERLAY_HEIGHT = 80;
+const MAX_VOICE_OVERLAY_HEIGHT = 500;
+
+function loadVoiceOverlayHeight() {
+    const savedHeight = localStorage.getItem('voiceOverlayHeight');
+    if (savedHeight && voiceOverlay) {
+        const height = parseInt(savedHeight, 10);
+        if (height >= MIN_VOICE_OVERLAY_HEIGHT && height <= MAX_VOICE_OVERLAY_HEIGHT) {
+            voiceOverlay.style.height = height + 'px';
+            voiceOverlay.style.maxHeight = 'none';
+        }
+    }
+}
+
+function saveVoiceOverlayHeight(height) {
+    localStorage.setItem('voiceOverlayHeight', height);
+}
+
+function handleResizeStart(e) {
+    if (isVoiceOverlayCollapsed) return;
+    e.preventDefault();
+    
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    isResizing = true;
+    voiceOverlay.classList.add('resizing');
+    voiceResizeHandle.classList.add('resizing');
+    startY = clientY;
+    
+    // Get current height or use auto
+    const computedStyle = window.getComputedStyle(voiceOverlay);
+    if (computedStyle.height && computedStyle.height !== 'auto') {
+        startHeight = parseInt(computedStyle.height, 10);
+    } else {
+        startHeight = voiceOverlay.offsetHeight;
+    }
+    
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+}
+
+function handleResizeMove(e) {
+    if (!isResizing) return;
+    
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const deltaY = clientY - startY;
+    let newHeight = startHeight + deltaY;
+    
+    // Clamp height between min and max
+    newHeight = Math.max(MIN_VOICE_OVERLAY_HEIGHT, Math.min(MAX_VOICE_OVERLAY_HEIGHT, newHeight));
+    
+    voiceOverlay.style.height = newHeight + 'px';
+    voiceOverlay.style.maxHeight = 'none';
+}
+
+function handleResizeEnd() {
+    if (!isResizing) return;
+    
+    isResizing = false;
+    voiceOverlay.classList.remove('resizing');
+    voiceResizeHandle.classList.remove('resizing');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    
+    // Save the new height
+    if (voiceOverlay.style.height) {
+        saveVoiceOverlayHeight(parseInt(voiceOverlay.style.height, 10));
+    }
+}
+
+if (voiceResizeHandle && voiceOverlay) {
+    // Mouse events
+    voiceResizeHandle.addEventListener('mousedown', handleResizeStart);
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+    
+    // Touch events for mobile
+    voiceResizeHandle.addEventListener('touchstart', handleResizeStart, { passive: false });
+    document.addEventListener('touchmove', handleResizeMove, { passive: false });
+    document.addEventListener('touchend', handleResizeEnd);
+    document.addEventListener('touchcancel', handleResizeEnd);
+}
+
+// Load saved height on page load
+loadVoiceOverlayHeight();
 
 // Voice overlay toggle button functionality
 const voiceToggleBtn = document.getElementById('voiceToggleBtn');
@@ -6045,9 +6221,13 @@ let isVoiceOverlayVisible = false;
 
 if (voiceToggleBtn) {
     voiceToggleBtn.addEventListener('click', () => {
+        if (!voiceOverlay) return;
         isVoiceOverlayVisible = !isVoiceOverlayVisible;
         voiceOverlay.classList.toggle('visible', isVoiceOverlayVisible);
         voiceToggleBtn.classList.toggle('active', isVoiceOverlayVisible);
+        if (!isVoiceOverlayVisible) {
+            setVoiceSettingsOpen(false);
+        }
     });
 }
 
