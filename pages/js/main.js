@@ -6584,7 +6584,7 @@ async function init() {
     // Инициализируем Twemoji для Discord-подобных эмодзи
     if (typeof twemoji !== 'undefined') {
         twemoji.parse(document.body, {
-            base: 'https://cdn.jsdelivr.net/npm/twemoji@14.0.2/',
+            base: 'https://twemoji.maxcdn.com/v/latest/',
             ext: '.svg',
             size: '36x36'
         });
