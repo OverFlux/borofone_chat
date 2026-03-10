@@ -73,8 +73,10 @@ function addMessage(msg, animate = false) {
 
     const messageEl = document.createElement('div');
     messageEl.className = 'message' + (animate ? ' message-new' : '');
-    messageEl.dataset.messageId = msg.id;
-    messageEl.dataset.userId = msg.user?.id || 0;
+    const safeMessageId = sanitizeMessageId(msg.id);
+    const safeUserId = sanitizeNumericDataValue(msg.user?.id);
+    messageEl.dataset.messageId = safeMessageId;
+    messageEl.dataset.userId = safeUserId;
 
     // message-unread больше не нужен — оставляем только divider
 
@@ -103,6 +105,7 @@ function addMessage(msg, animate = false) {
     const bodyHtml = bodyText ? `<div class="message-text${isDeleted ? ' message-text--deleted' : ''}">${bodyText}</div>` : '';
 
     const reactionsHtml = renderReactions(msg.reactions || []);
+    const reactionPickerHtml = safeMessageId ? renderReactionPicker(safeMessageId) : '';
 
 
     messageEl.innerHTML = `
@@ -120,12 +123,12 @@ function addMessage(msg, animate = false) {
             ${renderReplyPreview(msg.reply_to)}
             ${bodyHtml}
             ${attachmentsHtml}
-            <div class="message-reactions" data-reactions-for="${msg.id}">${reactionsHtml}</div>
+            <div class="message-reactions" data-reactions-for="${safeMessageId}">${reactionsHtml}</div>
             <div class="message-hover-actions">
-                <button class="message-plus-btn" data-open-reaction-picker="${msg.id}" type="button">${getRandomReactionTriggerEmoji()}</button>
-                <button class="message-all-emoji-btn" data-open-all-emoji="${msg.id}" type="button">＋</button>
-                <button class="message-reply-btn" data-hover-reply="${msg.id}" type="button"${isDeleted ? ' disabled' : ''}>↩</button>
-                <div class="message-reaction-picker hidden" data-reaction-picker-for="${msg.id}">${renderReactionPicker(msg.id)}</div>
+                <button class="message-plus-btn" data-open-reaction-picker="${safeMessageId}" type="button">${getRandomReactionTriggerEmoji()}</button>
+                <button class="message-all-emoji-btn" data-open-all-emoji="${safeMessageId}" type="button">＋</button>
+                <button class="message-reply-btn" data-hover-reply="${safeMessageId}" type="button"${isDeleted ? ' disabled' : ''}>↩</button>
+                <div class="message-reaction-picker hidden" data-reaction-picker-for="${safeMessageId}">${reactionPickerHtml}</div>
             </div>
         </div>
     `;
@@ -194,22 +197,32 @@ function renderReactions(reactions) {
 }
 
 function renderReactionPicker(messageId) {
+    const safeMessageId = sanitizeMessageId(messageId);
+    if (!safeMessageId) return '';
+
     const popular = REACTION_EMOJIS.map((emoji) => `
-        <button class="reaction-add-btn" data-add-reaction="${escapeHtml(emoji)}" data-message-id="${messageId}" type="button">${escapeHtml(emoji)}</button>
+        <button class="reaction-add-btn" data-add-reaction="${escapeHtml(emoji)}" data-message-id="${safeMessageId}" type="button">${escapeHtml(emoji)}</button>
     `).join('');
-    return `${popular}<button class="reaction-add-btn reaction-add-btn--all" data-open-all-emoji="${messageId}" type="button">＋</button>`;
+    return `${popular}<button class="reaction-add-btn reaction-add-btn--all" data-open-all-emoji="${safeMessageId}" type="button">+</button>`;
 }
 
 function renderReplyPreview(replyTo) {
     if (!replyTo) return '';
+
+    const safeReplyId = sanitizeMessageId(replyTo.id);
+    if (!safeReplyId) return '';
+
     const user = replyTo.user?.display_name || replyTo.user?.username || 'Unknown';
     const body = (replyTo.body || '').trim();
     const shortBody = body.length > 120 ? `${body.slice(0, 120)}...` : body;
-    return `<button class="message-reply" data-jump-to-message="${replyTo.id}" type="button">↩ <strong>${escapeHtml(user)}</strong>: ${parseMarkdownWithEscaping(shortBody || '[вложение]')}</button>`;
+    return `<button class="message-reply" data-jump-to-message="${safeReplyId}" type="button">&#8617; <strong>${escapeHtml(user)}</strong>: ${parseMarkdownWithEscaping(shortBody || '[attachment]')}</button>`;
 }
 
 function jumpToMessage(messageId) {
-    const target = messagesList.querySelector(`[data-message-id="${messageId}"]`);
+    const safeMessageId = sanitizeMessageId(messageId);
+    if (!safeMessageId) return;
+
+    const target = messagesList.querySelector(`[data-message-id="${safeMessageId}"]`);
     if (!target) return;
 
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -220,11 +233,15 @@ function jumpToMessage(messageId) {
 function setReplyTarget(messageEl) {
     if (!messageEl) return;
     if (messageEl.dataset.isDeleted === '1') return;
+
+    const safeMessageId = sanitizeMessageId(messageEl.dataset.messageId);
+    if (!safeMessageId) return;
+
     const author = messageEl.querySelector('.message-author')?.textContent || 'Unknown';
-    const text = messageEl.querySelector('.message-text')?.textContent || '[вложение]';
-    replyToMessage = { id: Number(messageEl.dataset.messageId), author, body: text };
+    const text = messageEl.querySelector('.message-text')?.textContent || '[attachment]';
+    replyToMessage = { id: Number(safeMessageId), author, body: text };
     const shortText = text.length > 120 ? `${text.slice(0, 120)}...` : text;
-    replyPreview.querySelector('.reply-preview-content').textContent = `Ответ ${author}: ${shortText}`;
+    replyPreview.querySelector('.reply-preview-content').textContent = `Reply ${author}: ${shortText}`;
     replyPreview.classList.remove('hidden');
 }
 
@@ -246,4 +263,16 @@ function closeReactionPicker() {
     const picker = messagesList.querySelector(`[data-reaction-picker-for="${activeReactionPickerFor}"]`);
     if (picker) picker.classList.add('hidden');
     activeReactionPickerFor = null;
+}
+
+function sanitizeMessageId(value) {
+    const numericId = Number(value);
+    if (!Number.isSafeInteger(numericId) || numericId <= 0) return '';
+    return String(numericId);
+}
+
+function sanitizeNumericDataValue(value) {
+    const numericValue = Number(value);
+    if (!Number.isSafeInteger(numericValue) || numericValue < 0) return '0';
+    return String(numericValue);
 }

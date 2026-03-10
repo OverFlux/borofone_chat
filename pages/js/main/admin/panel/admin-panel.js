@@ -13,9 +13,7 @@ async function loadAdminRooms() {
     if (!currentUser || currentUser.role !== 'admin') return;
     
     try {
-        const response = await fetch('/rooms', {
-            credentials: 'include'
-        });
+        const response = await fetchWithAuth(`${getApiUrl()}/rooms`);
         
         if (!response.ok) throw new Error('Failed to load rooms');
         
@@ -74,9 +72,8 @@ async function deleteRoom(roomId) {
     if (!currentUser || currentUser.role !== 'admin') return;
     
     try {
-        const response = await fetch(`/rooms/${roomId}`, {
-            method: 'DELETE',
-            credentials: 'include'
+        const response = await fetchWithAuth(`${getApiUrl()}/rooms/${roomId}`, {
+            method: 'DELETE'
         });
         
         if (!response.ok) {
@@ -110,12 +107,11 @@ async function adminCreateRoom() {
     }
     
     try {
-        const response = await fetch('/rooms', {
+        const response = await fetchWithAuth(`${getApiUrl()}/rooms`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            credentials: 'include',
             body: JSON.stringify({
                 title: title,
                 description: roomDescInput?.value.trim() || ''
@@ -149,9 +145,7 @@ async function loadInvites() {
     if (!currentUser || currentUser.role !== 'admin') return;
     
     try {
-        const response = await fetch('/api/admin/invites', {
-            credentials: 'include'
-        });
+        const response = await fetchWithAuth(`${getApiUrl()}/api/admin/invites`);
         
         if (!response.ok) throw new Error('Failed to load invites');
         
@@ -239,12 +233,11 @@ async function createInvite() {
     const expiresIn = parseInt(inviteExpiresIn?.value || '24');
     
     try {
-        const response = await fetch('/api/admin/invites', {
+        const response = await fetchWithAuth(`${getApiUrl()}/api/admin/invites`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            credentials: 'include',
             body: JSON.stringify({
                 max_uses: maxUses,
                 expires_in_hours: expiresIn
@@ -278,9 +271,8 @@ async function revokeInvite(inviteId) {
     if (!currentUser || currentUser.role !== 'admin') return;
     
     try {
-        const response = await fetch(`/api/admin/invites/${inviteId}`, {
-            method: 'DELETE',
-            credentials: 'include'
+        const response = await fetchWithAuth(`${getApiUrl()}/api/admin/invites/${inviteId}`, {
+            method: 'DELETE'
         });
         
         if (!response.ok) {

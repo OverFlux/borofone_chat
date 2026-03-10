@@ -118,6 +118,30 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function sanitizeMarkdownUrl(rawUrl, { allowRelative = true } = {}) {
+    if (typeof rawUrl !== 'string') return null;
+
+    const trimmed = rawUrl.trim();
+    if (!trimmed) return null;
+
+    if (allowRelative && /^(\/|\.\/|\.\.\/)/.test(trimmed)) {
+        return trimmed;
+    }
+
+    try {
+        const parsed = new URL(trimmed, window.location.origin);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+
+        if (allowRelative && parsed.origin === window.location.origin) {
+            return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+        }
+
+        return parsed.toString();
+    } catch (_) {
+        return null;
+    }
+}
+
 /**
  * Parse markdown with escaping - processes markdown syntax BEFORE escaping HTML
  * This allows ![image](url) syntax to work correctly while still preventing XSS
@@ -151,15 +175,21 @@ function parseMarkdownWithEscaping(text) {
     // Restore markdown images
     imageMatches.forEach((item, index) => {
         const placeholder = `__MD_IMAGE_${index}__`;
-        const imgTag = `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.alt)}" class="md-image" loading="lazy">`;
-        escaped = escaped.replace(placeholder, imgTag);
+        const safeUrl = sanitizeMarkdownUrl(item.url);
+        const replacement = safeUrl
+            ? `<img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(item.alt)}" class="md-image" loading="lazy">`
+            : escapeHtml(item.original);
+        escaped = escaped.replace(placeholder, replacement);
     });
     
     // Restore markdown links
     linkMatches.forEach((item, index) => {
         const placeholder = `__MD_LINK_${index}__`;
-        const linkTag = `<a href="${escapeHtml(item.url)}" class="md-link" target="_blank" rel="noopener noreferrer">${escapeHtml(item.text)}</a>`;
-        escaped = escaped.replace(placeholder, linkTag);
+        const safeUrl = sanitizeMarkdownUrl(item.url);
+        const replacement = safeUrl
+            ? `<a href="${escapeHtml(safeUrl)}" class="md-link" target="_blank" rel="noopener noreferrer">${escapeHtml(item.text)}</a>`
+            : escapeHtml(item.text);
+        escaped = escaped.replace(placeholder, replacement);
     });
     
     // Now process the rest of markdown (bold, italic, etc.) - these are already safe since we escaped HTML first
@@ -221,8 +251,11 @@ function parseMarkdownWithEscaping(text) {
     // This regex matches URLs that are not already inside markdown link syntax
     html = html.replace(/(<a[^>]*>[^<]*<\/a>)|(https?:\/\/[^\s<]+)/g, (match, markdownLink, plainUrl) => {
         if (markdownLink) return markdownLink;
-        // Add target="_blank" for security
-        return `<a href="${plainUrl}" class="md-link" target="_blank" rel="noopener noreferrer">${plainUrl}</a>`;
+
+        const safeUrl = sanitizeMarkdownUrl(plainUrl, { allowRelative: false });
+        if (!safeUrl) return escapeHtml(plainUrl);
+
+        return `<a href="${escapeHtml(safeUrl)}" class="md-link" target="_blank" rel="noopener noreferrer">${escapeHtml(safeUrl)}</a>`;
     });
     
     // Convert line breaks to <br>
@@ -242,7 +275,11 @@ function parseMarkdown(text) {
     let html = text;
     
     // First, process markdown images ![alt](url) - must be before shortcodes to avoid conflicts
-    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="md-image" loading="lazy">');
+    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+        const safeUrl = sanitizeMarkdownUrl(url);
+        if (!safeUrl) return escapeHtml(match);
+        return `<img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(alt)}" class="md-image" loading="lazy">`;
+    });
     
     // Then, process shortcodes like !troll, !hello, etc. to images
     // Only match shortcodes at start of line/after whitespace, followed by whitespace or end
@@ -297,14 +334,21 @@ function parseMarkdown(text) {
     html = html.replace(/^[*-] (.+)$/gm, '<li class="md-li">$1</li>');
     
     // Links [text](url)
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="md-link" target="_blank" rel="noopener noreferrer">$1</a>');
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, textValue, url) => {
+        const safeUrl = sanitizeMarkdownUrl(url);
+        if (!safeUrl) return escapeHtml(textValue);
+        return `<a href="${escapeHtml(safeUrl)}" class="md-link" target="_blank" rel="noopener noreferrer">${escapeHtml(textValue)}</a>`;
+    });
     
     // Auto-link URLs (http:// or https://)
     // This regex matches URLs that are not already inside markdown link syntax
     html = html.replace(/(<a[^>]*>[^<]*<\/a>)|(https?:\/\/[^\s<]+)/g, (match, markdownLink, plainUrl) => {
         if (markdownLink) return markdownLink;
-        // Add target="_blank" for security
-        return `<a href="${plainUrl}" class="md-link" target="_blank" rel="noopener noreferrer">${plainUrl}</a>`;
+
+        const safeUrl = sanitizeMarkdownUrl(plainUrl, { allowRelative: false });
+        if (!safeUrl) return escapeHtml(plainUrl);
+
+        return `<a href="${escapeHtml(safeUrl)}" class="md-link" target="_blank" rel="noopener noreferrer">${escapeHtml(safeUrl)}</a>`;
     });
     
     // Convert line breaks to <br>

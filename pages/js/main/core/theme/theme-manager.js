@@ -60,9 +60,11 @@ document.querySelectorAll('.theme-option-card').forEach(card => {
         updateThemeUI(theme);
     });
 });
-replyPreview.className = 'reply-preview hidden';
-replyPreview.innerHTML = '<div class="reply-preview-content"></div><button class="reply-preview-close" type="button">✕</button>';
-messageForm.parentElement.insertBefore(replyPreview, messageForm);
+if (replyPreview && messageForm && messageForm.parentElement) {
+    replyPreview.className = 'reply-preview hidden';
+    replyPreview.innerHTML = '<div class="reply-preview-content"></div><button class="reply-preview-close" type="button">x</button>';
+    messageForm.parentElement.insertBefore(replyPreview, messageForm);
+}
 
 const messageContextMenu = document.createElement('div');
 messageContextMenu.className = 'message-context-menu hidden';

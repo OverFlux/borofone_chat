@@ -471,18 +471,26 @@ function applyReactionUpdate(messageId, reactions, actorUserId = null, action = 
     if (!container) return;
 
     const previousOrder = Array.from(container.querySelectorAll('.reaction-chip')).map((el) => el.dataset.emoji);
-    const previousMyState = {};
+    const previousMyState = Object.create(null);
     for (const chip of container.querySelectorAll('.reaction-chip')) {
-        previousMyState[chip.dataset.emoji] = chip.classList.contains('active');
+        const emoji = chip.dataset.emoji;
+        if (!isSafeReactionKey(emoji)) continue;
+        previousMyState[emoji] = chip.classList.contains('active');
     }
 
     const incoming = reactions || [];
-    const byEmoji = Object.fromEntries(incoming.map((r) => [r.emoji, { ...r }]));
+    const byEmoji = Object.create(null);
+    for (const reaction of incoming) {
+        const emoji = reaction?.emoji;
+        if (!isSafeReactionKey(emoji)) continue;
+        byEmoji[emoji] = { ...reaction };
+    }
 
     for (const reaction of incoming) {
         const emoji = reaction.emoji;
-        let reactedByMe = previousMyState[emoji] || false;
+        if (!isSafeReactionKey(emoji) || !byEmoji[emoji]) continue;
 
+        let reactedByMe = previousMyState[emoji] || false;
         if (Number(actorUserId) === Number(currentUser?.id) && emoji === actionEmoji) {
             reactedByMe = action === 'added';
         }
@@ -493,19 +501,23 @@ function applyReactionUpdate(messageId, reactions, actorUserId = null, action = 
     const ordered = [];
     const seen = new Set();
     for (const emoji of previousOrder) {
-        if (byEmoji[emoji]) {
+        if (isSafeReactionKey(emoji) && byEmoji[emoji]) {
             ordered.push(byEmoji[emoji]);
             seen.add(emoji);
         }
     }
     for (const reaction of incoming) {
-        if (!seen.has(reaction.emoji)) {
-            ordered.push(byEmoji[reaction.emoji]);
-            seen.add(reaction.emoji);
-        }
+        const emoji = reaction.emoji;
+        if (!isSafeReactionKey(emoji) || seen.has(emoji) || !byEmoji[emoji]) continue;
+        ordered.push(byEmoji[emoji]);
+        seen.add(emoji);
     }
 
     container.innerHTML = renderReactions(ordered);
+}
+
+function isSafeReactionKey(value) {
+    return Boolean(value) && value !== '__proto__' && value !== 'constructor' && value !== 'prototype';
 }
 
 function normalizeAvatarUrl(avatarUrl) {
