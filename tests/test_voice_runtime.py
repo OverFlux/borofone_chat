@@ -33,10 +33,12 @@ def test_voice_runtime_join_update_leave_flow():
             "user_id": 1,
             "username": "alice",
             "display_name": "Alice",
+            "avatar_url": None,
             "joined_at": participant.joined_at,
             "muted": True,
             "deafened": True,
             "speaking": True,
+            "screen_sharing": False,
         }
     ]
 
