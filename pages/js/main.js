@@ -893,8 +893,12 @@ const voiceRoomParticipantsByRoom = {};
 
 const voiceJoinSound = new Audio('./sounds/voice_join.wav');
 const voiceLeaveSound = new Audio('./sounds/voice_leave.wav');
+const streamStartSound = new Audio('./sounds/stream_start.wav');
+const streamEndSound = new Audio('./sounds/stream_end.wav');
 voiceJoinSound.preload = 'auto';
 voiceLeaveSound.preload = 'auto';
+streamStartSound.preload = 'auto';
+streamEndSound.preload = 'auto';
 
 // Profile message button sound
 const profileMessageSound = new Audio('./sounds/net-idi-na.mp3');
@@ -3020,6 +3024,28 @@ function playVoiceEventSound(kind) {
     }
 }
 
+function playStreamEventSound(kind) {
+    const sound = kind === 'start' ? streamStartSound : streamEndSound;
+    try {
+        sound.currentTime = 0;
+        const p = sound.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (_) {
+        // autoplay policy / decode errors are non-fatal
+    }
+}
+
+function handleParticipantScreenShareSound(previousParticipant, nextParticipant) {
+    const userId = nextParticipant?.user_id;
+    if (!userId || userId === currentUser?.id) return;
+
+    const wasSharing = !!previousParticipant?.screen_sharing;
+    const isSharing = !!nextParticipant?.screen_sharing;
+
+    if (wasSharing === isSharing) return;
+    playStreamEventSound(isSharing ? 'start' : 'end');
+}
+
 // ==========================================
 // WEBSOCKET
 // ==========================================
@@ -3144,9 +3170,11 @@ function connectWebSocket() {
                     }
                 } else if (data.type === 'participant_updated') {
                     if (data.room_id === currentVoiceRoomId) {
+                        const previousParticipant = voiceParticipants.find((p) => p.user_id === data.participant?.user_id) || null;
                         voiceParticipants = upsertVoiceParticipant(data.participant);
                         voiceRoomParticipantsByRoom[data.room_id] = voiceParticipants;
                         renderVoiceParticipantsGrid();
+                        handleParticipantScreenShareSound(previousParticipant, data.participant);
                         handleParticipantScreenShareState(data.participant);
                     }
                 } else if (data.type === 'speaking') {
@@ -3157,9 +3185,11 @@ function connectWebSocket() {
                     }
                 } else if (data.type === 'screen_share_updated') {
                     if (data.room_id === currentVoiceRoomId) {
+                        const previousParticipant = voiceParticipants.find((p) => p.user_id === data.participant?.user_id) || null;
                         voiceParticipants = upsertVoiceParticipant(data.participant);
                         voiceRoomParticipantsByRoom[data.room_id] = voiceParticipants;
                         renderVoiceParticipantsGrid();
+                        handleParticipantScreenShareSound(previousParticipant, data.participant);
                         handleParticipantScreenShareState(data.participant);
                         renderScreenShareGrid();
                     }
@@ -5812,6 +5842,7 @@ async function startScreenShareFromPending() {
     signalScreenShareState(true);
     renderScreenShareGrid();
     updateScreenShareButtonState();
+    playStreamEventSound('start');
 
     await renegotiateAllPeers();
     showNotification('Screen sharing started', 'success');
@@ -5872,6 +5903,9 @@ async function stopScreenShare(options = {}) {
 
         renderScreenShareGrid();
         updateScreenShareButtonState();
+        if (hadLocalScreen) {
+            playStreamEventSound('end');
+        }
         if (!silent && hadLocalScreen) {
             showNotification('Screen sharing stopped', 'info');
         }
