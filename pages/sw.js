@@ -94,8 +94,8 @@ self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // Пропускаем WebSocket и API запросы
-    if (url.protocol === 'ws:' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws')) {
+    // Пропускаем WebSocket, API запросы и загруженные файлы
+    if (url.protocol === 'ws:' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws') || url.pathname.startsWith('/uploads/')) {
         return;
     }
 
