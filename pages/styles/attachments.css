@@ -8,6 +8,8 @@
     flex-wrap: nowrap;
     gap: 8px;
     padding: 8px 16px;
+    margin-top: 1px;
+    margin-bottom: 14px;
     background: var(--glass-bg);
     border-top: 1px solid var(--glass-border);
     border-radius: 12px;
@@ -442,7 +444,6 @@
     border-color: var(--accent, #5865F2);
     box-shadow: 
         0 30px 60px rgba(0, 0, 0, 0.4),
-        0 0 40px rgba(88, 101, 242, 0.15),
         inset 0 1px 0 rgba(255, 255, 255, 0.15);
     transform: scale(1.02);
 }
@@ -983,10 +984,6 @@
 
 /* Hover effect */
 .audio-player-card:hover {
-    background: linear-gradient(135deg, var(--glass-hover) 0%, rgba(255, 255, 255, 0.05) 100%);
-    border-color: rgba(255, 255, 255, 0.2);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 /* Playing state indicator */
@@ -1018,16 +1015,6 @@
     transition: all 0.2s ease;
     box-shadow: 0 2px 8px rgba(219, 115, 79, 0.3);
     position: relative;
-}
-
-.audio-player-play-btn-large:hover {
-    transform: scale(1.05);
-    background: linear-gradient(135deg, #e88565 0%, #DB734F 100%);
-    box-shadow: 0 4px 12px rgba(219, 115, 79, 0.4);
-}
-
-.audio-player-play-btn-large:active {
-    transform: scale(0.95);
 }
 
 /* Play/Pause SVG icons */

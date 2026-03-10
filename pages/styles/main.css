@@ -17,7 +17,7 @@
     --accent: #DB734F;
     --accent-hover: #e88d6d;
     --accent-dim: rgba(219, 115, 79, 0.1);
-    --accent-glow: rgba(219, 115, 79, 0.3);
+    --accent-glow: rgba(219, 115, 79, 0);
 
     --glass-bg: rgba(255, 255, 255, 0.04);
     --glass-border: rgba(255, 255, 255, 0.1);
@@ -71,20 +71,19 @@
     border-color: rgba(0, 0, 0, 0.08);
     backdrop-filter: blur(12px) saturate(1.1);
     -webkit-backdrop-filter: blur(12px) saturate(1.1);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255,255,255,0.8);
 }
 
 [data-theme="light"] .message-plus-btn,
+[data-theme="light"] .message-all-emoji-btn,
 [data-theme="light"] .message-reply-btn {
     background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.5));
     border-color: rgba(0, 0, 0, 0.1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="light"] .message-plus-btn:hover,
+[data-theme="light"] .message-all-emoji-btn:hover,
 [data-theme="light"] .message-reply-btn:hover {
     background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7));
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 0 0 2px var(--accent);
 }
 
 [data-theme="light"] .message-context-menu {
@@ -92,7 +91,6 @@
     border-color: rgba(0, 0, 0, 0.08);
     backdrop-filter: blur(18px) saturate(1.2);
     -webkit-backdrop-filter: blur(18px) saturate(1.2);
-    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.8);
 }
 
 [data-theme="light"] .message-context-menu button:hover {
@@ -818,12 +816,10 @@ body {
     justify-content: center;
     gap: 8px;
     font-family: inherit;
-    box-shadow: 0 4px 12px var(--accent-glow);
 }
 
 .create-room-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px var(--accent-glow);
     background: var(--accent-hover);
 }
 
@@ -1129,7 +1125,6 @@ body {
 .activities-placeholder .btn-primary:hover {
     background: var(--accent-hover);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px var(--accent-glow);
 }
 
 .activities-buttons {
@@ -1744,12 +1739,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px var(--accent-glow);
 }
 
 .send-btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px var(--accent-glow);
     background: var(--accent-hover);
 }
 
@@ -2361,8 +2354,6 @@ body {
     gap: 12px;
     padding-top: 8px;
     padding: 16px 24px;
-    border-top: 1px solid var(--glass-border);
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.01) 100%);
 }
 
 .modal-actions button {
@@ -2392,6 +2383,7 @@ body {
     background: var(--glass-hover);
     color: var(--text-primary);
     border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
 }
 
 .btn-secondary:hover {
@@ -2421,7 +2413,6 @@ body {
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px var(--accent-glow);
     background: var(--accent-hover);
 }
 
@@ -4037,6 +4028,7 @@ body {
 .confirm-modal-actions .btn-secondary {
     flex: 1;
     padding: 12px 20px;
+    border-radius: 10px;
 }
 
 .btn-danger {
@@ -4679,7 +4671,6 @@ body {
     border: 1px solid var(--glass-border);
     backdrop-filter: blur(12px) saturate(1.1);
     -webkit-backdrop-filter: blur(12px) saturate(1.1);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.1);
     animation: pickerFadeIn 0.2s ease;
 }
 
@@ -5020,21 +5011,46 @@ body {
     justify-content: center;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .message-plus-btn:hover {
     background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
     transform: scale(1.08);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 0 0 2px var(--accent);
 }
 
 .message-plus-btn:active {
     transform: scale(0.95);
 }
 
+.message-all-emoji-btn {
+    border: 1px solid var(--glass-border);
+    background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    color: var(--text-primary);
+    border-radius: 10px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.message-all-emoji-btn:hover {
+    background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
+    transform: scale(1.08);
+}
+
+.message-all-emoji-btn:active {
+    transform: scale(0.95);
+}
+
 .message-plus-btn:focus-visible,
+.message-all-emoji-btn:focus-visible,
 .reaction-chip:focus-visible,
 .reaction-add-btn:focus-visible,
 .context-emoji-btn:focus-visible,
@@ -5061,7 +5077,6 @@ body {
     min-width: 220px;
     backdrop-filter: blur(18px) saturate(1.2);
     -webkit-backdrop-filter: blur(18px) saturate(1.2);
-    box-shadow: 0 18px 45px rgba(5, 8, 20, 0.45), inset 0 1px 0 rgba(255,255,255,0.15);
     animation: contextMenuFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -5142,14 +5157,12 @@ body {
     font-size: 14px;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .message-reply-btn:hover {
     background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
     transform: scale(1.08);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 0 0 2px var(--accent);
 }
 
 .message-reply-btn:active {
@@ -8592,6 +8605,315 @@ body {
 
 .mobile-user-status.online {
     background: #22c55e;
+}
+
+/* ==========================================
+   EMOJI MODAL (Liquid Glass Design)
+   ========================================== */
+
+.emoji-modal-overlay {
+    position: fixed;
+    z-index: 10000;
+    pointer-events: none;
+}
+
+.emoji-modal-overlay.closing {
+    animation: emojiModalFadeOut 0.15s ease forwards;
+}
+
+.emoji-modal {
+    position: absolute;
+    width: 280px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    backdrop-filter: blur(25px) saturate(1.3);
+    -webkit-backdrop-filter: blur(25px) saturate(1.3);
+    animation: emojiModalSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+.emoji-modal.closing {
+    animation: emojiModalSlideOut 0.15s ease forwards;
+}
+
+/* Liquid Glass shine effect */
+.emoji-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    opacity: 0.5;
+}
+
+.emoji-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--glass-border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%);
+}
+
+.emoji-modal__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.emoji-modal__close {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.emoji-modal__close:hover {
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.04));
+    border-color: var(--glass-border);
+    color: var(--text-primary);
+    transform: scale(1.05);
+}
+
+.emoji-modal__close:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.emoji-modal__body {
+    padding: 16px;
+}
+
+.emoji-modal__input-wrapper {
+    position: relative;
+}
+
+.emoji-modal__input {
+    width: 100%;
+    padding: 12px 44px 12px 14px;
+    background: linear-gradient(135deg, rgba(0,0,0,0.2), rgba(0,0,0,0.1));
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 18px;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+}
+
+.emoji-modal__input:focus {
+    outline: none;
+    background: linear-gradient(135deg, rgba(0,0,0,0.25), rgba(0,0,0,0.15));
+    border-color: var(--accent);
+}
+
+.emoji-modal__input::placeholder {
+    color: var(--text-dim);
+    font-size: 13px;
+}
+
+.emoji-modal__preview {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 22px;
+    opacity: 0.9;
+    display: none;
+    pointer-events: none;
+}
+
+.emoji-modal__error {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.08));
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: 8px;
+    color: #f87171;
+    font-size: 12px;
+    display: none;
+}
+
+.emoji-modal__error.visible {
+    display: block;
+    animation: emojiModalShake 0.3s ease;
+}
+
+.emoji-modal__actions {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--glass-border);
+    background: linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.03) 100%);
+}
+
+.emoji-modal__btn {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    position: relative;
+    overflow: hidden;
+}
+
+.emoji-modal__btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    opacity: 0.5;
+}
+
+.emoji-modal__btn--cancel {
+    background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+}
+
+.emoji-modal__btn--cancel:hover {
+    background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+    border-color: rgba(255,255,255,0.2);
+    transform: translateY(-1px);
+}
+
+.emoji-modal__btn--cancel:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.emoji-modal__btn--confirm {
+    background: linear-gradient(135deg, var(--accent), #b56040);
+    border: none;
+    color: white;
+}
+
+.emoji-modal__btn--confirm:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+    transform: translateY(-2px);
+}
+
+.emoji-modal__btn--confirm:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.emoji-modal__btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Animations */
+@keyframes emojiModalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes emojiModalFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes emojiModalSlideIn {
+    from { 
+        opacity: 0; 
+        transform: scale(0.95) translateY(-8px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: scale(1) translateY(0); 
+    }
+}
+
+@keyframes emojiModalSlideOut {
+    from { 
+        opacity: 1; 
+        transform: scale(1) translateY(0); 
+    }
+    to { 
+        opacity: 0; 
+        transform: scale(0.95) translateY(-8px); 
+    }
+}
+
+@keyframes emojiModalShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+
+/* Theme: Light */
+[data-theme="light"] .emoji-modal {
+    background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(255,255,255,0.85));
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .emoji-modal::before {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+}
+
+[data-theme="light"] .emoji-modal__title {
+    text-shadow: none;
+    color: #1a1a1a;
+}
+
+[data-theme="light"] .emoji-modal__input {
+    background: linear-gradient(135deg, rgba(0,0,0,0.04), rgba(0,0,0,0.02));
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #1a1a1a;
+}
+
+[data-theme="light"] .emoji-modal__input:focus {
+    background: linear-gradient(135deg, rgba(0,0,0,0.06), rgba(0,0,0,0.03));
+    border-color: var(--accent);
+}
+
+[data-theme="light"] .emoji-modal__btn--cancel {
+    background: linear-gradient(135deg, rgba(0,0,0,0.06), rgba(0,0,0,0.03));
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #1a1a1a;
+}
+
+/* Theme: AMOLED */
+[data-theme="amoled"] .emoji-modal {
+    background: linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(20, 20, 28, 0.9));
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="amoled"] .emoji-modal__input {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.25));
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="amoled"] .emoji-modal__input:focus {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.3));
+    border-color: var(--accent);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .emoji-modal {
+        width: calc(100vw - 48px);
+        max-width: 280px;
+    }
 }
 
 .mobile-user-status.dnd {
