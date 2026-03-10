@@ -106,6 +106,10 @@ function initLoadingScreen() {
 
 let currentRoom = null;
 let ws = null;
+let wsConnecting = false;
+const seenIncomingMessageIds = new Set();
+const seenIncomingMessageOrder = [];
+const MAX_SEEN_INCOMING_MESSAGES = 1000;
 let wsReady = Promise.resolve();  // Promise который резолвится когда WS открыт
 
 // Connection stats tracking
@@ -120,6 +124,21 @@ let connectionStats = {
 };
 
 // Add log entry function
+function markIncomingMessageSeen(messageId) {
+    if (!Number.isFinite(messageId)) return false;
+    if (seenIncomingMessageIds.has(messageId)) return true;
+
+    seenIncomingMessageIds.add(messageId);
+    seenIncomingMessageOrder.push(messageId);
+
+    if (seenIncomingMessageOrder.length > MAX_SEEN_INCOMING_MESSAGES) {
+        const oldestId = seenIncomingMessageOrder.shift();
+        seenIncomingMessageIds.delete(oldestId);
+    }
+
+    return false;
+}
+
 function addLogEntry(type, message) {
     const logEntry = {
         type: type,
@@ -3052,7 +3071,7 @@ function handleParticipantScreenShareSound(previousParticipant, nextParticipant)
 
 // Подключаемся к глобальному WS ОДИН РАЗ при загрузке
 function connectWebSocket() {
-    if (ws) return; // уже подключены
+    if (ws || wsConnecting) return; // уже подключены
     
     // Track reconnect if we already had a connection before
     if (connectionStats.connectedAt !== null) {
@@ -3060,6 +3079,7 @@ function connectWebSocket() {
     }
     
     updateConnectionStatus('connecting');
+    wsConnecting = true;
 
     wsReady = new Promise((resolve) => {
         const wsUrl = `${getWsUrl()}/ws`;
@@ -3084,6 +3104,7 @@ function connectWebSocket() {
             addLogEntry(isReconnect ? 'reconnect' : 'connect', isReconnect ? 'Переподключение к серверу' : 'Подключение к серверу');
             
             ws = socket;
+            wsConnecting = false;
             resolve();
         };
 
@@ -3092,6 +3113,10 @@ function connectWebSocket() {
                 const data = JSON.parse(event.data);
 
                 if (data.type === 'message') {
+                    if (markIncomingMessageSeen(Number(data.id))) {
+                        return;
+                    }
+
                     // Track received message for stats
                     connectionStats.messagesReceived++;
                     // Если сообщение в ТЕКУЩЕЙ комнате — добавляем в DOM
@@ -3235,6 +3260,7 @@ function connectWebSocket() {
             
             updateConnectionStatus('disconnected');
             ws = null;
+            wsConnecting = false;
 
             // Переподключаемся через 3 секунды
             setTimeout(() => connectWebSocket(), 3000);
