@@ -47,9 +47,12 @@ async function startPolling() {
                 if (unreadCount > prevCount) {
                     const lastMessage = messages[messages.length - 1];
 
-                    // Звук только если сообщение не от нас
+                    // Play sound only for a newly observed message from another user
                     if (lastMessage.user?.id !== currentUser?.id) {
-                        window.notifications.playNotificationSound();
+                        const shouldNotify = window.notifications.claimMessageNotification(lastMessage.id, room.id);
+                        if (shouldNotify) {
+                            window.notifications.playNotificationSound();
+                        }
                     }
                 }
 

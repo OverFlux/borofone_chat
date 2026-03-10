@@ -66,15 +66,16 @@ function connectWebSocket() {
 
                     // Уведомления ТОЛЬКО если сообщение НЕ от меня
                     if (window.notifications && data.user?.id !== currentUser?.id) {
-                        // Звук
-                        window.notifications.playNotificationSound();
+                        const shouldNotify = window.notifications.claimMessageNotification(data.id, data.room_id);
+                        if (shouldNotify) {
+                            window.notifications.playNotificationSound();
 
-                        // Badge
-                        if (data.room_id) {
-                            if (currentRoom && data.room_id === currentRoom.id) {
-                                updateCurrentRoomBadge();
-                            } else {
-                                incrementRoomBadge(data.room_id);
+                            if (data.room_id) {
+                                if (currentRoom && data.room_id === currentRoom.id) {
+                                    updateCurrentRoomBadge();
+                                } else {
+                                    incrementRoomBadge(data.room_id);
+                                }
                             }
                         }
                     }

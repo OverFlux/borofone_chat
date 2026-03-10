@@ -23,6 +23,9 @@ function getStorageNamespace() {
 
 const STORAGE_NAMESPACE = getStorageNamespace();
 const DND_STORAGE_KEY = `doNotDisturb:${STORAGE_NAMESPACE}`;
+const RECENT_MESSAGE_NOTIFICATION_TTL_MS = 15000;
+const recentMessageNotifications = window.__BOROFONE_RECENT_MESSAGE_NOTIFICATIONS__ || new Map();
+window.__BOROFONE_RECENT_MESSAGE_NOTIFICATIONS__ = recentMessageNotifications;
 
 /**
  * Получить состояние режима "Не беспокоить".
@@ -195,4 +198,5 @@ window.notifications = {
     isDoNotDisturbEnabled,
     setDoNotDisturb,
     toggleDoNotDisturb,
+    claimMessageNotification,
 };
