@@ -1264,7 +1264,7 @@ function createAudioPlayerHTML(attachment) {
     return `
         <div class="audio-player-card" data-file-url="${safeFileUrl}" data-file-id="${fileId}" data-filename="${filename}">
             <div class="audio-player-main">
-                <button class="audio-player-play-btn-large" title="Play/Pause">
+                <button class="audio-player-play-btn-large">
                     <svg class="audio-player-play-icon-svg" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M8 5v14l11-7z"/>
                     </svg>
