@@ -7,61 +7,6 @@ function scrollToBottom() {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-function shouldDeferMarkdownMedia(url) {
-    const normalizedUrl = String(url || '').toLowerCase();
-    const isGif = /\.gif($|[?#])/.test(normalizedUrl);
-    const isDecorativeAsset = normalizedUrl.includes('/emoji/') || normalizedUrl.includes('/stickers/');
-    return isGif && !isDecorativeAsset;
-}
-
-function buildOptimizedMarkdownImage(src, alt, className = 'md-image') {
-    const safeSrc = escapeHtml(src);
-    const safeAlt = escapeHtml(alt || '');
-    return `<img src="${safeSrc}" alt="${safeAlt}" class="${className}" loading="lazy" decoding="async" fetchpriority="low">`;
-}
-
-function buildMarkdownMediaHTML(src, alt, className = 'md-image') {
-    if (!shouldDeferMarkdownMedia(src)) {
-        return buildOptimizedMarkdownImage(src, alt, className);
-    }
-
-    const safeSrc = escapeHtml(src);
-    const safeAlt = escapeHtml(alt || 'GIF');
-    return `
-        <button type="button" class="${className} md-image--deferred" data-inline-media-src="${safeSrc}" data-inline-media-alt="${safeAlt}" aria-label="Load GIF">
-            <span class="md-image-placeholder-label">GIF</span>
-            <span class="md-image-placeholder-hint">Click to load</span>
-        </button>
-    `;
-}
-
-function hydrateDeferredMarkdownMedia(trigger) {
-    if (!trigger || trigger.dataset.loading === 'true') return;
-
-    trigger.dataset.loading = 'true';
-
-    const src = trigger.dataset.inlineMediaSrc;
-    const alt = trigger.dataset.inlineMediaAlt || '';
-    const img = document.createElement('img');
-    img.src = src;
-    img.alt = alt;
-    img.className = 'md-image';
-    img.loading = 'lazy';
-    img.decoding = 'async';
-    img.setAttribute('fetchpriority', 'low');
-    img.addEventListener('load', () => {
-        img.dataset.loaded = 'true';
-    }, { once: true });
-
-    trigger.replaceWith(img);
-}
-
-document.addEventListener('click', (event) => {
-    const trigger = event.target.closest('.md-image--deferred[data-inline-media-src]');
-    if (!trigger) return;
-    hydrateDeferredMarkdownMedia(trigger);
-});
-
 /**
  * Скролл вниз с ожиданием загрузки изображений.
  * Используется при добавлении новых сообщений с вложениями.
@@ -232,7 +177,7 @@ function parseMarkdownWithEscaping(text) {
         const placeholder = `__MD_IMAGE_${index}__`;
         const safeUrl = sanitizeMarkdownUrl(item.url);
         const replacement = safeUrl
-            ? buildMarkdownMediaHTML(safeUrl, item.alt)
+            ? `<img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(item.alt)}" class="md-image" loading="lazy">`
             : escapeHtml(item.original);
         escaped = escaped.replace(placeholder, replacement);
     });
@@ -259,15 +204,15 @@ function parseMarkdownWithEscaping(text) {
             const filename = shortcode + ext;
             // Check in emoji folder
             if (customEmojis.includes(filename)) {
-                return prefix + buildMarkdownMediaHTML(`/emoji/${escapeHtml(filename)}`, shortcode);
+                return prefix + `<img src="/emoji/${escapeHtml(filename)}" alt="${escapeHtml(shortcode)}" class="md-image" loading="lazy">`;
             }
             // Check in stickers folder
             if (stickers.includes(filename)) {
-                return prefix + buildMarkdownMediaHTML(`/stickers/${escapeHtml(filename)}`, shortcode);
+                return prefix + `<img src="/stickers/${escapeHtml(filename)}" alt="${escapeHtml(shortcode)}" class="md-image" loading="lazy">`;
             }
             // Check in gifs folder
             if (gifs.includes(filename)) {
-                return prefix + buildMarkdownMediaHTML(`/gifs/${escapeHtml(filename)}`, shortcode);
+                return prefix + `<img src="/gifs/${escapeHtml(filename)}" alt="${escapeHtml(shortcode)}" class="md-image" loading="lazy">`;
             }
         }
         // If no match, return original text
@@ -333,7 +278,7 @@ function parseMarkdown(text) {
     html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
         const safeUrl = sanitizeMarkdownUrl(url);
         if (!safeUrl) return escapeHtml(match);
-        return buildMarkdownMediaHTML(safeUrl, alt);
+        return `<img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(alt)}" class="md-image" loading="lazy">`;
     });
     
     // Then, process shortcodes like !troll, !hello, etc. to images
@@ -345,15 +290,15 @@ function parseMarkdown(text) {
             const filename = shortcode + ext;
             // Check in emoji folder
             if (customEmojis.includes(filename)) {
-                return prefix + buildMarkdownMediaHTML(`/emoji/${filename}`, shortcode);
+                return prefix + `<img src="/emoji/${filename}" alt="${shortcode}" class="md-image" loading="lazy">`;
             }
             // Check in stickers folder
             if (stickers.includes(filename)) {
-                return prefix + buildMarkdownMediaHTML(`/stickers/${filename}`, shortcode);
+                return prefix + `<img src="/stickers/${filename}" alt="${shortcode}" class="md-image" loading="lazy">`;
             }
             // Check in gifs folder
             if (gifs.includes(filename)) {
-                return prefix + buildMarkdownMediaHTML(`/gifs/${filename}`, shortcode);
+                return prefix + `<img src="/gifs/${filename}" alt="${shortcode}" class="md-image" loading="lazy">`;
             }
         }
         // If no match, return original text

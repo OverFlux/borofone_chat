@@ -7634,35 +7634,6 @@ body {
     max-height: 200px;
 }
 
-.message-text .md-image--deferred {
-    width: min(250px, 100%);
-    min-height: 120px;
-    padding: 14px;
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    border-radius: 10px;
-    border: 1px dashed rgba(255, 255, 255, 0.18);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-primary);
-    cursor: pointer;
-    vertical-align: middle;
-    appearance: none;
-}
-
-.message-text .md-image-placeholder-label {
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-}
-
-.message-text .md-image-placeholder-hint {
-    font-size: 11px;
-    color: var(--text-secondary);
-}
-
 /* =========================================
    MARKDOWN INPUT POPUP
    ========================================= */

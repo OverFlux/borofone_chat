@@ -177,34 +177,6 @@
     transform: scale(1.02);
 }
 
-.attachment-image--deferred {
-    min-height: 180px;
-    width: min(100%, 400px);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 20px;
-    background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
-    color: var(--text-primary);
-    cursor: pointer;
-    border: 1px dashed rgba(255,255,255,0.18);
-    appearance: none;
-}
-
-.attachment-image-placeholder-title {
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-}
-
-.attachment-image-placeholder-meta,
-.attachment-image-placeholder-action {
-    font-size: 12px;
-    color: var(--text-secondary);
-}
-
 /* File attachments */
 .attachment-file {
     display: flex;

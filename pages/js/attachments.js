@@ -1146,57 +1146,6 @@ function initPasteHandler() {
 /**
  * Отобразить вложения в сообщении.
  */
-function shouldDeferAttachmentImage(fileUrl, mimeType = '') {
-    const normalizedUrl = String(fileUrl || '').toLowerCase();
-    return mimeType === 'image/gif' || /\.gif($|[?#])/.test(normalizedUrl);
-}
-
-function buildAttachmentImageMarkup(fileUrl, filename, mimeType = '', fileSize = null) {
-    const safeUrl = _escapeHtmlLocal(fileUrl);
-    const safeName = _escapeHtmlLocal(filename);
-
-    if (!shouldDeferAttachmentImage(fileUrl, mimeType)) {
-        return `
-            <div class="attachment-image" onclick="openImageLightbox('${safeUrl}')">
-                <img src="${safeUrl}" alt="${safeName}" loading="lazy" decoding="async" fetchpriority="low">
-            </div>
-        `;
-    }
-
-    const metaText = Number.isFinite(Number(fileSize)) ? formatFileSize(Number(fileSize)) : 'GIF';
-    return `
-        <button type="button" class="attachment-image attachment-image--deferred" data-deferred-attachment-src="${safeUrl}" data-deferred-attachment-alt="${safeName}" onclick="loadDeferredAttachmentImage(this)">
-            <span class="attachment-image-placeholder-title">GIF</span>
-            <span class="attachment-image-placeholder-meta">${_escapeHtmlLocal(metaText)}</span>
-            <span class="attachment-image-placeholder-action">Click to load</span>
-        </button>
-    `;
-}
-
-window.loadDeferredAttachmentImage = function(button) {
-    if (!button || button.dataset.loading === 'true') return;
-
-    button.dataset.loading = 'true';
-    const src = button.dataset.deferredAttachmentSrc;
-    const alt = button.dataset.deferredAttachmentAlt || '';
-    const wrapper = document.createElement('div');
-    wrapper.className = 'attachment-image';
-    wrapper.addEventListener('click', () => openImageLightbox(src));
-
-    const img = document.createElement('img');
-    img.src = src;
-    img.alt = alt;
-    img.loading = 'lazy';
-    img.decoding = 'async';
-    img.setAttribute('fetchpriority', 'low');
-    img.addEventListener('load', () => {
-        img.dataset.loaded = 'true';
-    }, { once: true });
-
-    wrapper.appendChild(img);
-    button.replaceWith(wrapper);
-};
-
 function renderMessageAttachments(attachments) {
     if (!attachments || attachments.length === 0) return '';
     
@@ -1241,7 +1190,11 @@ function renderMessageAttachments(attachments) {
                 const fileUrl = resolveFileUrl(att.file_path);
                 
                 if (isImage) {
-                    return buildAttachmentImageMarkup(fileUrl, att.filename, att.mime_type, att.file_size);
+                    return `
+                        <div class="attachment-image" onclick="openImageLightbox('${escapeHtmlLocal(fileUrl)}')">
+                            <img src="${escapeHtmlLocal(fileUrl)}" alt="${escapeHtmlLocal(att.filename)}" loading="lazy">
+                        </div>
+                    `;
                 } else if (isVideo) {
                     return `
                         <div class="attachment-video">

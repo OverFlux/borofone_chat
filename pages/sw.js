@@ -1,7 +1,7 @@
 // Borofone Chat - Service Worker
-const CACHE_NAME = 'borofone-chat-v3';
-const STATIC_CACHE = 'borofone-static-v3';
-const DYNAMIC_CACHE = 'borofone-dynamic-v3';
+const CACHE_NAME = 'borofone-chat-v2';
+const STATIC_CACHE = 'borofone-static-v2';
+const DYNAMIC_CACHE = 'borofone-dynamic-v2';
 
 // Статические ресурсы для кэширования
 const STATIC_ASSETS = [
@@ -12,10 +12,12 @@ const STATIC_ASSETS = [
     '/styles/notifications.css',
     '/styles/presence.css',
     '/styles/attachments.css',
+    '/styles/wordle.css',
     '/js/config.js',
     '/js/auth.js',
     '/js/notifications.js',
     '/js/attachments.js',
+    '/js/wordle.js',
     '/js/app/bootstrap.js',
     '/js/app/manifest.js',
     '/js/app/runtime.js',
@@ -51,6 +53,8 @@ const STATIC_ASSETS = [
     '/js/tips.js',
     '/login.html',
     '/register.html',
+    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+    'https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js'
 ];
 
 // Установка Service Worker
