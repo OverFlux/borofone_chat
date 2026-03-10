@@ -7,7 +7,68 @@
  * Реализует drag-and-drop функционал как в Telegram/Discord
  */
 
-let attachmentsToSend = [];  // Временное хранилище файлов для отправки
+let attachmentsToSend = [];  //
+const attachmentPreviewUrls = new Map();
+const dropZonePreviewUrls = new Set();
+
+function revokeObjectUrlSafe(url) {
+    if (!url || typeof url !== 'string' || !url.startsWith('blob:')) return;
+    try {
+        URL.revokeObjectURL(url);
+    } catch (_) {
+        // Ignore blob cleanup errors.
+    }
+}
+
+function clearAttachmentPreviewUrls() {
+    attachmentPreviewUrls.forEach((url) => revokeObjectUrlSafe(url));
+    attachmentPreviewUrls.clear();
+}
+
+function clearDropZonePreviewUrls() {
+    dropZonePreviewUrls.forEach((url) => revokeObjectUrlSafe(url));
+    dropZonePreviewUrls.clear();
+
+    const previewsContainer = document.getElementById('dropZonePreviews');
+    if (previewsContainer) {
+        previewsContainer.innerHTML = '';
+    }
+}
+
+function destroyAudioPlayerInstance(fileId) {
+    const player = audioPlayerInstances.get(fileId);
+    if (!player) return;
+
+    if (currentPlayingAudio === fileId) {
+        currentPlayingAudio = null;
+    }
+
+    try {
+        player.audio.pause();
+        player.audio.removeAttribute('src');
+        player.audio.src = '';
+        player.audio.load();
+    } catch (_) {
+        // Ignore audio disposal errors.
+    }
+
+    audioPlayerInstances.delete(fileId);
+}
+
+function cleanupDetachedAudioPlayers() {
+    audioPlayerInstances.forEach((player, fileId) => {
+        if (!player.card || player.card.isConnected) return;
+        destroyAudioPlayerInstance(fileId);
+    });
+}
+
+function disposeAllAudioPlayers() {
+    Array.from(audioPlayerInstances.keys()).forEach((fileId) => {
+        destroyAudioPlayerInstance(fileId);
+    });
+}
+
+// Временное хранилище файлов для отправки
 
 // Global helper functions for use in audio player
 function _resolveFileUrl(path) {
@@ -253,6 +314,9 @@ function addAttachments(files) {
  * Отобразить превью вложений перед отправкой.
  */
 function renderAttachmentsPreviews() {
+    clearAttachmentPreviewUrls();
+    cleanupDetachedAudioPlayers();
+
     let container = document.getElementById('attachmentsPreviews');
     
     if (!container) {
@@ -271,6 +335,7 @@ function renderAttachmentsPreviews() {
     
     if (attachmentsToSend.length === 0) {
         container.style.display = 'none';
+        container.innerHTML = '';
         return;
     }
     
@@ -283,6 +348,7 @@ function renderAttachmentsPreviews() {
         if (isImage) {
             // Create object URL for preview
             const objectUrl = URL.createObjectURL(file);
+            attachmentPreviewUrls.set(index, objectUrl);
             iconContent = `<img src="${objectUrl}" alt="${escapeHtml(file.name)}" loading="lazy">`;
         } else {
             iconContent = `<span class="attachment-icon">${typeInfo.emoji}</span>`;
@@ -305,18 +371,7 @@ function renderAttachmentsPreviews() {
  * Удалить вложение из списка.
  */
 function removeAttachment(index) {
-    // Revoke object URL to free memory
-    const file = attachmentsToSend[index];
-    if (file) {
-        const preview = document.querySelector(`.attachment-preview[data-index="${index}"]`);
-        if (preview) {
-            const img = preview.querySelector('img[src^="blob:"]');
-            if (img) {
-                URL.revokeObjectURL(img.src);
-            }
-        }
-    }
-    
+    clearAttachmentPreviewUrls();
     attachmentsToSend.splice(index, 1);
     renderAttachmentsPreviews();
 }
@@ -325,10 +380,7 @@ function removeAttachment(index) {
  * Очистить все вложения.
  */
 function clearAllAttachments() {
-    attachmentsToSend.forEach(file => {
-        // Revoke all object URLs
-        // This is handled by browser on page unload
-    });
+    clearAttachmentPreviewUrls();
     attachmentsToSend = [];
     renderAttachmentsPreviews();
 }
@@ -363,6 +415,7 @@ async function uploadAttachments() {
         const uploaded = await response.json();
         
         // Clear attachments after successful upload
+        clearAttachmentPreviewUrls();
         attachmentsToSend = [];
         renderAttachmentsPreviews();
         
@@ -444,10 +497,11 @@ async function uploadAttachmentsWithProgress() {
                     // Show success
                     overlay.classList.add('drop-zone-success');
                     titleEl.textContent = 'Загрузка завершена!';
-                    iconEl.innerHTML = '<span class="success-pop-icon">✅</span>';
+                    iconEl.innerHTML = '<span class="success-pop-icon">вњ…</span>';
                     subtitleEl.textContent = `${uploaded.length} файл(ов) готовы к отправке`;
 
                     // Clear attachments
+                    clearAttachmentPreviewUrls();
                     attachmentsToSend = [];
                     renderAttachmentsPreviews();
 
@@ -716,6 +770,8 @@ function showDropZoneOverlay(items, files) {
  * Hide drop zone overlay
  */
 function hideDropZoneOverlay() {
+    clearDropZonePreviewUrls();
+
     const overlay = document.querySelector('.drag-drop-overlay');
     if (overlay) {
         overlay.classList.remove('active', 'dragging');
@@ -768,6 +824,8 @@ function createDropZoneOverlay() {
  * Render file previews in drop zone
  */
 function renderDropZonePreviews(files) {
+    clearDropZonePreviewUrls();
+
     const previewsContainer = document.getElementById('dropZonePreviews');
     const fileTypesContainer = document.getElementById('dropZoneFileTypes');
     
@@ -790,6 +848,7 @@ function renderDropZonePreviews(files) {
         let previewContent;
         if (isImage) {
             const objectUrl = URL.createObjectURL(file);
+            dropZonePreviewUrls.add(objectUrl);
             previewContent = `
                 <img class="drop-preview-image" src="${objectUrl}" alt="${escapeHtml(file.name)}" 
                      onload="this.style.opacity=1" 
@@ -1600,11 +1659,19 @@ function stopAllAudio() {
  * Initialize all audio players in the document
  */
 function initAllAudioPlayers() {
+    cleanupDetachedAudioPlayers();
+
     document.querySelectorAll('.audio-player-card:not([data-initialized])').forEach(card => {
         card.dataset.initialized = 'true';
         initAudioPlayer(card);
     });
 }
+
+window.addEventListener('pagehide', () => {
+    disposeAllAudioPlayers();
+    clearAttachmentPreviewUrls();
+    clearDropZonePreviewUrls();
+}, { once: true });
 
 // Listen for new messages and initialize audio players
 document.addEventListener('DOMContentLoaded', () => {

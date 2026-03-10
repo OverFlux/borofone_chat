@@ -516,14 +516,14 @@ const voiceJoinSound = new Audio('./sounds/voice_join.wav');
 const voiceLeaveSound = new Audio('./sounds/voice_leave.wav');
 const streamStartSound = new Audio('./sounds/stream_start.wav');
 const streamEndSound = new Audio('./sounds/stream_end.wav');
-voiceJoinSound.preload = 'auto';
-voiceLeaveSound.preload = 'auto';
-streamStartSound.preload = 'auto';
-streamEndSound.preload = 'auto';
+voiceJoinSound.preload = 'none';
+voiceLeaveSound.preload = 'none';
+streamStartSound.preload = 'none';
+streamEndSound.preload = 'none';
 
 // Profile message button sound
 const profileMessageSound = new Audio('./sounds/net-idi-na.mp3');
-profileMessageSound.preload = 'auto';
+profileMessageSound.preload = 'none';
 
 const participantVolumes = JSON.parse(localStorage.getItem('participantVolumes') || "{}");
 let micGainValue = 1;

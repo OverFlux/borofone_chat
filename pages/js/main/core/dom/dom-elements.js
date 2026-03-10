@@ -218,10 +218,13 @@ function attachProfileClickHandlerToMessage(messageEl, userId) {
     const avatar = messageEl.querySelector('.message-avatar');
     if (avatar) {
         avatar.style.cursor = 'pointer';
-        avatar.addEventListener('click', (e) => {
-            e.stopPropagation();
-            showUserProfile(userId, e);
-        });
+        if (avatar.dataset.profileUserId !== String(userId)) {
+            avatar.dataset.profileUserId = String(userId);
+            avatar.onclick = (e) => {
+                e.stopPropagation();
+                showUserProfile(userId, e);
+            };
+        }
         
         // Also handle img if present
         const avatarImg = messageEl.querySelector('.avatar-media--message');
@@ -236,16 +239,22 @@ function attachProfileClickHandlerToUserItem(userItemEl, userId) {
     const avatar = userItemEl.querySelector('.user-avatar');
     if (avatar) {
         avatar.style.cursor = 'pointer';
-        avatar.addEventListener('click', (e) => {
-            e.stopPropagation();
-            showUserProfile(userId, e);
-        });
+        if (avatar.dataset.profileUserId !== String(userId)) {
+            avatar.dataset.profileUserId = String(userId);
+            avatar.onclick = (e) => {
+                e.stopPropagation();
+                showUserProfile(userId, e);
+            };
+        }
         
         // Also make the whole item clickable
         userItemEl.style.cursor = 'pointer';
-        userItemEl.addEventListener('click', (e) => {
-            showUserProfile(userId, e);
-        });
+        if (userItemEl.dataset.profileUserId !== String(userId)) {
+            userItemEl.dataset.profileUserId = String(userId);
+            userItemEl.onclick = (e) => {
+                showUserProfile(userId, e);
+            };
+        }
     }
 }
 

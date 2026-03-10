@@ -17,7 +17,6 @@ export function loadClassicScript(src) {
 }
 
 export async function loadScriptsSequentially(scripts) {
-    for (const src of scripts) {
-        await loadClassicScript(src);
-    }
+    const pendingScripts = scripts.map((src) => loadClassicScript(src));
+    await Promise.all(pendingScripts);
 }

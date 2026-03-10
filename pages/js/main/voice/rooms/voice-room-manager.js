@@ -206,6 +206,61 @@ function getScreenStreamForUser(userId) {
     return remoteScreenStreams.get(userId)?.stream || null;
 }
 
+function cleanupRemoteAudioResources(userId) {
+    const gainEntry = remoteAudioGainNodes.get(userId);
+    if (gainEntry) {
+        try {
+            gainEntry.gainNode.disconnect();
+        } catch (_) {
+            // ignore
+        }
+        try {
+            gainEntry.audioCtx.close();
+        } catch (_) {
+            // ignore
+        }
+        remoteAudioGainNodes.delete(userId);
+    }
+
+    const stream = remoteAudioStreams.get(userId);
+    if (stream) {
+        stream.getTracks().forEach((track) => {
+            try {
+                track.stop();
+            } catch (_) {
+                // ignore
+            }
+        });
+        remoteAudioStreams.delete(userId);
+    }
+
+    const audio = document.getElementById(`remote-audio-${userId}`);
+    if (audio) {
+        audio.pause();
+        audio.srcObject = null;
+        audio.remove();
+    }
+}
+
+function cleanupRemoteScreenResources(userId) {
+    const entry = remoteScreenStreams.get(userId);
+    if (entry) {
+        entry.stream?.getTracks?.().forEach((track) => {
+            try {
+                track.stop();
+            } catch (_) {
+                // ignore
+            }
+        });
+        remoteScreenStreams.delete(userId);
+    }
+
+    closeScreenPopout(userId);
+    if (activeScreenViewerUserId === userId) {
+        closeScreenViewer();
+    }
+}
+
 function closeScreenPopout(userId) {
     const key = String(userId);
     const popup = popoutWindows.get(key);
@@ -251,23 +306,14 @@ function syncRemoteScreensWithParticipants() {
 
     for (const userId of Array.from(remoteScreenStreams.keys())) {
         if (sharingIds.has(userId)) continue;
-        remoteAudioStreams.delete(userId);
-    remoteScreenStreams.delete(userId);
-        closeScreenPopout(userId);
-        if (activeScreenViewerUserId === userId) {
-            closeScreenViewer();
-        }
+        cleanupRemoteScreenResources(userId);
     }
 }
 
 function handleParticipantScreenShareState(participant) {
     if (!participant || !participant.user_id) return;
     if (!participant.screen_sharing && participant.user_id !== currentUser?.id) {
-        remoteScreenStreams.delete(participant.user_id);
-        closeScreenPopout(participant.user_id);
-        if (activeScreenViewerUserId === participant.user_id) {
-            closeScreenViewer();
-        }
+        cleanupRemoteScreenResources(participant.user_id);
     }
     renderScreenShareGrid();
     updateScreenShareButtonState();
@@ -808,9 +854,6 @@ function leaveVoiceRoom() {
     for (const userId of Array.from(popoutWindows.keys())) {
         closeScreenPopout(userId);
     }
-    remoteAudioStreams.clear();
-    remoteScreenStreams.clear();
-    localScreenSenders.clear();
 
     if (currentVoiceRoomId && ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'leave_room', room_id: currentVoiceRoomId }));
@@ -818,15 +861,16 @@ function leaveVoiceRoom() {
 
     playVoiceEventSound('leave');
     peerConnections.forEach((_, uid) => closePeerConnection(uid));
+    remoteAudioStreams.clear();
+    remoteScreenStreams.clear();
+    localScreenSenders.clear();
+    releaseLocalVoiceResources();
     const leftRoomId = currentVoiceRoomId;
     currentVoiceRoomId = null;
     voiceParticipants = [];
     if (voiceOverlay) voiceOverlay.classList.remove('in-room');
     if (leftRoomId) voiceRoomParticipantsByRoom[leftRoomId] = [];
-    if (speakingInterval) {
-        clearInterval(speakingInterval);
-        speakingInterval = null;
-    }
+    stopSpeakingDetector();
     renderVoiceRooms();
     renderVoiceParticipantsGrid();
     renderScreenShareGrid();
@@ -899,17 +943,7 @@ function createPeerConnection(targetUserId) {
                 if (!stream) return;
                 stream.removeTrack(event.track);
                 if (stream.getAudioTracks().length > 0) return;
-                remoteAudioStreams.delete(targetUserId);
-                const remoteAudio = document.getElementById(`remote-audio-${targetUserId}`);
-                if (remoteAudio) {
-                    remoteAudio.remove();
-                }
-                // Clean up GainNode AudioContext
-                const ge = remoteAudioGainNodes.get(targetUserId);
-                if (ge) {
-                    try { ge.audioCtx.close(); } catch (e) {}
-                    remoteAudioGainNodes.delete(targetUserId);
-                }
+                cleanupRemoteAudioResources(targetUserId);
             };
             return;
         }
@@ -918,11 +952,7 @@ function createPeerConnection(targetUserId) {
             const stream = new MediaStream([event.track]);
             remoteScreenStreams.set(targetUserId, { stream, track: event.track });
             event.track.onended = () => {
-                remoteScreenStreams.delete(targetUserId);
-                closeScreenPopout(targetUserId);
-                if (activeScreenViewerUserId === targetUserId) {
-                    closeScreenViewer();
-                }
+                cleanupRemoteScreenResources(targetUserId);
                 renderScreenShareGrid();
             };
 
@@ -946,15 +976,8 @@ function closePeerConnection(userId) {
     peerRenegotiationLocks.delete(userId);
     localScreenSenders.delete(userId);
 
-    const audio = document.getElementById(`remote-audio-${userId}`);
-    if (audio) audio.remove();
-
-    remoteAudioStreams.delete(userId);
-    remoteScreenStreams.delete(userId);
-    closeScreenPopout(userId);
-    if (activeScreenViewerUserId === userId) {
-        closeScreenViewer();
-    }
+    cleanupRemoteAudioResources(userId);
+    cleanupRemoteScreenResources(userId);
     renderScreenShareGrid();
 }
 
@@ -1091,23 +1114,79 @@ function setParticipantVolume(userId, value) {
 }
 
 let speakingInterval = null;
+let speakingAudioContext = null;
+let speakingAnalyser = null;
+let speakingSourceNode = null;
 let lastSpeakingState = false;
+
+function stopSpeakingDetector() {
+    if (speakingInterval) {
+        clearInterval(speakingInterval);
+        speakingInterval = null;
+    }
+    try {
+        speakingSourceNode?.disconnect();
+    } catch (_) {
+        // ignore
+    }
+    try {
+        speakingAnalyser?.disconnect();
+    } catch (_) {
+        // ignore
+    }
+    if (speakingAudioContext) {
+        speakingAudioContext.close().catch(() => {});
+    }
+    speakingAudioContext = null;
+    speakingAnalyser = null;
+    speakingSourceNode = null;
+    lastSpeakingState = false;
+}
+
+function releaseLocalVoiceResources() {
+    stopSpeakingDetector();
+
+    if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+        localStream = null;
+    }
+
+    if (processedOutboundStream) {
+        processedOutboundStream.getTracks().forEach((track) => track.stop());
+        processedOutboundStream = null;
+    }
+
+    if (micGainNode) {
+        try {
+            micGainNode.disconnect();
+        } catch (_) {
+            // ignore
+        }
+        micGainNode = null;
+    }
+
+    if (micAudioContext) {
+        micAudioContext.close().catch(() => {});
+        micAudioContext = null;
+    }
+}
+
 function startSpeakingDetector() {
     if (speakingInterval || !localStream) return;
-    const ctx = new AudioContext();
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
-    analyser.smoothingTimeConstant = 0.85;
-    const source = ctx.createMediaStreamSource(localStream);
-    source.connect(analyser);
-    const data = new Uint8Array(analyser.fftSize);
+    speakingAudioContext = new AudioContext();
+    speakingAnalyser = speakingAudioContext.createAnalyser();
+    speakingAnalyser.fftSize = 2048;
+    speakingAnalyser.smoothingTimeConstant = 0.85;
+    speakingSourceNode = speakingAudioContext.createMediaStreamSource(localStream);
+    speakingSourceNode.connect(speakingAnalyser);
+    const data = new Uint8Array(speakingAnalyser.fftSize);
     let smoothedLevel = 0;
     let speechHangUntil = 0;
     const startThreshold = 7.5;
     const stopThreshold = 4.5;
     const holdMs = 350;
     speakingInterval = setInterval(() => {
-        analyser.getByteTimeDomainData(data);
+        speakingAnalyser.getByteTimeDomainData(data);
         let sum = 0;
         for (let i = 0; i < data.length; i++) sum += Math.abs(data[i] - 128);
         const averageLevel = sum / data.length;

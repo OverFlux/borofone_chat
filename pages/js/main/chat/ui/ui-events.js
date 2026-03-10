@@ -482,18 +482,78 @@ if (launchGameBtn) {
     launchGameBtn.addEventListener('click', () => launchGame('blackjack'));
 }
 
+function loadStylesheetOnce(href) {
+    const existingLink = document.querySelector(`link[href="${href}"]`);
+    if (existingLink) return Promise.resolve(existingLink);
+
+    return new Promise((resolve, reject) => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.onload = () => resolve(link);
+        link.onerror = () => reject(new Error(`Failed to load stylesheet: ${href}`));
+        document.head.appendChild(link);
+    });
+}
+
+function loadScriptOnce(src) {
+    const existingScript = document.querySelector(`script[src="${src}"]`);
+    if (existingScript) {
+        if (existingScript.dataset.loaded === 'true') return Promise.resolve(existingScript);
+        return new Promise((resolve, reject) => {
+            existingScript.addEventListener('load', () => resolve(existingScript), { once: true });
+            existingScript.addEventListener('error', () => reject(new Error(`Failed to load script: ${src}`)), { once: true });
+        });
+    }
+
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.defer = true;
+        script.onload = () => {
+            script.dataset.loaded = 'true';
+            resolve(script);
+        };
+        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        document.body.appendChild(script);
+    });
+}
+
+function ensureWordleAssetsLoaded() {
+    if (typeof initWordle === 'function' && typeof openWordleModal === 'function') {
+        return Promise.resolve();
+    }
+
+    if (!window.__borofoneWordleLoadPromise) {
+        window.__borofoneWordleLoadPromise = Promise.all([
+            loadStylesheetOnce('/styles/wordle.css'),
+            loadScriptOnce('/js/wordle.js'),
+        ]).then(() => undefined);
+    }
+
+    return window.__borofoneWordleLoadPromise;
+}
+
 // Wordle button - opens in its own modal
 if (launchWordleBtn) {
-    launchWordleBtn.addEventListener('click', () => {
+    launchWordleBtn.addEventListener('click', async () => {
         closeActivitiesModal();
-        if (typeof initWordle === 'function') {
-            initWordle();
-        }
-        if (typeof openWordleModal === 'function') {
-            openWordleModal();
+
+        try {
+            await ensureWordleAssetsLoaded();
+            if (typeof initWordle === 'function') {
+                initWordle();
+            }
+            if (typeof openWordleModal === 'function') {
+                openWordleModal();
+            }
+        } catch (error) {
+            console.error('[Wordle] Failed to load assets:', error);
+            alert('Wordle failed to load');
         }
     });
 }
+
 
 // Open game in new tab - default to blackjack
 if (openNewTabBtn) {
@@ -786,7 +846,9 @@ avatarInput.addEventListener('change', () => {
     if (!file) return;
 
     shouldRemoveAvatar = false;
+    revokeAvatarCropperObjectUrl();
     const objectUrl = URL.createObjectURL(file);
+    currentAvatarCropperObjectUrl = objectUrl;
     
     // Open cropper with the image
     openAvatarCropper(objectUrl);
@@ -797,6 +859,19 @@ let baseScale = 1; // Initial fit scale
 
 let cropperCanvas = null;
 let cropperCanvasCtx = null;
+let currentAvatarCropperObjectUrl = null;
+
+function revokeAvatarCropperObjectUrl() {
+    if (!currentAvatarCropperObjectUrl) return;
+    try {
+        if (currentAvatarCropperObjectUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(currentAvatarCropperObjectUrl);
+        }
+    } catch (_) {
+        // Ignore blob cleanup errors.
+    }
+    currentAvatarCropperObjectUrl = null;
+}
 
 function openAvatarCropper(imageUrl) {
     cropperImageData = imageUrl;
@@ -906,7 +981,11 @@ cancelCropBtn?.addEventListener('click', closeAvatarCropper);
 function closeAvatarCropper() {
     avatarCropperContainer.style.display = 'none';
     cropperImageData = null;
+    if (cropperOriginalImage) {
+        cropperOriginalImage.src = '';
+    }
     cropperOriginalImage = null;
+    revokeAvatarCropperObjectUrl();
     panX = 0;
     panY = 0;
     baseScale = 1;

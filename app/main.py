@@ -1,9 +1,11 @@
 import json
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Callable
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -32,6 +34,34 @@ def _list_media_files(directory, suffixes: tuple[str, ...], *, exclude_readme: b
     return items
 
 
+class CachedStaticFiles(StaticFiles):
+    _HTML_EXTENSIONS = {'.html'}
+    _REVALIDATED_EXTENSIONS = {'.css', '.js', '.json', '.map'}
+    _IMMUTABLE_EXTENSIONS = {
+        '.gif', '.webp', '.png', '.jpg', '.jpeg', '.svg', '.ico',
+        '.mp3', '.wav', '.ogg', '.woff', '.woff2'
+    }
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code >= 400:
+            return response
+
+        full_path, _ = self.lookup_path(path)
+        suffix = Path(full_path).suffix.lower() if full_path else ''
+
+        if suffix in self._HTML_EXTENSIONS:
+            response.headers.setdefault('Cache-Control', 'no-cache')
+        elif suffix in self._REVALIDATED_EXTENSIONS:
+            response.headers.setdefault(
+                'Cache-Control',
+                'public, max-age=604800, stale-while-revalidate=86400',
+            )
+        elif suffix in self._IMMUTABLE_EXTENSIONS:
+            response.headers.setdefault('Cache-Control', 'public, max-age=31536000, immutable')
+
+        return response
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
@@ -56,6 +86,7 @@ app.add_middleware(
     allow_headers=['*'],
     expose_headers=['Set-Cookie'],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 
 
 @app.middleware('http')
@@ -84,10 +115,12 @@ async def app_config_js() -> Response:
         'appEnv': settings.app_env,
         'storageNamespace': settings.runtime_namespace,
     }
-    return Response(
+    response = Response(
         content=f'window.__BOROFONE_RUNTIME_CONFIG__ = {json.dumps(payload, ensure_ascii=False)};\n',
         media_type='application/javascript',
     )
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
 
 
 @app.get('/')
@@ -97,7 +130,7 @@ async def root():
 
 @app.get('/favicon.ico')
 async def favicon():
-    return FileResponse(settings.favicon_file)
+    return FileResponse(settings.favicon_file, headers={'Cache-Control': 'public, max-age=604800'})
 
 
 @app.get('/api/emoji')
@@ -155,5 +188,5 @@ app.include_router(wordle.router)
 
 settings.uploads_path.mkdir(parents=True, exist_ok=True)
 
-app.mount('/uploads', StaticFiles(directory=settings.uploads_path), name='uploads')
-app.mount('/', StaticFiles(directory=settings.pages_path, html=True), name='pages')
+app.mount('/uploads', CachedStaticFiles(directory=settings.uploads_path), name='uploads')
+app.mount('/', CachedStaticFiles(directory=settings.pages_path, html=True), name='pages')

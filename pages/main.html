@@ -16,13 +16,17 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23DB734F' rx='20' width='100' height='100'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white' font-family='system-ui'>B</text></svg>">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="styles/main.css">
-    <link rel="stylesheet" href="styles/notifications.css">
-    <link rel="stylesheet" href="styles/presence.css">
-    <link rel="stylesheet" href="styles/attachments.css">
-    <link rel="stylesheet" href="styles/wordle.css">
-    <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js"></script>
+    <link rel="preload" href="styles/notifications.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles/presence.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles/attachments.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="styles/notifications.css"></noscript>
+    <noscript><link rel="stylesheet" href="styles/presence.css"></noscript>
+    <noscript><link rel="stylesheet" href="styles/attachments.css"></noscript>
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -1092,11 +1096,10 @@
         </div>
     </div>
 
-    <script src="/app-config.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/notifications.js"></script>
-    <script src="js/attachments.js"></script>
-    <script src="js/wordle.js"></script>
+    <script defer src="/app-config.js"></script>
+    <script defer src="js/config.js"></script>
+    <script defer src="js/notifications.js"></script>
+    <script defer src="js/attachments.js"></script>
     <script type="module" src="js/app/bootstrap.js"></script>
 </body>
 

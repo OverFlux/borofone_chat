@@ -67,6 +67,7 @@ let notificationAudio = null;
 function getNotificationAudio() {
     if (!notificationAudio) {
         notificationAudio = new Audio('/sounds/notification.mp3');
+        notificationAudio.preload = 'none';
         notificationAudio.volume = 0.3; // 30% громкости
     }
     return notificationAudio;
