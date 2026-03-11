@@ -12,10 +12,28 @@ function updateRoomBadge(roomId, count) {
     }
 }
 
+// Хранилище для дедупликации incrementRoomBadge
+const processedBadgeIncrements = new Set();
+
 /**
- * Увеличить badge комнаты на 1 (когда пришло новое сообщение в неактивную комнату).
+ * Увеличить badge комнаты на 1 (когда пришло новое сообщение).
+ * С дедупликацией по messageId.
  */
-function incrementRoomBadge(roomId) {
+function incrementRoomBadge(roomId, messageId) {
+    const badgeKey = `${roomId}:${messageId}`;
+    if (messageId && processedBadgeIncrements.has(badgeKey)) {
+        return; // уже обработано
+    }
+    if (messageId) {
+        processedBadgeIncrements.add(badgeKey);
+        // Очистка старых записей
+        if (processedBadgeIncrements.size > 500) {
+            const entries = Array.from(processedBadgeIncrements);
+            processedBadgeIncrements.clear();
+            entries.slice(-250).forEach(e => processedBadgeIncrements.add(e));
+        }
+    }
+
     const roomEl = roomsList.querySelector(`[data-room-id="${roomId}"]`);
     if (!roomEl) return;
 

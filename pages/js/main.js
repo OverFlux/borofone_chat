@@ -109,6 +109,7 @@ let ws = null;
 let wsConnecting = false;
 const seenIncomingMessageIds = new Set();
 const seenIncomingMessageOrder = [];
+const processedBadgeIncrements = new Set();
 const MAX_SEEN_INCOMING_MESSAGES = 1000;
 let wsReady = Promise.resolve();  // Promise который резолвится когда WS открыт
 
@@ -3152,11 +3153,7 @@ function connectWebSocket() {
                             window.notifications.playNotificationSound();
 
                             if (data.room_id) {
-                                if (currentRoom && data.room_id === currentRoom.id) {
-                                    updateCurrentRoomBadge();
-                                } else {
-                                    incrementRoomBadge(data.room_id);
-                                }
+                                incrementRoomBadge(data.room_id, data.id);
                             }
                         }
                     }
@@ -5059,9 +5056,18 @@ function updateRoomBadge(roomId, count) {
 }
 
 /**
- * Увеличить badge комнаты на 1 (когда пришло новое сообщение в неактивную комнату).
+ * Увеличить badge комнаты на 1 (когда пришло новое сообщение).
+ * С дедупликацией по messageId.
  */
-function incrementRoomBadge(roomId) {
+function incrementRoomBadge(roomId, messageId) {
+    const badgeKey = `${roomId}:${messageId}`;
+    if (messageId && processedBadgeIncrements && processedBadgeIncrements.has(badgeKey)) {
+        return; // уже обработано
+    }
+    if (messageId && processedBadgeIncrements) {
+        processedBadgeIncrements.add(badgeKey);
+    }
+
     const roomEl = roomsList.querySelector(`[data-room-id="${roomId}"]`);
     if (!roomEl) return;
 

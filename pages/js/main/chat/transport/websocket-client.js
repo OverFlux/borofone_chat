@@ -85,11 +85,7 @@ function connectWebSocket() {
                             window.notifications.playNotificationSound();
 
                             if (data.room_id) {
-                                if (currentRoom && data.room_id === currentRoom.id) {
-                                    updateCurrentRoomBadge();
-                                } else {
-                                    incrementRoomBadge(data.room_id);
-                                }
+                                incrementRoomBadge(data.room_id, data.id);
                             }
                         }
                     }
