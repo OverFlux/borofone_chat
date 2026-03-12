@@ -109,13 +109,13 @@ function renderVoiceParticipantsGrid() {
         );
 
         let statusClass = 'mic-on';
-        let statusIcon = '🎤';
+        let statusIcon = '';
         if (participant.deafened) {
             statusClass = 'deafened';
             statusIcon = '🔇';
         } else if (participant.muted) {
             statusClass = 'mic-off';
-            statusIcon = '🎤';
+            statusIcon = '';
         }
 
         const cardClasses = [
@@ -129,12 +129,13 @@ function renderVoiceParticipantsGrid() {
         const avatarMarkup = avatarUrl
             ? `<img src="${escapeHtml(avatarUrl)}" alt="${displayName}" class="voice-participant-avatar-img" data-avatar-fallback="${initial}">`
             : `<span>${initial}</span>`;
+        const muteOverlay = participant.muted ? '<img src="/emoji/mute.png" alt="Muted" class="mute-status-icon">' : '';
 
         return `
             <div class="${cardClasses}" data-user-id="${participant.user_id}" data-username="${username}" title="${displayName}">
                 <div class="voice-participant-avatar-wrap">
                     <div class="voice-participant-avatar">
-                        <div class="voice-participant-avatar-media" data-avatar-fallback-target="1">${avatarMarkup}</div>
+                        <div class="voice-participant-avatar-media" data-avatar-fallback-target="1">${avatarMarkup}${muteOverlay}</div>
                         <div class="voice-participant-status ${statusClass}">${statusIcon}</div>
                     </div>
                     ${screenBadge}

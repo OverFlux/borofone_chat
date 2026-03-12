@@ -6088,24 +6088,17 @@ body {
 }
 
 .voice-participant-status {
-    position: absolute;
-    right: -3px;
-    bottom: -3px;
-    width: 16px;
-    height: 16px;
-    border-radius: 999px;
-    font-size: 9px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    backdrop-filter: blur(8px);
+    display: none;
 }
-.voice-participant-status.mic-off,
-.voice-participant-status.deafened { 
-    background: rgba(239, 68, 68, 0.85);
-    border-color: rgba(239, 68, 68, 0.5);
+.mute-status-icon {
+    width: 24px;
+    height: 24px;
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    pointer-events: none;
 }
 
 .voice-participant-volume { 
