@@ -60,6 +60,20 @@ class MessageCreate(BaseModel):
         return self
 
 
+class MessageEdit(BaseModel):
+    body: str
+
+    @field_validator("body")
+    @classmethod
+    def validate_body(cls, v: str) -> str:
+        if v is None:
+            return ""
+        v = v.strip()
+        if len(v) > 4096:
+            raise ValueError("body must be 4096 characters or less")
+        return v
+
+
 class AttachmentResponse(BaseModel):
     id: int
     message_id: int

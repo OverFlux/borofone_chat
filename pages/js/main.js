@@ -1395,6 +1395,7 @@ messageContextMenu.innerHTML = `
     <button type="button" class="context-main-action" data-context-action="react">Добавить реакцию <span>›</span></button>
     <div class="context-divider"></div>
     <button type="button" class="context-main-action" data-context-action="reply">Ответить <span>↩</span></button>
+    <button type="button" class="context-main-action" data-context-action="edit">Изменить <span>✏️</span></button>
     <button type="button" class="context-main-action hidden" data-context-action="delete">Удалить сообщение <span>🗑</span></button>
     <button type="button" class="context-main-action context-action-admin hidden" data-context-action="delete_hard">Удалить полностью <span>💣</span></button>
 `;
@@ -2137,17 +2138,23 @@ function openMessageContextMenu(event, messageEl) {
 
     const messageUserId = Number(messageEl.dataset.userId || 0);
     const isDeletedMessage = messageEl.dataset.isDeleted === '1';
+    const isOwnMessage = Number(messageUserId) === Number(currentUser?.id);
     const deleteBtn = messageContextMenu.querySelector('[data-context-action="delete"]');
     const hardDeleteBtn = messageContextMenu.querySelector('[data-context-action="delete_hard"]');
     const reactBtn = messageContextMenu.querySelector('[data-context-action="react"]');
     const replyBtn = messageContextMenu.querySelector('[data-context-action="reply"]');
+    const editBtn = messageContextMenu.querySelector('[data-context-action="edit"]');
     const quickReactions = messageContextMenu.querySelector('[data-context-quick-reactions]');
 
     if (deleteBtn) {
-        deleteBtn.classList.toggle('hidden', Number(messageUserId) !== Number(currentUser?.id));
+        deleteBtn.classList.toggle('hidden', !isOwnMessage);
     }
     if (hardDeleteBtn) {
         hardDeleteBtn.classList.toggle('hidden', currentUser?.role !== 'admin');
+    }
+    if (editBtn) {
+        // Show edit button only for own non-deleted messages
+        editBtn.classList.toggle('hidden', !isOwnMessage || isDeletedMessage);
     }
     if (reactBtn) {
         reactBtn.classList.toggle('hidden', isDeletedMessage);
@@ -3194,6 +3201,8 @@ function connectWebSocket() {
                     closeReactionPicker();
                 } else if (data.type === 'message_deleted') {
                     applyDeletedMessage(data.message_id, data.body || 'Сообщение удалено');
+                } else if (data.type === 'message_edited') {
+                    updateMessageContent(data.message_id, data.body, data.edited_at);
                 } else if (data.type === 'message_hard_deleted') {
                     const messageEl = messagesList.querySelector(`[data-message-id="${data.message_id}"]`);
                     if (messageEl) {
@@ -3901,6 +3910,11 @@ messageContextMenu.addEventListener('click', (event) => {
     if (actionBtn.dataset.contextAction === 'reply') {
         setReplyTarget(messageEl);
         messageInput.focus();
+        closeMessageContextMenu();
+    }
+    if (actionBtn.dataset.contextAction === 'edit') {
+        closeMessageContextMenu();
+        startMessageEdit(messageId, messageEl);
     }
     if (actionBtn.dataset.contextAction === 'delete') {
         deleteMessage(messageId);

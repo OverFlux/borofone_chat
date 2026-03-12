@@ -103,7 +103,7 @@ async def global_websocket_endpoint(
             for room_id in room_ids:
                 await pubsub.subscribe(room_events_channel(room_id))
             
-            print(f"[WS] {username} subscribed to {len(room_ids)} rooms")
+            print(f"[WS] {username} subscribed to {len(room_ids)} rooms: {room_ids[:5]}...")  # Log first 5 rooms
         except Exception as e:
             print(f"[WS] Subscribe failed: {e}")
             pubsub = None
@@ -565,7 +565,15 @@ async def global_websocket_endpoint(
 
                 if message and message["type"] == "message":
                     try:
-                        await websocket.send_text(message["data"])
+                        data = message["data"]
+                        # Log message_edited events for debugging
+                        try:
+                            parsed = json.loads(data)
+                            if parsed.get("type") == "message_edited":
+                                print(f"[WS] Broadcasting message_edited: room={parsed.get('room_id')}, message_id={parsed.get('message_id')}")
+                        except:
+                            pass
+                        await websocket.send_text(data)
                     except Exception:
                         break
         except Exception as e:

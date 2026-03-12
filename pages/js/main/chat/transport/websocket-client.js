@@ -94,6 +94,22 @@ function connectWebSocket() {
                     closeReactionPicker();
                 } else if (data.type === 'message_deleted') {
                     applyDeletedMessage(data.message_id, data.body || 'Сообщение удалено');
+                } else if (data.type === 'message_edited') {
+                    console.log('[WS] Received message_edited event:', data);
+                    // Only update if message is in current room or we can't determine the room
+                    if (!data.room_id || !currentRoom || data.room_id === currentRoom.id) {
+                        if (typeof updateMessageContent === 'function') {
+                            try {
+                                updateMessageContent(data.message_id, data.body, data.edited_at);
+                            } catch (err) {
+                                console.error('[WS] Error updating message content:', err);
+                            }
+                        } else {
+                            console.warn('[WS] updateMessageContent function not found');
+                        }
+                    } else {
+                        console.log('[WS] Ignoring message_edited for different room:', data.room_id, 'current:', currentRoom?.id);
+                    }
                 } else if (data.type === 'message_hard_deleted') {
                     const messageEl = messagesList.querySelector(`[data-message-id="${data.message_id}"]`);
                     if (messageEl) {
