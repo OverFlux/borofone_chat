@@ -1384,6 +1384,24 @@ function createAudioPlayerHTML(attachment) {
 function initAudioPlayer(card) {
     const fileUrl = card.dataset.fileUrl;
     const fileId = card.dataset.fileId;
+
+    if (!fileUrl || !fileUrl.trim()) {
+        card.classList.add('audio-player-unavailable');
+        const playBtn = card.querySelector('.audio-player-play-btn-large');
+        if (playBtn) {
+            playBtn.disabled = true;
+            playBtn.setAttribute('aria-disabled', 'true');
+        }
+        const downloadLink = card.querySelector('.audio-player-download');
+        if (downloadLink) {
+            downloadLink.removeAttribute('href');
+            downloadLink.setAttribute('aria-disabled', 'true');
+            downloadLink.addEventListener('click', (e) => e.preventDefault());
+        }
+        const durationTime = card.querySelector('.audio-player-time.duration');
+        if (durationTime) durationTime.textContent = '--:--';
+        return;
+    }
     
     // Create audio element
     const audio = new Audio();
@@ -1711,3 +1729,4 @@ window.attachments = {
     getFileTypeInfo,
     getFileTypeIcon
 };
+
