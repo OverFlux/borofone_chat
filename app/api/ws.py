@@ -276,7 +276,7 @@ async def global_websocket_endpoint(
                             "deleted_at": msg.deleted_at.isoformat() if msg.deleted_at else None,
                         }
                         if redis:
-                            await redis.publish(f"room:{room_id}", json.dumps(payload))
+                            await redis.publish(room_events_channel(room_id), json.dumps(payload))
                         else:
                             await websocket.send_json(payload)
                     except Exception as e:
@@ -312,7 +312,7 @@ async def global_websocket_endpoint(
                             await db.commit()
 
                         if redis:
-                            await redis.publish(f"room:{room_id}", json.dumps(payload))
+                            await redis.publish(room_events_channel(room_id), json.dumps(payload))
                         else:
                             await websocket.send_json(payload)
                     except Exception as e:
@@ -418,7 +418,7 @@ async def global_websocket_endpoint(
                     
                     # Broadcast to all subscribers of this room (except sender)
                     if redis:
-                        await redis.publish(f"room:{room_id}", json.dumps(payload))
+                        await redis.publish(room_events_channel(room_id), json.dumps(payload))
                     else:
                         await websocket.send_json(payload)
                     continue

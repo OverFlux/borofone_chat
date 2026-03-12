@@ -3013,6 +3013,12 @@ async function sendMessage() {
             // Track sent message for stats
             connectionStats.messagesSent++;
 
+            // Очищаем свой индикатор набора текста после отправки сообщения
+            if (currentUser) {
+                delete typingUsers[currentUser.id];
+                updateTypingIndicator();
+            }
+
             // Очищаем вложения после отправки
             if (window.attachments) {
                 window.attachments.clearAttachments();
@@ -3022,12 +3028,6 @@ async function sendMessage() {
             // Когда придёт через WS с ID — обновим снова
             markCurrentRoomAsRead();
             clearReplyTarget();
-            
-            // Clear own typing indicator after sending
-            if (currentUser) {
-                delete typingUsers[currentUser.id];
-                updateTypingIndicator();
-            }
         } else {
             // WS недоступен — HTTP fallback
             console.warn('[sendMessage] WS not open, using HTTP fallback');
