@@ -122,6 +122,9 @@ function addMessage(msg, animate = false) {
         minute: '2-digit'
     });
 
+    // Edited label
+    const editedLabel = msg.edited_at ? '<span class="message-edited-label">edited</span>' : '';
+
     // Рендерим вложения если есть
     const attachmentsHtml = window.attachments
         ? window.attachments.renderMessageAttachments(msg.attachments)
@@ -151,6 +154,7 @@ function addMessage(msg, animate = false) {
                 <span class="message-author">${escapeHtml(author)}</span>
                 <span class="message-username">@${escapeHtml(username)}</span>
                 <span class="message-time">${time}</span>
+                ${editedLabel}
             </div>
             ${renderReplyPreview(msg.reply_to)}
             ${bodyHtml}
@@ -307,4 +311,181 @@ function sanitizeNumericDataValue(value) {
     const numericValue = Number(value);
     if (!Number.isSafeInteger(numericValue) || numericValue < 0) return '0';
     return String(numericValue);
+}
+
+// ==========================================
+// MESSAGE EDITING FUNCTIONS
+// ==========================================
+
+let editingMessageId = null;
+
+function startMessageEdit(messageId, messageEl) {
+    if (editingMessageId !== null) {
+        // Cancel any current edit
+        cancelMessageEdit();
+    }
+
+    const messageText = messageEl.querySelector('.message-text');
+    if (!messageText) return;
+
+    const currentText = messageText.textContent || '';
+    editingMessageId = messageId;
+
+    // Create edit input container
+    const editContainer = document.createElement('div');
+    editContainer.className = 'message-edit-container';
+    editContainer.innerHTML = `
+        <textarea class="message-edit-textarea" rows="2">${escapeHtml(currentText)}</textarea>
+        <div class="message-edit-actions">
+            <button type="button" class="message-edit-save">Сохранить</button>
+            <button type="button" class="message-edit-cancel">Отмена</button>
+        </div>
+    `;
+
+    // Replace message text with edit container
+    messageText.style.display = 'none';
+    messageText.parentNode.insertBefore(editContainer, messageText);
+
+    const textarea = editContainer.querySelector('.message-edit-textarea');
+    const saveBtn = editContainer.querySelector('.message-edit-save');
+    const cancelBtn = editContainer.querySelector('.message-edit-cancel');
+
+    // Focus and select all text
+    textarea.focus();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    // Auto-resize textarea
+    const autoResize = () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+    };
+    autoResize();
+    textarea.addEventListener('input', autoResize);
+
+    // Save handler
+    saveBtn.addEventListener('click', async () => {
+        const newText = textarea.value.trim();
+        if (newText !== currentText) {
+            await saveMessageEdit(messageId, newText, messageEl, editContainer, messageText);
+        } else {
+            cancelMessageEdit(editContainer, messageText);
+        }
+    });
+
+    // Cancel handler
+    cancelBtn.addEventListener('click', () => {
+        cancelMessageEdit(editContainer, messageText);
+    });
+
+    // Keyboard shortcuts
+    textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            saveBtn.click();
+        }
+        if (e.key === 'Escape') {
+            cancelBtn.click();
+        }
+    });
+
+    // Store original elements for cancel
+    editContainer._originalText = messageText;
+    messageEl._editContainer = editContainer;
+}
+
+function cancelMessageEdit(editContainer, messageText) {
+    if (!editContainer || !messageText) {
+        // Find from editing message
+        const messageEl = messagesList.querySelector(`[data-message-id="${editingMessageId}"]`);
+        if (messageEl) {
+            editContainer = messageEl._editContainer;
+            messageText = messageEl.querySelector('.message-text');
+        }
+    }
+
+    if (editContainer && messageText) {
+        messageText.style.display = '';
+        editContainer.remove();
+    }
+
+    editingMessageId = null;
+}
+
+async function saveMessageEdit(messageId, newText, messageEl, editContainer, messageText) {
+    if (!currentRoom || !messageId) return;
+
+    try {
+        const response = await fetchWithAuth(
+            `${getApiUrl()}/rooms/${currentRoom.id}/messages/${messageId}`,
+            {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ body: newText })
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to edit message');
+        }
+
+        const updatedMessage = await response.json();
+
+        // Update message in UI
+        messageText.style.display = '';
+        messageText.innerHTML = parseMarkdownWithEscaping(newText);
+        editContainer.remove();
+
+        // Add or update edited label
+        updateEditedLabel(messageEl, updatedMessage.edited_at);
+
+    } catch (err) {
+        console.error('Failed to edit message:', err);
+        alert('Не удалось изменить сообщение: ' + err.message);
+        // Restore original text display
+        messageText.style.display = '';
+        editContainer.remove();
+    }
+
+    editingMessageId = null;
+}
+
+function updateEditedLabel(messageEl, editedAt) {
+    if (!messageEl) return;
+
+    const header = messageEl.querySelector('.message-header');
+    if (!header) return;
+
+    let editedLabel = header.querySelector('.message-edited-label');
+
+    if (editedAt) {
+        if (!editedLabel) {
+            editedLabel = document.createElement('span');
+            editedLabel.className = 'message-edited-label';
+            editedLabel.textContent = 'edited';
+            header.appendChild(editedLabel);
+        }
+    } else if (editedLabel) {
+        editedLabel.remove();
+    }
+}
+
+function updateMessageContent(messageId, newBody, editedAt) {
+    console.log('[MessageRenderer] Updating message content:', messageId, newBody, editedAt);
+    // Convert messageId to string for DOM attribute matching
+    const messageIdStr = String(messageId);
+    const messageEl = messagesList.querySelector(`[data-message-id="${messageIdStr}"]`);
+    if (!messageEl) {
+        console.log('[MessageRenderer] Message element not found for id:', messageId);
+        return;
+    }
+
+    const messageText = messageEl.querySelector('.message-text');
+    if (messageText) {
+        messageText.innerHTML = parseMarkdownWithEscaping(newBody);
+    } else {
+        console.warn('[MessageRenderer] Message text element not found');
+    }
+
+    updateEditedLabel(messageEl, editedAt);
 }

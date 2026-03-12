@@ -243,17 +243,23 @@ function openMessageContextMenu(event, messageEl) {
 
     const messageUserId = Number(messageEl.dataset.userId || 0);
     const isDeletedMessage = messageEl.dataset.isDeleted === '1';
+    const isOwnMessage = Number(messageUserId) === Number(currentUser?.id);
     const deleteBtn = messageContextMenu.querySelector('[data-context-action="delete"]');
     const hardDeleteBtn = messageContextMenu.querySelector('[data-context-action="delete_hard"]');
     const reactBtn = messageContextMenu.querySelector('[data-context-action="react"]');
     const replyBtn = messageContextMenu.querySelector('[data-context-action="reply"]');
+    const editBtn = messageContextMenu.querySelector('[data-context-action="edit"]');
     const quickReactions = messageContextMenu.querySelector('[data-context-quick-reactions]');
 
     if (deleteBtn) {
-        deleteBtn.classList.toggle('hidden', Number(messageUserId) !== Number(currentUser?.id));
+        deleteBtn.classList.toggle('hidden', !isOwnMessage);
     }
     if (hardDeleteBtn) {
         hardDeleteBtn.classList.toggle('hidden', currentUser?.role !== 'admin');
+    }
+    if (editBtn) {
+        // Show edit button only for own non-deleted messages
+        editBtn.classList.toggle('hidden', !isOwnMessage || isDeletedMessage);
     }
     if (reactBtn) {
         reactBtn.classList.toggle('hidden', isDeletedMessage);

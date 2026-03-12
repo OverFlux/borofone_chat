@@ -262,6 +262,10 @@ messageContextMenu.addEventListener('click', (event) => {
         setReplyTarget(messageEl);
         messageInput.focus();
     }
+    if (actionBtn.dataset.contextAction === 'edit') {
+        closeMessageContextMenu();
+        startMessageEdit(messageId, messageEl);
+    }
     if (actionBtn.dataset.contextAction === 'delete') {
         deleteMessage(messageId);
     }

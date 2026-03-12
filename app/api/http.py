@@ -16,6 +16,7 @@ from app.models import Message, MessageReaction, Room, User
 from app.schemas.messages import (
     AttachmentResponse,
     MessageCreate,
+    MessageEdit,
     MessageReplyPreview,
     MessageResponse,
     MessageUserResponse,
@@ -219,6 +220,60 @@ async def delete_message(
         except Exception:
             pass
     return event
+
+
+@router.patch("/rooms/{room_id}/messages/{message_id}", response_model=MessageResponse)
+async def edit_message(
+    room_id: int,
+    message_id: int,
+    payload: MessageEdit,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    redis: Redis = Depends(get_redis),
+):
+    """Edit a message - only the author can edit their own message."""
+    msg_stmt = select(Message).where(Message.id == message_id, Message.room_id == room_id)
+    msg = (await db.execute(msg_stmt)).scalar_one_or_none()
+    if not msg:
+        raise HTTPException(status_code=404, detail="message not found")
+    if msg.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="can edit only own message")
+    if msg.deleted_at is not None:
+        raise HTTPException(status_code=400, detail="cannot edit deleted message")
+
+    msg.body = payload.body
+    msg.edited_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    # Reload message with relationships for response
+    refreshed = (
+        await db.execute(
+            select(Message)
+            .where(Message.id == message_id)
+            .options(
+                joinedload(Message.user),
+                selectinload(Message.attachments),
+                selectinload(Message.reactions),
+                selectinload(Message.reply_to).joinedload(Message.user),
+            )
+        )
+    ).scalar_one()
+
+    event = {
+        "type": "message_edited",
+        "room_id": room_id,
+        "message_id": message_id,
+        "body": msg.body,
+        "edited_at": msg.edited_at.isoformat() if msg.edited_at else None,
+    }
+    print(f"[HTTP] Publishing message_edited event: room_id={room_id}, message_id={message_id}")
+    if redis:
+        try:
+            await redis.publish(room_events_channel(room_id), json.dumps(event))
+        except Exception as e:
+            print(f"[HTTP] Failed to publish message_edited: {e}")
+
+    return serialize_message(refreshed, current_user)
 
 
 @router.delete("/rooms/{room_id}/messages/{message_id}/hard", status_code=status.HTTP_200_OK)

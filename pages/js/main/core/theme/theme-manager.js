@@ -73,6 +73,7 @@ messageContextMenu.innerHTML = `
     <button type="button" class="context-main-action" data-context-action="react">Добавить реакцию <span>›</span></button>
     <div class="context-divider"></div>
     <button type="button" class="context-main-action" data-context-action="reply">Ответить <span>↩</span></button>
+    <button type="button" class="context-main-action" data-context-action="edit">Изменить <span>✏️</span></button>
     <button type="button" class="context-main-action hidden" data-context-action="delete">Удалить сообщение <span>🗑</span></button>
     <button type="button" class="context-main-action context-action-admin hidden" data-context-action="delete_hard">Удалить полностью <span>💣</span></button>
 `;
