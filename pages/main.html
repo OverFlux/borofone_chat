@@ -21,10 +21,12 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="styles/main.css">
+    <link rel="preload" href="styles/version-notification.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" href="styles/notifications.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" href="styles/presence.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" href="styles/attachments.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="styles/notifications.css"></noscript>
+    <noscript><link rel="stylesheet" href="styles/version-notification.css"></noscript>
     <noscript><link rel="stylesheet" href="styles/presence.css"></noscript>
     <noscript><link rel="stylesheet" href="styles/attachments.css"></noscript>
 </head>
@@ -833,7 +835,7 @@
 
                 <!-- Logs Tab -->
                 <div class="settings-tab-panel" id="tab-logs">
-                    <h4 class="settings-section-title">Логи подключения</h4>
+                    <h4 class="settings-section-title">Логи подключения <span id="logsVersion" class="version-badge">загрузка...</span></h4>
                     <div class="logs-stats-container">
                         <div class="logs-stat-card">
                             <div class="logs-stat-icon">
@@ -919,6 +921,18 @@
                                 </svg>
                                 Очистить
                             </button>
+                        </div>
+                        <button type="button" class="logs-action-btn" id="checkVersionBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Проверить обновления
+                        </button>
+                        <div class="settings-version-info">
+                            <span class="settings-version-label">Версия приложения:</span>
+                            <span class="settings-version-value" id="settingsVersionInfo">-</span>
                         </div>
                         <div class="logs-list" id="logsList">
                             <div class="logs-empty">Пока нет записей</div>
@@ -1099,6 +1113,7 @@
     <script defer src="/app-config.js"></script>
     <script defer src="js/config.js"></script>
     <script defer src="js/notifications.js"></script>
+    <script defer src="js/main/chat/ui/version-checker.js"></script>
     <script defer src="js/attachments.js"></script>
     <script type="module" src="js/app/bootstrap.js"></script>
 </body>

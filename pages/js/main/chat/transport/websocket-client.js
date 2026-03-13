@@ -53,6 +53,18 @@ function connectWebSocket() {
             ws = socket;
             wsConnecting = false;
             resolveConnection();
+
+            // Check version on reconnect - ALWAYS run, ignore any state
+            console.log('[WS] checkVersionNow call on connect');
+            if (typeof window.versionChecker?.checkVersionNow === 'function') {
+                try {
+                    window.versionChecker.checkVersionNow();
+                } catch(e) {
+                    console.error('[WS] Version check error:', e);
+                }
+            } else {
+                console.warn('[WS] versionChecker.checkVersionNow not found');
+            }
         };
 
         socket.onmessage = (event) => {
@@ -207,6 +219,17 @@ function connectWebSocket() {
                     }
                     if (currentVoiceRoomId) {
                         joinVoiceRoom(currentVoiceRoomId);
+                    }
+                    // Check version on ready - ALWAYS run
+                    console.log('[WS] checkVersionNow call on ready');
+                    if (typeof window.versionChecker?.checkVersionNow === 'function') {
+                        try {
+                            window.versionChecker.checkVersionNow();
+                        } catch(e) {
+                            console.error('[WS] Version check error:', e);
+                        }
+                    } else {
+                        console.warn('[WS] versionChecker.checkVersionNow not found');
                     }
                 }
             } catch (err) {

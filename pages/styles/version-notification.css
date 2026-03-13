@@ -1,0 +1,753 @@
+/* ==========================================
+   VERSION NOTIFICATION - LIQUID GLASS STYLE
+   ========================================== */
+
+/* CSS Custom Properties for Liquid Glass Effect */
+:root {
+    --vg-blur: 20px;
+    --vg-saturation: 180%;
+    --vg-border-radius: 24px;
+    --vg-transition-duration: 0.4s;
+    --vg-transition-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --vg-shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+    --vg-shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.12);
+    --vg-bg-primary: rgba(255, 255, 255, 0.75);
+    --vg-bg-secondary: rgba(245, 247, 250, 0.65);
+    --vg-border-light: rgba(255, 255, 255, 0.4);
+    --vg-border-subtle: rgba(0, 0, 0, 0.06);
+    --vg-text-primary: #1a1a2e;
+    --vg-text-secondary: #4a4a68;
+    --vg-text-muted: #8888a0;
+    --vg-accent-color: #DB734F;
+    --vg-accent-hover: #C05E3B;
+    --vg-icon-color: #DB734F;
+    --vg-overlay-bg: rgba(0, 0, 0, 0.3);
+    --vg-gradient-start: rgba(255, 255, 255, 0.85);
+    --vg-gradient-end: rgba(240, 242, 248, 0.65);
+}
+
+/* Dark theme support */
+[data-theme="dark"] .version-notification-container,
+[data-theme="dark"] .version-notification-inner {
+    --vg-bg-primary: rgba(30, 32, 45, 0.85);
+    --vg-bg-secondary: rgba(25, 27, 38, 0.75);
+    --vg-border-light: rgba(255, 255, 255, 0.08);
+    --vg-border-subtle: rgba(255, 255, 255, 0.05);
+    --vg-text-primary: #f0f0f5;
+    --vg-text-secondary: #b8b8cc;
+    --vg-text-muted: #6a6a80;
+    --vg-shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
+    --vg-shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.3);
+    --vg-icon-color: #DB734F;
+    --vg-gradient-start: rgba(35, 38, 52, 0.9);
+    --vg-gradient-end: rgba(25, 27, 40, 0.75);
+}
+
+/* Main notification container - appears from bottom */
+.version-notification-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--vg-overlay-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--vg-transition-duration) var(--vg-transition-ease),
+                visibility var(--vg-transition-duration) var(--vg-transition-ease);
+}
+
+.version-notification-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.version-notification-container {
+    width: 100%;
+    max-width: 420px;
+    background: linear-gradient(135deg, var(--vg-gradient-start), var(--vg-gradient-end));
+    backdrop-filter: blur(var(--vg-blur)) saturate(var(--vg-saturation));
+    -webkit-backdrop-filter: blur(var(--vg-blur)) saturate(var(--vg-saturation));
+    border-radius: var(--vg-border-radius);
+    border: 1px solid var(--vg-border-light);
+    box-shadow: var(--vg-shadow-soft);
+    overflow: hidden;
+    transform: translateY(100%) scale(0.95);
+    opacity: 0;
+    transition: transform var(--vg-transition-duration) var(--vg-transition-ease),
+                opacity var(--vg-transition-duration) var(--vg-transition-ease);
+    position: relative;
+    padding: 0;
+}
+
+/* Glossy shine effect */
+.version-notification-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 120px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 100%);
+    pointer-events: none;
+    border-radius: var(--vg-border-radius) var(--vg-border-radius) 0 0;
+}
+
+.version-notification-overlay.visible .version-notification-container {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+/* Inner padding container - Liquid Glass Effect */
+.version-notification-inner {
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: relative;
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.08) 0%, 
+        rgba(255, 255, 255, 0.02) 100%);
+    backdrop-filter: blur(20px) saturate(1.1);
+    -webkit-backdrop-filter: blur(20px) saturate(1.1);
+    border-radius: 20px;
+    margin: 8px;
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* Dark theme inner container */
+[data-theme="dark"] .version-notification-inner {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.04) 0%, 
+        rgba(255, 255, 255, 0.01) 100%);
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Light theme inner container */
+[data-theme="light"] .version-notification-inner {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.9) 0%, 
+        rgba(255, 255, 255, 0.7) 100%);
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.8),
+        0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+/* Dark theme specific overrides for glass elements */
+[data-theme="dark"] .version-notification-info {
+    background: linear-gradient(135deg, 
+        rgba(40, 42, 55, 0.8) 0%, 
+        rgba(30, 32, 45, 0.6) 100%);
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] .version-notification-shortcut {
+    background: linear-gradient(135deg, 
+        rgba(40, 42, 55, 0.7) 0%, 
+        rgba(30, 32, 45, 0.5) 100%);
+}
+
+[data-theme="dark"] .version-notification-shortcut kbd {
+    background: linear-gradient(135deg, 
+        rgba(50, 52, 65, 0.8) 0%, 
+        rgba(35, 37, 50, 0.6) 100%);
+    box-shadow: 
+        0 1px 2px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .version-notification-btn-secondary {
+    background: linear-gradient(135deg, 
+        rgba(40, 42, 55, 0.8) 0%, 
+        rgba(30, 32, 45, 0.6) 100%);
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* Light theme specific overrides for glass elements */
+[data-theme="light"] .version-notification-info {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.7) 0%, 
+        rgba(250, 250, 252, 0.5) 100%);
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.6),
+        0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .version-notification-info-icon {
+    background: linear-gradient(135deg, rgba(219, 115, 79, 0.15), rgba(192, 94, 59, 0.1));
+}
+
+[data-theme="light"] .version-notification-shortcut {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.6) 0%, 
+        rgba(250, 250, 252, 0.4) 100%);
+}
+
+[data-theme="light"] .version-notification-shortcut kbd {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.9) 0%, 
+        rgba(245, 245, 247, 0.7) 100%);
+    box-shadow: 
+        0 1px 2px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .version-notification-btn-secondary {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.7) 0%, 
+        rgba(250, 250, 252, 0.5) 100%);
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Header section with icon - Liquid Glass */
+.version-notification-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.version-notification-icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--vg-accent-color), var(--vg-accent-hover));
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(219, 115, 79, 0.35);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Glass shine effect on icon */
+.version-notification-icon::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+    border-radius: 16px 16px 0 0;
+}
+
+.version-notification-icon svg {
+    width: 24px;
+    height: 24px;
+    color: white;
+    stroke-width: 2;
+    position: relative;
+    z-index: 1;
+}
+
+.version-notification-title-group {
+    flex: 1;
+}
+
+.version-notification-title {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--vg-text-primary);
+    margin: 0 0 4px 0;
+    letter-spacing: -0.01em;
+}
+
+.version-notification-subtitle {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    color: var(--vg-text-secondary);
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* Version info section - Liquid Glass */
+.version-notification-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, 
+        var(--vg-bg-secondary) 0%, 
+        rgba(255, 255, 255, 0.02) 100%);
+    border-radius: 12px;
+    border: 1px solid var(--vg-border-subtle);
+    backdrop-filter: blur(10px) saturate(1.05);
+    -webkit-backdrop-filter: blur(10px) saturate(1.05);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.version-notification-info-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, rgba(219, 115, 79, 0.2), rgba(192, 94, 59, 0.15));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(219, 115, 79, 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.version-notification-info-icon::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 100%);
+    border-radius: 8px 8px 0 0;
+}
+
+.version-notification-info-icon svg {
+    width: 18px;
+    height: 18px;
+    stroke: var(--vg-accent-color);
+    position: relative;
+    z-index: 1;
+}
+
+.version-notification-info-text {
+    flex: 1;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+    color: var(--vg-text-secondary);
+    line-height: 1.4;
+}
+
+.version-notification-info-text strong {
+    color: var(--vg-text-primary);
+    font-weight: 600;
+}
+
+.version-notification-version-badge {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, rgba(219, 115, 79, 0.25), rgba(192, 94, 59, 0.2));
+    border-radius: 6px;
+    color: var(--vg-accent-color);
+    letter-spacing: 0.02em;
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 2px 8px rgba(219, 115, 79, 0.15);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* Description text - Enhanced readability on glass */
+.version-notification-description {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    color: var(--vg-text-muted);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 4px;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .version-notification-description {
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
+}
+
+/* Keyboard shortcut hint - Liquid Glass */
+.version-notification-shortcut {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, 
+        var(--vg-bg-secondary) 0%, 
+        rgba(255, 255, 255, 0.02) 100%);
+    border-radius: 10px;
+    border: 1px dashed var(--vg-border-subtle);
+    backdrop-filter: blur(8px) saturate(1.05);
+    -webkit-backdrop-filter: blur(8px) saturate(1.05);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.version-notification-shortcut kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 26px;
+    padding: 0 8px;
+    background: linear-gradient(135deg, 
+        var(--vg-bg-primary) 0%, 
+        rgba(255, 255, 255, 0.02) 100%);
+    border: 1px solid var(--vg-border-subtle);
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--vg-text-primary);
+    box-shadow: 
+        0 1px 2px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: all 0.2s ease;
+}
+
+.version-notification-shortcut kbd:hover {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.1) 0%, 
+        rgba(255, 255, 255, 0.02) 100%);
+    transform: translateY(-1px);
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.version-notification-shortcut-plus {
+    color: var(--vg-text-muted);
+    font-size: 12px;
+}
+
+.version-notification-shortcut-text {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 12px;
+    color: var(--vg-text-muted);
+    margin-left: 4px;
+}
+
+/* Action buttons - Liquid Glass */
+.version-notification-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.version-notification-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 20px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Glass shine on buttons */
+.version-notification-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 100%);
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.version-notification-btn-primary {
+    background: linear-gradient(135deg, var(--vg-accent-color), var(--vg-accent-hover));
+    color: white;
+    box-shadow: 
+        0 4px 16px rgba(219, 115, 79, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.version-notification-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 6px 24px rgba(219, 115, 79, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.version-notification-btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 
+        0 2px 8px rgba(219, 115, 79, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.version-notification-btn-primary svg {
+    width: 16px;
+    height: 16px;
+    position: relative;
+    z-index: 1;
+}
+
+.version-notification-btn-secondary {
+    background: linear-gradient(135deg, 
+        var(--vg-bg-secondary) 0%, 
+        rgba(255, 255, 255, 0.02) 100%);
+    color: var(--vg-text-secondary);
+    border: 1px solid var(--vg-border-subtle);
+    backdrop-filter: blur(8px) saturate(1.05);
+    -webkit-backdrop-filter: blur(8px) saturate(1.05);
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.version-notification-btn-secondary:hover {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.1) 0%, 
+        rgba(255, 255, 255, 0.04) 100%);
+    border-color: rgba(255, 255, 255, 0.12);
+    transform: translateY(-2px);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Error state */
+.version-notification-error {
+    text-align: center;
+    padding: 16px;
+}
+
+.version-notification-error-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 16px;
+    background: rgba(239, 83, 80, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.version-notification-error-icon svg {
+    width: 28px;
+    height: 28px;
+    stroke: #ef5350;
+}
+
+.version-notification-error-text {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    color: var(--vg-text-secondary);
+    line-height: 1.5;
+}
+
+/* Loading state */
+.version-notification-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    gap: 16px;
+}
+
+.version-notification-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--vg-border-subtle);
+    border-top-color: var(--vg-accent-color);
+    border-radius: 50%;
+    animation: version-notification-spin 0.8s linear infinite;
+}
+
+@keyframes version-notification-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.version-notification-loading-text {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    color: var(--vg-text-muted);
+}
+
+/* Compact inline version indicator (for top bar) */
+.version-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: var(--vg-bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--vg-border-subtle);
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    color: var(--vg-text-muted);
+    transition: all 0.2s ease;
+}
+
+.version-indicator:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--vg-text-secondary);
+}
+
+[data-theme="dark"] .version-indicator:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.version-indicator-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #4caf50;
+}
+
+.version-indicator-dot.outdated {
+    background: #ff9800;
+    animation: version-indicator-pulse 2s ease-in-out infinite;
+}
+
+@keyframes version-indicator-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .version-notification-overlay {
+        padding: 16px;
+        align-items: flex-end;
+    }
+
+    .version-notification-container {
+        max-width: 100%;
+    }
+
+    .version-notification-inner {
+        padding: 20px 24px;
+    }
+
+    .version-notification-header {
+        gap: 12px;
+    }
+
+    .version-notification-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+    }
+
+    .version-notification-title {
+        font-size: 16px;
+    }
+
+    .version-notification-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .version-notification-btn {
+        padding: 12px 16px;
+    }
+
+    .version-notification-shortcut {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
+/* ==========================================
+   VERSION CHECK BUTTON IN SETTINGS
+   ========================================== */
+
+.logs-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(255, 152, 0, 0.1);
+    border: 1px solid rgba(255, 152, 0, 0.2);
+    border-radius: 8px;
+    color: #ff9800;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-right: 8px;
+}
+
+.logs-action-btn:hover {
+    background: rgba(255, 152, 0, 0.15);
+    color: #ff9800;
+}
+
+/* Version Check Button */
+.logs-action-btn#checkVersionBtn {
+    background: rgba(92, 107, 192, 0.1);
+    color: #5c6bc0;
+    border: 1px solid rgba(92, 107, 192, 0.2);
+}
+
+.logs-action-btn#checkVersionBtn:hover {
+    background: rgba(92, 107, 192, 0.2);
+    color: #3f51b5;
+}
+
+.logs-action-btn#checkVersionBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.logs-action-btn .spinning {
+    animation: version-btn-spin 1s linear infinite;
+}
+
+@keyframes version-btn-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .version-notification-container {
+        border-width: 2px;
+        border-color: var(--vg-text-primary);
+    }
+
+    .version-notification-btn-primary {
+        box-shadow: none;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .version-notification-overlay,
+    .version-notification-container,
+    .version-notification-btn,
+    .version-indicator-dot {
+        transition: none;
+        animation: none;
+    }
+}

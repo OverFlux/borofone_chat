@@ -16,6 +16,7 @@ from app.api.http import router as http_router
 from app.api.ws import router as ws_router
 from app.infra.db import engine
 from app.settings import settings
+from app.version import VERSION
 
 
 def _list_media_files(directory, suffixes: tuple[str, ...], *, exclude_readme: bool = False) -> list[str]:
@@ -103,6 +104,7 @@ async def app_config_js() -> Response:
     payload = {
         'apiUrl': settings.resolved_public_api_base_url,
         'wsUrl': settings.resolved_public_ws_base_url,
+        'appVersion': VERSION,
         'routes': {
             'main': settings.main_page_route,
             'login': settings.login_page_route,

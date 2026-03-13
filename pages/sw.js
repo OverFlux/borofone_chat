@@ -8,8 +8,10 @@ const STATIC_ASSETS = [
     '/',
     '/main.html',
     '/manifest.json',
+    '/app-config.js', // Не кэшируем - версия нужна всегда актуальная
     '/styles/main.css',
     '/styles/notifications.css',
+    '/styles/version-notification.css',
     '/styles/presence.css',
     '/styles/attachments.css',
     '/styles/wordle.css',
@@ -41,6 +43,7 @@ const STATIC_ASSETS = [
     '/js/main/chat/input/message-input.js',
     '/js/main/chat/transport/websocket-client.js',
     '/js/main/chat/ui/settings-modal.js',
+    '/js/main/chat/ui/version-checker.js',
     '/js/main/chat/ui/ui-events.js',
     '/js/main/chat/presence/presence-sidebar.js',
     '/js/main/chat/notifications/room-badges.js',
@@ -95,7 +98,12 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(request.url);
 
     // Пропускаем WebSocket, API запросы и загруженные файлы
-    if (url.protocol === 'ws:' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws') || url.pathname.startsWith('/uploads/')) {
+    // Также НЕ кэшируем app-config.js - он должен всегда загружаться с сервера
+    if (url.protocol === 'ws:' || 
+        url.pathname.startsWith('/api/') || 
+        url.pathname.startsWith('/ws') || 
+        url.pathname.startsWith('/uploads/') ||
+        url.pathname === '/app-config.js') {
         return;
     }
 

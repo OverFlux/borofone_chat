@@ -50,6 +50,7 @@ function openSettingsModal() {
     // Update logs display when opening settings
     updateLogsDisplay();
     updateConnectionStatsDisplay();
+    updateVersionDisplayInSettings();
 
     shouldRemoveAvatar = false;
     settingsDisplayName.value = currentUser.display_name || '';

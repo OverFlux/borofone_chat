@@ -161,14 +161,34 @@ function addLogEntry(type, message) {
 // Update logs display in the Logs tab
 function updateLogsDisplay() {
     const logsList = document.getElementById('logsList');
-    if (!logsList) return;
-    
-    if (connectionStats.logs.length === 0) {
-        logsList.innerHTML = '<div class="logs-empty">Пока нет записей</div>';
+    const logsVersionEl = document.getElementById('logsVersion');
+    if (!logsList) {
+        console.log('[Logs] logsList not found');
         return;
     }
     
-    let html = '';
+    // Get app version from runtime config
+    const runtimeConfig = window.__BOROFONE_RUNTIME_CONFIG__ || {};
+    console.log('[Logs] runtimeConfig:', runtimeConfig);
+    const appVersion = runtimeConfig.appVersion || 'unknown';
+    console.log('[Logs] appVersion:', appVersion);
+    
+    // Update version badge in header
+    if (logsVersionEl) {
+        console.log('[Logs] Updating logsVersionEl');
+        logsVersionEl.textContent = `v${appVersion}`;
+    } else {
+        console.log('[Logs] logsVersionEl not found');
+    }
+    
+    let versionHtml = `<div class="logs-version">Версия приложения: <strong>${appVersion}</strong></div>`;
+    
+    if (connectionStats.logs.length === 0) {
+        logsList.innerHTML = versionHtml + '<div class="logs-empty">Пока нет записей</div>';
+        return;
+    }
+    
+    let html = versionHtml;
     connectionStats.logs.forEach(log => {
         const time = new Date(log.timestamp);
         const timeStr = time.toLocaleTimeString('ru-RU', { 
@@ -1315,6 +1335,19 @@ const cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
 const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
 const settingsTabBtns = document.querySelectorAll('.settings-tab-btn');
 const settingsTabPanels = document.querySelectorAll('.settings-tab-panel');
+
+console.log('[Init] Settings tab buttons found:', settingsTabBtns.length);
+
+// Initialize version display when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('[Init] DOM ready, initializing version display');
+        updateLogsDisplay();
+    });
+} else {
+    console.log('[Init] DOM already ready, initializing version display');
+    updateLogsDisplay();
+}
 const settingsMicVolume = document.getElementById('settingsMicVolume');
 const settingsHeadphoneVolume = document.getElementById('settingsHeadphoneVolume');
 const settingsMicVolumeValue = document.getElementById('settingsMicVolumeValue');
@@ -4355,6 +4388,7 @@ logoutConfirmModal.addEventListener('click', (e) => {
 settingsTabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         const tabId = btn.dataset.tab;
+        console.log('[Settings] Tab clicked:', tabId);
         
         // Update button states
         settingsTabBtns.forEach(b => b.classList.remove('active'));
@@ -4367,6 +4401,12 @@ settingsTabBtns.forEach(btn => {
                 panel.classList.add('active');
             }
         });
+        
+        // Update logs when switching to logs tab
+        if (tabId === 'logs') {
+            console.log('[Settings] Switching to logs tab, calling updateLogsDisplay');
+            updateLogsDisplay();
+        }
     });
 });
 

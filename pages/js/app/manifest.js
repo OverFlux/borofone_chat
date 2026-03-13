@@ -15,6 +15,7 @@ export const legacyMainScripts = [
     '/js/main/chat/input/message-input.js',
     '/js/main/chat/transport/websocket-client.js',
     '/js/main/chat/ui/settings-modal.js',
+    '/js/main/chat/ui/version-display.js',
     '/js/main/chat/ui/ui-events.js',
     '/js/main/chat/presence/presence-sidebar.js',
     '/js/main/chat/notifications/room-badges.js',
