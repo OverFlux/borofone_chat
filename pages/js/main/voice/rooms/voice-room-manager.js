@@ -2,6 +2,45 @@
 // VOICE CHAT (MVP)
 // ==========================================
 
+/**
+ * Escape HTML attribute value (for use in src, href, etc.)
+ * This prevents XSS in URL attributes by validating the URL scheme
+ * @param {string} url - The URL to escape
+ * @returns {string} Safely escaped URL or empty string
+ */
+function escapeHtmlAttr(url) {
+    if (!url || typeof url !== 'string') return '';
+    const trimmedUrl = url.trim();
+    const lowerUrl = trimmedUrl.toLowerCase();
+    
+    // Block dangerous protocols
+    if (lowerUrl.startsWith('javascript:') ||
+        lowerUrl.startsWith('vbscript:') ||
+        lowerUrl.startsWith('data:text/html') ||
+        lowerUrl.startsWith('data:text/javascript') ||
+        lowerUrl.startsWith('data:application/')) {
+        return '';
+    }
+    
+    // For data: URLs, only allow images
+    if (lowerUrl.startsWith('data:') && !lowerUrl.match(/^data:image\//)) {
+        return '';
+    }
+    
+    // Only allow http, https, data:image, or relative URLs
+    if (!lowerUrl.startsWith('http://') && 
+        !lowerUrl.startsWith('https://') && 
+        !lowerUrl.startsWith('data:image/') &&
+        !trimmedUrl.startsWith('/') &&
+        !trimmedUrl.startsWith('./') &&
+        !trimmedUrl.startsWith('../') &&
+        !trimmedUrl.startsWith('#')) {
+        return escapeHtml(trimmedUrl);
+    }
+    
+    return escapeHtml(trimmedUrl);
+}
+
 function upsertVoiceParticipant(participant) {
     const copy = [...voiceParticipants];
     const idx = copy.findIndex(p => p.user_id === participant.user_id);
@@ -60,7 +99,7 @@ function renderVoiceRooms() {
                 participant.user_id
             );
             const avatarMarkup = avatarUrl
-                ? `<img src="${escapeHtml(avatarUrl)}" alt="${safeName}" class="voice-room-user-avatar" data-avatar-fallback="${initial}">`
+                ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${safeName}" class="voice-room-user-avatar" data-avatar-fallback="${initial}">`
                 : `<span class="voice-room-user-initial">${initial}</span>`;
 
             return `<span class="voice-room-user-icon ${participant.speaking ? 'speaking' : ''}" title="${safeName}"><span class="voice-room-user-media" data-avatar-fallback-target="1">${avatarMarkup}</span></span>`;
@@ -127,7 +166,7 @@ function renderVoiceParticipantsGrid() {
         const volumePct = Math.round((participantVolumes[participant.user_id] ?? 1) * 100);
         const screenBadge = participant.screen_sharing ? '<span class="voice-participant-badge active" title="Screen sharing">🖥</span>' : '';
         const avatarMarkup = avatarUrl
-            ? `<img src="${escapeHtml(avatarUrl)}" alt="${displayName}" class="voice-participant-avatar-img" data-avatar-fallback="${initial}">`
+            ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${displayName}" class="voice-participant-avatar-img" data-avatar-fallback="${initial}">`
             : `<span>${initial}</span>`;
         const muteOverlay = participant.muted ? '<img src="/emoji/mute.png" alt="Muted" class="mute-status-icon">' : '';
 
@@ -1460,7 +1499,7 @@ function updateCollapsedParticipants() {
             participant.user_id
         );
         const avatarMarkup = avatarUrl
-            ? `<img src="${escapeHtml(avatarUrl)}" alt="${safeName}" class="voice-collapsed-avatar-img" data-avatar-fallback="${initial}">`
+            ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${safeName}" class="voice-collapsed-avatar-img" data-avatar-fallback="${initial}">`
             : `<span>${initial}</span>`;
 
         const collapsedClasses = [

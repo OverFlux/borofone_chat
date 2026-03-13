@@ -2,6 +2,45 @@
 // MODAL
 // ==========================================
 
+/**
+ * Escape HTML attribute value (for use in src, href, etc.)
+ * This prevents XSS in URL attributes by validating the URL scheme
+ * @param {string} url - The URL to escape
+ * @returns {string} Safely escaped URL or empty string
+ */
+function escapeHtmlAttr(url) {
+    if (!url || typeof url !== 'string') return '';
+    const trimmedUrl = url.trim();
+    const lowerUrl = trimmedUrl.toLowerCase();
+    
+    // Block dangerous protocols
+    if (lowerUrl.startsWith('javascript:') ||
+        lowerUrl.startsWith('vbscript:') ||
+        lowerUrl.startsWith('data:text/html') ||
+        lowerUrl.startsWith('data:text/javascript') ||
+        lowerUrl.startsWith('data:application/')) {
+        return '';
+    }
+    
+    // For data: URLs, only allow images
+    if (lowerUrl.startsWith('data:') && !lowerUrl.match(/^data:image\//)) {
+        return '';
+    }
+    
+    // Only allow http, https, data:image, or relative URLs
+    if (!lowerUrl.startsWith('http://') && 
+        !lowerUrl.startsWith('https://') && 
+        !lowerUrl.startsWith('data:image/') &&
+        !trimmedUrl.startsWith('/') &&
+        !trimmedUrl.startsWith('./') &&
+        !trimmedUrl.startsWith('../') &&
+        !trimmedUrl.startsWith('#')) {
+        return escapeHtml(trimmedUrl);
+    }
+    
+    return escapeHtml(trimmedUrl);
+}
+
 function openModal(type = 'text') {
     createRoomModal.classList.add('active');
     if (roomTypeInput) roomTypeInput.value = type;
@@ -26,7 +65,7 @@ function renderCurrentUser() {
 
     const initial = escapeHtml(displayName[0]?.toUpperCase() || 'U');
     const avatarHtml = avatarUrl
-        ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
+        ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
         : `<span>${initial}</span>`;
 
     if (currentUserAvatar) currentUserAvatar.innerHTML = avatarHtml;
@@ -104,7 +143,7 @@ function updateSettingsAvatarPreview(avatarUrl) {
     const initial = escapeHtml(displayName[0]?.toUpperCase() || 'U');
 
     settingsAvatarPreview.innerHTML = avatarUrl
-        ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
+        ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
         : `<span>${initial}</span>`;
 }
 

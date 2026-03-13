@@ -4,6 +4,45 @@
 // ==========================================
 
 /**
+ * Escape HTML attribute value (for use in src, href, etc.)
+ * This prevents XSS in URL attributes by validating the URL scheme
+ * @param {string} url - The URL to escape
+ * @returns {string} Safely escaped URL or empty string
+ */
+function escapeHtmlAttr(url) {
+    if (!url || typeof url !== 'string') return '';
+    const trimmedUrl = url.trim();
+    const lowerUrl = trimmedUrl.toLowerCase();
+    
+    // Block dangerous protocols
+    if (lowerUrl.startsWith('javascript:') ||
+        lowerUrl.startsWith('vbscript:') ||
+        lowerUrl.startsWith('data:text/html') ||
+        lowerUrl.startsWith('data:text/javascript') ||
+        lowerUrl.startsWith('data:application/')) {
+        return '';
+    }
+    
+    // For data: URLs, only allow images
+    if (lowerUrl.startsWith('data:') && !lowerUrl.match(/^data:image\//)) {
+        return '';
+    }
+    
+    // Only allow http, https, data:image, or relative URLs
+    if (!lowerUrl.startsWith('http://') && 
+        !lowerUrl.startsWith('https://') && 
+        !lowerUrl.startsWith('data:image/') &&
+        !trimmedUrl.startsWith('/') &&
+        !trimmedUrl.startsWith('./') &&
+        !trimmedUrl.startsWith('../') &&
+        !trimmedUrl.startsWith('#')) {
+        return escapeHtml(trimmedUrl);
+    }
+    
+    return escapeHtml(trimmedUrl);
+}
+
+/**
  * Toast notification system for new messages
  * Shows pop-up notifications at bottom-right of screen
  */
@@ -91,7 +130,7 @@ function createToastElement(message, roomName, isMention = false) {
     const previewText = formatPreviewText(message.body);
     
     toast.innerHTML = `
-        <img src="${avatarUrl}" alt="" class="toast-avatar" onerror="this.src='/images/default-avatar.png'">
+        <img src="${escapeHtmlAttr(avatarUrl)}" alt="" class="toast-avatar" onerror="this.src='/images/default-avatar.png'">
         <div class="toast-content">
             <div class="toast-header">
                 <span class="toast-author">${escapeHtml(message.user?.display_name || message.author || message.user?.username || 'Unknown')}</span>

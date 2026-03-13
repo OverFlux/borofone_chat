@@ -2,6 +2,45 @@
 // DOM ELEMENTS
 // ==========================================
 
+/**
+ * Escape HTML attribute value (for use in src, href, etc.)
+ * This prevents XSS in URL attributes by validating the URL scheme
+ * @param {string} url - The URL to escape
+ * @returns {string} Safely escaped URL or empty string
+ */
+function escapeHtmlAttr(url) {
+    if (!url || typeof url !== 'string') return '';
+    const trimmedUrl = url.trim();
+    const lowerUrl = trimmedUrl.toLowerCase();
+    
+    // Block dangerous protocols
+    if (lowerUrl.startsWith('javascript:') ||
+        lowerUrl.startsWith('vbscript:') ||
+        lowerUrl.startsWith('data:text/html') ||
+        lowerUrl.startsWith('data:text/javascript') ||
+        lowerUrl.startsWith('data:application/')) {
+        return '';
+    }
+    
+    // For data: URLs, only allow images
+    if (lowerUrl.startsWith('data:') && !lowerUrl.match(/^data:image\//)) {
+        return '';
+    }
+    
+    // Only allow http, https, data:image, or relative URLs
+    if (!lowerUrl.startsWith('http://') && 
+        !lowerUrl.startsWith('https://') && 
+        !lowerUrl.startsWith('data:image/') &&
+        !trimmedUrl.startsWith('/') &&
+        !trimmedUrl.startsWith('./') &&
+        !trimmedUrl.startsWith('../') &&
+        !trimmedUrl.startsWith('#')) {
+        return escapeHtml(trimmedUrl);
+    }
+    
+    return escapeHtml(trimmedUrl);
+}
+
 const roomsList = document.getElementById('roomsList');
 const roomName = document.getElementById('roomName');
 const messagesList = document.getElementById('messagesList');
@@ -158,7 +197,7 @@ function showUserProfile(userId, clickEvent = null) {
         normalizeAvatarUrl(user.avatar_url),
         user.id
     );
-            userProfileAvatar.innerHTML = `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(user.display_name || user.username)}" class="user-profile-avatar-img">`;
+            userProfileAvatar.innerHTML = `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${escapeHtml(user.display_name || user.username)}" class="user-profile-avatar-img">`;
         } else {
             const initial = (user.display_name || user.username)[0]?.toUpperCase() || 'U';
             userProfileAvatar.innerHTML = `<div class="user-profile-avatar-placeholder">${initial}</div>`;

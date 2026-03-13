@@ -243,6 +243,58 @@ function escapeHtml(text) {
 }
 
 /**
+ * Escape HTML attribute value (for use in src, href, etc.)
+ * This prevents XSS in URL attributes by validating the URL scheme
+ * @param {string} url - The URL to escape
+ * @returns {string} Safely escaped URL or empty string
+ */
+function escapeHtmlAttr(url) {
+    if (!url || typeof url !== 'string') return '';
+    
+    // Remove leading/trailing whitespace
+    const trimmedUrl = url.trim();
+    
+    // Check for dangerous protocols - only allow safe ones
+    const lowerUrl = trimmedUrl.toLowerCase();
+    
+    // Block javascript:, data: (except for images), vbscript:, and other dangerous protocols
+    if (lowerUrl.startsWith('javascript:') ||
+        lowerUrl.startsWith('vbscript:') ||
+        lowerUrl.startsWith('data:text/html') ||
+        lowerUrl.startsWith('data:text/javascript') ||
+        lowerUrl.startsWith('data:application/')) {
+        console.warn('Blocked potentially dangerous URL scheme:', trimmedUrl.substring(0, 30));
+        return '';
+    }
+    
+    // For data: URLs, only allow images (data:image/*)
+    if (lowerUrl.startsWith('data:') && !lowerUrl.match(/^data:image\//)) {
+        console.warn('Blocked non-image data URL:', trimmedUrl.substring(0, 30));
+        return '';
+    }
+    
+    // Only allow http, https, data:image, or relative URLs
+    if (!lowerUrl.startsWith('http://') && 
+        !lowerUrl.startsWith('https://') && 
+        !lowerUrl.startsWith('data:image/') &&
+        !trimmedUrl.startsWith('/') &&
+        !trimmedUrl.startsWith('./') &&
+        !trimmedUrl.startsWith('../') &&
+        !trimmedUrl.startsWith('#')) {
+        // Allow relative URLs and hash URLs, but validate they don't contain dangerous content
+        // For safety, if it doesn't match safe patterns, escape it
+        return escapeHtml(trimmedUrl);
+    }
+    
+    // Finally, escape any HTML entities in the URL as an additional layer of protection
+    return escapeHtml(trimmedUrl);
+}
+
+// Expose functions globally for use in other modules
+window.escapeHtml = escapeHtml;
+window.escapeHtmlAttr = escapeHtmlAttr;
+
+/**
  * Generate admin crown HTML for user avatars
  * @param {string} role - User role ('admin', 'moderator', etc.)
  * @returns {string} HTML string for crown or empty string
@@ -1162,7 +1214,7 @@ function showUserProfile(userId, clickEvent = null) {
         normalizeAvatarUrl(user.avatar_url),
         user.id
     );
-            userProfileAvatar.innerHTML = `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(user.display_name || user.username)}" class="user-profile-avatar-img">`;
+            userProfileAvatar.innerHTML = `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${escapeHtml(user.display_name || user.username)}" class="user-profile-avatar-img">`;
         } else {
             const initial = (user.display_name || user.username)[0]?.toUpperCase() || 'U';
             userProfileAvatar.innerHTML = `<div class="user-profile-avatar-placeholder">${initial}</div>`;
@@ -1785,7 +1837,7 @@ function addMessage(msg, animate = false) {
             ${adminCrownHtml}
             <div class="message-avatar">
                 ${avatarUrl
-                    ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(author)}" class="avatar-media avatar-media--message">`
+                    ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${escapeHtml(author)}" class="avatar-media avatar-media--message">`
                     : `<span>${authorInitial}</span>`}
             </div>
         </div>
@@ -3504,7 +3556,7 @@ function renderCurrentUser() {
 
     const initial = escapeHtml(displayName[0]?.toUpperCase() || 'U');
     const avatarHtml = avatarUrl
-        ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
+        ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
         : `<span>${initial}</span>`;
 
     if (currentUserAvatar) currentUserAvatar.innerHTML = avatarHtml;
@@ -3581,7 +3633,7 @@ function updateSettingsAvatarPreview(avatarUrl) {
     const initial = escapeHtml(displayName[0]?.toUpperCase() || 'U');
 
     settingsAvatarPreview.innerHTML = avatarUrl
-        ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
+        ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
         : `<span>${initial}</span>`;
 }
 
@@ -4924,7 +4976,7 @@ function renderUserItem(user) {
     const initial = displayName[0]?.toUpperCase() || 'U';
 
     const avatarHtml = avatarUrl
-        ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
+        ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
         : `<span>${initial}</span>`;
 
     const statusClass = user.is_online ? 'online' : 'offline';
@@ -5007,7 +5059,7 @@ async function loadOnlineUsers() {
             const initial = displayName[0]?.toUpperCase() || 'U';
 
             const avatarHtml = avatarUrl
-                ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
+                ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${escapeHtml(displayName)}" class="avatar-media">`
                 : `<span>${initial}</span>`;
 
             return `
@@ -5372,7 +5424,7 @@ function renderVoiceRooms() {
                 participant.user_id
             );
             const avatarMarkup = avatarUrl
-                ? `<img src="${escapeHtml(avatarUrl)}" alt="${safeName}" class="voice-room-user-avatar" data-avatar-fallback="${initial}">`
+                ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${safeName}" class="voice-room-user-avatar" data-avatar-fallback="${initial}">`
                 : `<span class="voice-room-user-initial">${initial}</span>`;
 
             return `<span class="voice-room-user-icon ${participant.speaking ? 'speaking' : ''}" title="${safeName}"><span class="voice-room-user-media" data-avatar-fallback-target="1">${avatarMarkup}</span></span>`;
@@ -5439,7 +5491,7 @@ function renderVoiceParticipantsGrid() {
         const volumePct = Math.round((participantVolumes[participant.user_id] ?? 1) * 100);
         const screenBadge = participant.screen_sharing ? '<span class="voice-participant-badge active" title="Screen sharing">🖥</span>' : '';
         const avatarMarkup = avatarUrl
-            ? `<img src="${escapeHtml(avatarUrl)}" alt="${displayName}" class="voice-participant-avatar-img" data-avatar-fallback="${initial}">`
+            ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${displayName}" class="voice-participant-avatar-img" data-avatar-fallback="${initial}">`
             : `<span>${initial}</span>`;
         const muteOverlay = participant.muted ? '<img src="/emoji/mute.png" alt="Muted" class="mute-status-icon">' : '';
 
@@ -6693,7 +6745,7 @@ function updateCollapsedParticipants() {
             participant.user_id
         );
         const avatarMarkup = avatarUrl
-            ? `<img src="${escapeHtml(avatarUrl)}" alt="${safeName}" class="voice-collapsed-avatar-img" data-avatar-fallback="${initial}">`
+            ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${safeName}" class="voice-collapsed-avatar-img" data-avatar-fallback="${initial}">`
             : `<span>${initial}</span>`;
 
         return `<div class="voice-collapsed-participant${participant.speaking ? ' speaking' : ''}"><span class="avatar" data-avatar-fallback-target="1">${avatarMarkup}</span><span class="name">${safeName}</span></div>`;

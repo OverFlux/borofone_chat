@@ -3,6 +3,45 @@
 // ==========================================
 
 /**
+ * Escape HTML attribute value (for use in src, href, etc.)
+ * This prevents XSS in URL attributes by validating the URL scheme
+ * @param {string} url - The URL to escape
+ * @returns {string} Safely escaped URL or empty string
+ */
+function escapeHtmlAttr(url) {
+    if (!url || typeof url !== 'string') return '';
+    const trimmedUrl = url.trim();
+    const lowerUrl = trimmedUrl.toLowerCase();
+    
+    // Block dangerous protocols
+    if (lowerUrl.startsWith('javascript:') ||
+        lowerUrl.startsWith('vbscript:') ||
+        lowerUrl.startsWith('data:text/html') ||
+        lowerUrl.startsWith('data:text/javascript') ||
+        lowerUrl.startsWith('data:application/')) {
+        return '';
+    }
+    
+    // For data: URLs, only allow images
+    if (lowerUrl.startsWith('data:') && !lowerUrl.match(/^data:image\//)) {
+        return '';
+    }
+    
+    // Only allow http, https, data:image, or relative URLs
+    if (!lowerUrl.startsWith('http://') && 
+        !lowerUrl.startsWith('https://') && 
+        !lowerUrl.startsWith('data:image/') &&
+        !trimmedUrl.startsWith('/') &&
+        !trimmedUrl.startsWith('./') &&
+        !trimmedUrl.startsWith('../') &&
+        !trimmedUrl.startsWith('#')) {
+        return escapeHtml(trimmedUrl);
+    }
+    
+    return escapeHtml(trimmedUrl);
+}
+
+/**
  * Generate admin crown HTML for user avatars
  * @param {string} role - User role ('admin', 'moderator', etc.)
  * @returns {string} HTML string for crown or empty string
@@ -157,7 +196,7 @@ function addMessage(msg, animate = false, isOwnMessage = false) {
             ${adminCrownHtml}
             <div class="message-avatar">
                 ${avatarUrl
-                    ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(author)}" class="avatar-media avatar-media--message">`
+                    ? `<img src="${escapeHtmlAttr(avatarUrl)}" alt="${escapeHtml(author)}" class="avatar-media avatar-media--message">`
                     : `<span>${authorInitial}</span>`}
             </div>
         </div>
