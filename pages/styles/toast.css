@@ -1,0 +1,235 @@
+/* ==========================================
+   MESSAGE TOAST NOTIFICATIONS - Discord Style
+   ========================================== */
+
+:root {
+    --toast-bg: #2b2d31;
+    --toast-bg-hover: #313338;
+    --toast-author-color: #fff;
+    --toast-preview-color: #b5bac1;
+    --toast-room-color: #949ba4;
+    --toast-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --toast-max-width: 360px;
+    --toast-border-radius: 8px;
+    --toast-transition: 0.15s ease-out;
+}
+
+/* Light theme */
+[data-theme="light"] {
+    --toast-bg: #f2f3f5;
+    --toast-bg-hover: #e3e5e8;
+    --toast-author-color: #060607;
+    --toast-preview-color: #4e5058;
+    --toast-room-color: #5c5f66;
+}
+
+/* Toast Container - fixed position bottom-right */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: var(--toast-max-width);
+    max-width: calc(100vw - 40px);
+    z-index: 9998;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 10px;
+    pointer-events: none;
+}
+
+/* Individual Toast */
+.message-toast {
+    position: relative;
+    background: var(--toast-bg);
+    border-radius: var(--toast-border-radius);
+    padding: 12px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    box-shadow: var(--toast-shadow);
+    cursor: pointer;
+    pointer-events: auto;
+    transform: translateX(120%);
+    opacity: 0;
+    transition: transform var(--toast-transition), 
+                opacity var(--toast-transition),
+                background 0.15s ease;
+    overflow: hidden;
+}
+
+/* Show state */
+.message-toast.visible {
+    transform: translateX(0);
+    opacity: 1;
+    animation: toast-slide-in 0.15s ease-out;
+}
+
+/* Hover state */
+.message-toast:hover {
+    background: var(--toast-bg-hover);
+}
+
+/* Left accent bar for mentions */
+.message-toast.is-mention {
+    border-left: 3px solid var(--accent, #DB734F);
+}
+
+/* Avatar */
+.toast-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--glass-border, #1e1f22);
+}
+
+/* Content wrapper */
+.toast-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Header: author + room name */
+.toast-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.toast-author {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--toast-author-color);
+    line-height: 1.2;
+}
+
+.toast-room {
+    font-size: 12px;
+    color: var(--toast-room-color);
+    line-height: 1.2;
+}
+
+.toast-room::before {
+    content: '#';
+}
+
+/* Message preview */
+.toast-preview {
+    font-size: 13px;
+    color: var(--toast-preview-color);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+}
+
+/* Mention highlight */
+.toast-preview.is-mention {
+    color: var(--accent, #DB734F);
+    font-weight: 500;
+}
+
+/* Close button */
+.toast-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: var(--toast-room-color);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.message-toast:hover .toast-close {
+    opacity: 1;
+}
+
+.toast-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--toast-author-color);
+}
+
+/* Animations */
+@keyframes toast-slide-in {
+    from {
+        transform: translateX(120%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes toast-fade-out {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(120%);
+        opacity: 0;
+    }
+}
+
+.message-toast.removing {
+    animation: toast-fade-out 0.15s ease-in forwards;
+}
+
+/* Multiple toasts - stack effect */
+#toast-container .message-toast:nth-child(n+4) {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+    #toast-container {
+        bottom: 10px;
+        right: 10px;
+        left: 10px;
+        width: auto;
+        max-width: none;
+    }
+
+    .message-toast {
+        width: 100%;
+    }
+}
+
+/* Mention toast - elevated style */
+.message-toast.is-mention {
+    background: linear-gradient(135deg, var(--toast-bg), rgba(219, 115, 79, 0.1));
+}
+
+/* Mention badge */
+.toast-mention-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(219, 115, 79, 0.2);
+    color: var(--accent, #DB734F);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}

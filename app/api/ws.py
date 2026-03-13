@@ -467,7 +467,7 @@ async def global_websocket_endpoint(
                             await db.execute(
                                 select(Message)
                                 .where(Message.id == msg.id)
-                                .options(joinedload(Message.user), selectinload(Message.attachments), joinedload(Message.reply_to).joinedload(Message.user))
+                                .options(joinedload(Message.user), selectinload(Message.attachments), joinedload(Message.reply_to).joinedload(Message.user), joinedload(Message.room))
                             )
                         ).scalar_one()
 
@@ -489,6 +489,9 @@ async def global_websocket_endpoint(
                             "type": "message",
                             "id": msg.id,
                             "room_id": msg.room_id,
+                            "room": {
+                                "title": msg.room.title if msg.room else None
+                            },
                             "nonce": msg.nonce,
                             "body": msg.body,
                             "created_at": msg.created_at.isoformat(),

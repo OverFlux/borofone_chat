@@ -99,6 +99,11 @@ function connectWebSocket() {
                             if (data.room_id) {
                                 incrementRoomBadge(data.room_id, data.id);
                             }
+                            
+                            // Показать toast уведомление
+                            if (window.toastNotifications?.handleMessage) {
+                                window.toastNotifications.handleMessage(data);
+                            }
                         }
                     }
                 } else if (data.type === 'reaction') {
