@@ -11,6 +11,7 @@ export const legacyMainScripts = [
     '/js/main/chat/rooms/room-service.js',
     '/js/main/chat/messages/message-renderer.js',
     '/js/main/chat/messages/message-reactions.js',
+    '/js/main/chat/messages/scroll-manager.js',
     '/js/main/chat/messages/message-scroll.js',
     '/js/main/chat/input/message-input.js',
     '/js/main/chat/transport/websocket-client.js',

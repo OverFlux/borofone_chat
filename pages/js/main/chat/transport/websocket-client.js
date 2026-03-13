@@ -81,7 +81,9 @@ function connectWebSocket() {
                     // Если сообщение в ТЕКУЩЕЙ комнате — добавляем в DOM
                     if (currentRoom && data.room_id === currentRoom.id) {
                         if (!messagesList.querySelector(`[data-message-id="${data.id}"]`)) {
-                            addMessage(data, true);
+                            // Определяем, является ли сообщение своим
+                            const isOwnMessage = data.user?.id === currentUser?.id;
+                            addMessage(data, true, isOwnMessage);
                         }
 
                         // Если это НАШЕ сообщение — обновляем lastRead с правильным ID
