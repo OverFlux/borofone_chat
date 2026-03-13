@@ -103,6 +103,9 @@ async def global_websocket_endpoint(
             for room_id in room_ids:
                 await pubsub.subscribe(room_events_channel(room_id))
             
+            # Подписываемся на глобальный канал для звука poshelti
+            await pubsub.subscribe("global:poshelti")
+            
             print(f"[WS] {username} subscribed to {len(room_ids)} rooms: {room_ids[:5]}...")  # Log first 5 rooms
         except Exception as e:
             print(f"[WS] Subscribe failed: {e}")
@@ -454,6 +457,7 @@ async def global_websocket_endpoint(
                 message_body = data.get("body", "")
                 if "🖕🏻" in message_body and user.role == "admin":
                     # Отправляем событие воспроизведения звука всем пользователям
+                    # Публикуем в ОДИН глобальный канал, чтобы избежать дубликатов
                     poshelti_event = {
                         "type": "poshelti_sound",
                         "user_id": user_id,
@@ -461,12 +465,8 @@ async def global_websocket_endpoint(
                     }
                     if redis:
                         try:
-                            # Публикуем во все комнаты для охвата всех пользователей
-                            async with SessionLocal() as db_rooms:
-                                result = await db_rooms.execute(select(Room))
-                                all_rooms = result.scalars().all()
-                                for room in all_rooms:
-                                    await redis.publish(room_events_channel(room.id), json.dumps(poshelti_event))
+                            # Публикуем в глобальный канал для всех пользователей
+                            await redis.publish("global:poshelti", json.dumps(poshelti_event))
                         except Exception as e:
                             print(f"[WS] Publish poshelti sound failed: {e}")
 
@@ -587,18 +587,28 @@ async def global_websocket_endpoint(
                     continue
 
                 if message and message["type"] == "message":
-                    try:
-                        data = message["data"]
-                        # Log message_edited events for debugging
+                    # Проверяем, является ли это сообщением из глобального канала poshelti
+                    channel = message.get("channel", "")
+                    if channel == "global:poshelti":
+                        # Это событие звука poshelti - отправляем напрямую
                         try:
-                            parsed = json.loads(data)
-                            if parsed.get("type") == "message_edited":
-                                print(f"[WS] Broadcasting message_edited: room={parsed.get('room_id')}, message_id={parsed.get('message_id')}")
-                        except:
+                            await websocket.send_text(message["data"])
+                        except Exception:
                             pass
-                        await websocket.send_text(data)
-                    except Exception:
-                        break
+                    else:
+                        # Обычное сообщение комнаты
+                        try:
+                            data = message["data"]
+                            # Log message_edited events for debugging
+                            try:
+                                parsed = json.loads(data)
+                                if parsed.get("type") == "message_edited":
+                                    print(f"[WS] Broadcasting message_edited: room={parsed.get('room_id')}, message_id={parsed.get('message_id')}")
+                            except:
+                                pass
+                            await websocket.send_text(data)
+                        except Exception:
+                            pass
         except Exception as e:
             if "websocket.send" not in str(e):
                 print(f"[WS] send error: {e}")

@@ -163,9 +163,9 @@ const ScrollManager = (function() {
         // Показываем кнопку
         if (elements.button) {
             if (state.unreadCount > 0) {
-                // Обновляем текст
+                // Обновляем текст - только цифра
                 if (elements.buttonText) {
-                    elements.buttonText.textContent = `${state.unreadCount} нов${state.unreadCount === 1 ? 'ое' : state.unreadCount < 5 ? 'ых' : 'их'} сообщ${state.unreadCount === 1 ? 'ие' : 'ий'}`;
+                    elements.buttonText.textContent = state.unreadCount;
                 }
                 elements.button.classList.add('visible');
             }
