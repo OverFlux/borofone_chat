@@ -81,7 +81,9 @@ function connectWebSocket() {
                     // Если сообщение в ТЕКУЩЕЙ комнате — добавляем в DOM
                     if (currentRoom && data.room_id === currentRoom.id) {
                         if (!messagesList.querySelector(`[data-message-id="${data.id}"]`)) {
-                            addMessage(data, true);
+                            // Определяем, является ли сообщение своим
+                            const isOwnMessage = data.user?.id === currentUser?.id;
+                            addMessage(data, true, isOwnMessage);
                         }
 
                         // Если это НАШЕ сообщение — обновляем lastRead с правильным ID
@@ -98,6 +100,11 @@ function connectWebSocket() {
 
                             if (data.room_id) {
                                 incrementRoomBadge(data.room_id, data.id);
+                            }
+                            
+                            // Показать toast уведомление
+                            if (window.toastNotifications?.handleMessage) {
+                                window.toastNotifications.handleMessage(data);
                             }
                         }
                     }
@@ -127,6 +134,13 @@ function connectWebSocket() {
                     if (messageEl) {
                         messageEl.remove();
                     }
+                } else if (data.type === 'poshelti_sound') {
+                    // Воспроизводим звук poshelti.mp3 при получении события от админа
+                    console.log('[WS] Received poshelti_sound event from:', data.username);
+                    const posheltiAudio = new Audio('/sounds/poshelti.mp3');
+                    posheltiAudio.preload = 'auto';
+                    posheltiAudio.volume = 0.10; // 15% громкости
+                    posheltiAudio.play().catch(err => console.error('[WS] Error playing poshelti sound:', err));
                 } else if (data.type === 'typing') {
                     handleTypingEvent(data);
                 } else if (data.type === 'room_joined') {

@@ -284,7 +284,7 @@ async function sendMessage() {
 
             // HTTP fallback — добавляем сразу сами, WS не пришлёт
             if (!messagesList.querySelector(`[data-message-id="${msg.id}"]`)) {
-                addMessage(msg, true);
+                addMessage(msg, true, true); // true = animate, true = isOwnMessage
             }
             clearReplyTarget();
         }

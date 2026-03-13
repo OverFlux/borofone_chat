@@ -139,6 +139,11 @@ function selectRoom(roomId) {
     typingUsers = {};
     updateTypingIndicator();
 
+    // Сбрасываем состояние скролла перед загрузкой новых сообщений
+    if (window.ScrollManager) {
+        window.ScrollManager.reset();
+    }
+
     // Load messages (WebSocket уже подключен глобально)
     loadMessages(roomId);
 

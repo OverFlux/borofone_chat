@@ -3093,7 +3093,7 @@ async function sendMessage() {
 
             // HTTP fallback — добавляем сразу сами, WS не пришлёт
             if (!messagesList.querySelector(`[data-message-id="${msg.id}"]`)) {
-                addMessage(msg, true);
+                addMessage(msg, true, true); // true = animate, true = isOwnMessage
             }
             clearReplyTarget();
         }
@@ -3209,7 +3209,9 @@ function connectWebSocket() {
                     // Если сообщение в ТЕКУЩЕЙ комнате — добавляем в DOM
                     if (currentRoom && data.room_id === currentRoom.id) {
                         if (!messagesList.querySelector(`[data-message-id="${data.id}"]`)) {
-                            addMessage(data, true);
+                            // Определяем, является ли сообщение своим
+                            const isOwnMessage = data.user?.id === currentUser?.id;
+                            addMessage(data, true, isOwnMessage);
                         }
 
                         // Если это НАШЕ сообщение — обновляем lastRead с правильным ID
@@ -3701,6 +3703,11 @@ if (sendBtn) {
 
 // Shift+Enter for line break (like Discord)
 messageInput.addEventListener('keydown', (e) => {
+    // Initialize audio on first keystroke (for notification sound)
+    if (window.notifications?.initAudioOnInteraction) {
+        window.notifications.initAudioOnInteraction();
+    }
+    
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault(); // Prevent form submit
         e.stopPropagation(); // Дополнительная защита
@@ -5272,6 +5279,18 @@ async function startPolling() {
                         const shouldNotify = window.notifications.claimMessageNotification(lastMessage.id, room.id);
                         if (shouldNotify) {
                             window.notifications.playNotificationSound();
+                            
+                            // Показать toast уведомление
+                            if (window.toastNotifications?.handleMessage) {
+                                // Add room info to message for toast
+                                const messageWithRoom = {
+                                    ...lastMessage,
+                                    room: {
+                                        title: room.title || room.name
+                                    }
+                                };
+                                window.toastNotifications.handleMessage(messageWithRoom);
+                            }
                         }
                     }
                 }

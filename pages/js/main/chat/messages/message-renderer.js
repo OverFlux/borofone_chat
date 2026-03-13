@@ -40,7 +40,11 @@ async function loadMessages(roomId) {
         const messages = await response.json();
 
         messagesList.innerHTML = '';
-        resetScroll();
+        
+        // Сбрасываем состояние скролл менеджера
+        if (window.ScrollManager) {
+            window.ScrollManager.reset();
+        }
 
         if (messages.length === 0) {
             messagesList.innerHTML = `
@@ -49,6 +53,10 @@ async function loadMessages(roomId) {
                     <p>Нет сообщений. Напишите первым!</p>
                 </div>
             `;
+            // Скроллим к низу если нет сообщений
+            if (window.ScrollManager) {
+                window.ScrollManager.scrollOnRoomChange();
+            }
         } else {
             const lastRead = window.notifications ? window.notifications.getLastReadMessageId(roomId) : 0;
             let unreadDividerAdded = false;
@@ -67,7 +75,11 @@ async function loadMessages(roomId) {
             });
 
             // Скроллим вниз после загрузки всех сообщений (с ожиданием изображений)
-            scrollToBottomInitial();
+            if (window.ScrollManager) {
+                window.ScrollManager.scrollOnPageLoad();
+            } else {
+                scrollToBottomInitial();
+            }
             
             // Initialize audio players for loaded messages
             if (window.initAudioPlayers) {
@@ -91,7 +103,7 @@ async function loadMessages(roomId) {
     }
 }
 
-function addMessage(msg, animate = false) {
+function addMessage(msg, animate = false, isOwnMessage = false) {
     // ← ВАЖНО: Удаляем плейсхолдер если есть
     const placeholder = messagesList.querySelector('.placeholder-message');
     if (placeholder) {
@@ -180,7 +192,21 @@ function addMessage(msg, animate = false) {
     }
 
     messagesList.appendChild(messageEl);
-    if (animate) scrollToBottomWithImages();
+    
+    // Используем ScrollManager для управления скроллом
+    if (animate && window.ScrollManager) {
+        const hasAttachments = msg.attachments && msg.attachments.length > 0;
+        if (hasAttachments) {
+            window.ScrollManager.scrollOnNewAttachment(msg, isOwnMessage);
+        } else {
+            window.ScrollManager.scrollOnNewMessage(msg, isOwnMessage);
+        }
+    }
+    
+    // Fallback на старый метод если ScrollManager недоступен
+    if (animate && !window.ScrollManager) {
+        scrollToBottomWithImages();
+    }
     
     // Initialize audio players for new message
     if (window.initAudioPlayers) {

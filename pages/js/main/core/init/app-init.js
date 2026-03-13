@@ -59,6 +59,12 @@ async function init() {
     await loadRooms();
     completeLoadingTask('Интерфейс');
 
+    // Инициализируем ScrollManager после загрузки комнат
+    if (window.ScrollManager) {
+        window.ScrollManager.init('messagesContainer', 'messagesList', null);
+        console.log('[AppInit] ScrollManager initialized');
+    }
+
     loadVoiceRooms().catch((error) => {
         console.warn('[Voice] Failed to load voice rooms during init:', error);
     });

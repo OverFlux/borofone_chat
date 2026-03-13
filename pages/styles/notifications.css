@@ -76,6 +76,39 @@
     left: 0;
 }
 
+/* ==========================================
+   SCROLL TO BOTTOM BUTTON
+   ========================================== */
+
+.scroll-to-bottom {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: #f23f42;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.scroll-to-bottom:hover {
+    background: #d63839;
+    transform: scale(1.05);
+}
+
+.scroll-to-bottom.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
 /* Анимация для новых сообщений (через WS) */
 .message-new {
     animation: message-slide-in 0.2s ease-out;

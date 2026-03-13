@@ -1198,7 +1198,7 @@ function renderMessageAttachments(attachments) {
                 } else if (isVideo) {
                     return `
                         <div class="attachment-video">
-                            <video controls preload="metadata">
+                            <video controls preload="metadata" playsinline>
                                 <source src="${escapeHtmlLocal(fileUrl)}" type="${escapeHtmlLocal(att.mime_type)}">
                             </video>
                         </div>

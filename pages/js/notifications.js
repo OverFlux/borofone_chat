@@ -63,6 +63,7 @@ function toggleDoNotDisturb() {
 
 // ── Audio Context ─────────────────────────────────────────────────
 let notificationAudio = null;
+let audioInitialized = false;
 
 function getNotificationAudio() {
     if (!notificationAudio) {
@@ -71,6 +72,60 @@ function getNotificationAudio() {
         notificationAudio.volume = 0.3; // 30% громкости
     }
     return notificationAudio;
+}
+
+/**
+ * Попытка инициализировать аудио при загрузке страницы
+ * Используем трюк с play/pause для обхода ограничения autoplay
+ */
+function initAudioOnLoad() {
+    if (audioInitialized) return;
+    
+    try {
+        const audio = getNotificationAudio();
+        audio.volume = 0; // без звука
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    audio.volume = 0.3;
+                    audioInitialized = true;
+                    console.log('[Notifications] Audio initialized on load');
+                })
+                .catch(() => {
+                    // Игнорируем ошибку - звук не работает без взаимодействия
+                    // Будет инициализирован при первом клике
+                });
+        }
+    } catch (e) {
+        // Игнорируем ошибки
+    }
+}
+
+/**
+ * Инициализировать аудио при первом взаимодействии пользователя
+ * Это необходимо для обхода ограничения браузера на autoplay
+ */
+function initAudioOnInteraction() {
+    if (audioInitialized) return;
+    
+    const audio = getNotificationAudio();
+    audio.volume = 0.3;
+    audio.load();
+    audioInitialized = true;
+}
+
+// Пробуем инициализировать при загрузке
+if (typeof window !== 'undefined') {
+    window.addEventListener('load', initAudioOnLoad);
+}
+
+// Слушаем первое взаимодействие пользователя (fallback)
+if (typeof document !== 'undefined') {
+    document.addEventListener('click', initAudioOnInteraction, { once: true });
+    document.addEventListener('keydown', initAudioOnInteraction, { once: true });
 }
 
 // ── Notification Sound ────────────────────────────────────────────
@@ -226,4 +281,5 @@ window.notifications = {
     setDoNotDisturb,
     toggleDoNotDisturb,
     claimMessageNotification,
+    initAudioOnInteraction,
 };

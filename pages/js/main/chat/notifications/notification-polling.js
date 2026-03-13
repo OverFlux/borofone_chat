@@ -52,6 +52,18 @@ async function startPolling() {
                         const shouldNotify = window.notifications.claimMessageNotification(lastMessage.id, room.id);
                         if (shouldNotify) {
                             window.notifications.playNotificationSound();
+                            
+                            // Показать toast уведомление
+                            if (window.toastNotifications?.handleMessage) {
+                                // Add room info to message for toast
+                                const messageWithRoom = {
+                                    ...lastMessage,
+                                    room: {
+                                        title: room.title || room.name
+                                    }
+                                };
+                                window.toastNotifications.handleMessage(messageWithRoom);
+                            }
                         }
                     }
                 }
