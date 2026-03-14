@@ -116,6 +116,11 @@ function openSettingsModal() {
         settingsHeadphoneVolumeValue.textContent = `${headphoneVolumeSlider.value}%`;
     }
 
+    // Update hotkey display
+    if (typeof updateHotkeyDisplay === 'function') {
+        updateHotkeyDisplay();
+    }
+
     // Reset to first tab
     const firstTabBtn = document.querySelector('.settings-tab-btn');
     const firstTabPanel = document.querySelector('.settings-tab-panel');

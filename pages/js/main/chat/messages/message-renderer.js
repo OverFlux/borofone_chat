@@ -160,7 +160,12 @@ function addMessage(msg, animate = false, isOwnMessage = false) {
 
     const author = msg.user?.display_name || msg.author || 'Unknown';
     const username = msg.user?.username || 'unknown';
-    const authorInitial = author[0].toUpperCase();
+    // Безопасно вычисляем и экранируем инициал автора
+    let rawInitial = '';
+    if (typeof author === 'string' && author.length > 0) {
+        rawInitial = author[0].toUpperCase();
+    }
+    const authorInitial = escapeHtml(rawInitial || 'U');
     const avatarUrl = withAvatarCacheBuster(
         normalizeAvatarUrl(msg.user?.avatar_url),
         msg.user?.id
@@ -225,7 +230,7 @@ function addMessage(msg, animate = false, isOwnMessage = false) {
         avatarImage.addEventListener('error', () => {
             const avatarWrapper = messageEl.querySelector('.message-avatar-wrapper');
             if (avatarWrapper) {
-                avatarWrapper.innerHTML = `${adminCrownHtml}<div class="message-avatar"><span>${escapeHtml(authorInitial)}</span></div>`;
+                avatarWrapper.innerHTML = `${adminCrownHtml}<div class="message-avatar"><span>${authorInitial}</span></div>`;
             }
         }, { once: true });
     }

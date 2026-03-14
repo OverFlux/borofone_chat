@@ -2,6 +2,52 @@
 // VOICE CHAT (MVP)
 // ==========================================
 
+// Mute button sound effect
+let silenceEmpSound = null;
+let silenceEmpSoundError = false;
+
+/**
+ * Initialize the mute button sound effect
+ * Preloads the audio file for low-latency playback
+ */
+function initMuteSound() {
+    try {
+        silenceEmpSound = new Audio('./sounds/silence_emp.mp3');
+        silenceEmpSound.preload = 'auto';
+        silenceEmpSound.addEventListener('error', (e) => {
+            console.warn('[MuteSound] Failed to load audio file:', e);
+            silenceEmpSoundError = true;
+        });
+        // Force load to check for errors early
+        silenceEmpSound.load();
+    } catch (err) {
+        console.warn('[MuteSound] Error initializing audio:', err);
+        silenceEmpSoundError = true;
+    }
+}
+
+/**
+ * Play the mute button sound effect
+ * Handles errors gracefully and ensures sound plays without delays
+ */
+function playMuteSound() {
+    if (silenceEmpSoundError || !silenceEmpSound) {
+        return;
+    }
+    try {
+        silenceEmpSound.currentTime = 0;
+        silenceEmpSound.volume = 0.15;
+        const playPromise = silenceEmpSound.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(err => {
+                console.warn('[MuteSound] Playback failed:', err);
+            });
+        }
+    } catch (err) {
+        console.warn('[MuteSound] Error playing sound:', err);
+    }
+}
+
 /**
  * Escape HTML attribute value (for use in src, href, etc.)
  * This prevents XSS in URL attributes by validating the URL scheme
@@ -1265,7 +1311,10 @@ voiceRoomsList.addEventListener('click', async (event) => {
 
 createVoiceRoomBtn.addEventListener('click', () => openModal('voice'));
 
-toggleMicBtn.addEventListener('click', () => setMute(!isMuted));
+toggleMicBtn.addEventListener('click', () => {
+    playMuteSound();
+    setMute(!isMuted);
+});
 toggleDeafenBtn.addEventListener('click', () => setDeafen(!isDeafened));
 if (toggleScreenShareBtn) {
     toggleScreenShareBtn.addEventListener('click', () => {
@@ -1518,3 +1567,237 @@ if (micVolumeValue) micVolumeValue.textContent = `${Math.round(micGainValue * 10
 if (headphoneVolumeValue) headphoneVolumeValue.textContent = `${Math.round(headphonesGainValue * 100)}%`;
 updateScreenShareButtonState();
 renderScreenShareGrid();
+
+// Initialize mute button sound effect
+initMuteSound();
+
+// ==========================================
+// HOTKEYS SETTINGS
+// ==========================================
+
+// Default hotkey: Ctrl+M (or Cmd+M on Mac)
+const DEFAULT_MUTE_HOTKEY = {
+    key: 'm',
+    ctrl: true,
+    shift: false,
+    alt: false,
+    meta: false
+};
+
+// Hotkey storage key
+const MUTE_HOTKEY_STORAGE_KEY = 'voiceMuteHotkey';
+
+// Current hotkey configuration
+let muteHotkey = null;
+
+// Recording state
+let isRecordingHotkey = false;
+
+/**
+ * Load hotkey from localStorage or use default
+ */
+function loadHotkey() {
+    try {
+        const stored = localStorage.getItem(MUTE_HOTKEY_STORAGE_KEY);
+        if (stored) {
+            muteHotkey = JSON.parse(stored);
+        } else {
+            muteHotkey = { ...DEFAULT_MUTE_HOTKEY };
+        }
+    } catch (e) {
+        muteHotkey = { ...DEFAULT_MUTE_HOTKEY };
+    }
+    updateHotkeyDisplay();
+}
+
+/**
+ * Save hotkey to localStorage
+ */
+function saveHotkey() {
+    try {
+        localStorage.setItem(MUTE_HOTKEY_STORAGE_KEY, JSON.stringify(muteHotkey));
+    } catch (e) {
+        console.warn('[Hotkey] Failed to save:', e);
+    }
+}
+
+/**
+ * Format hotkey for display
+ */
+function formatHotkeyDisplay(hotkey) {
+    if (!hotkey) return 'Не назначено';
+    
+    const parts = [];
+    if (hotkey.ctrl) parts.push('Ctrl');
+    if (hotkey.shift) parts.push('Shift');
+    if (hotkey.alt) parts.push('Alt');
+    if (hotkey.meta) parts.push('Meta');
+    
+    // Format key name
+    let keyName = hotkey.key;
+    if (keyName === ' ') keyName = 'Space';
+    else if (keyName.length === 1) keyName = keyName.toUpperCase();
+    else keyName = keyName.charAt(0).toUpperCase() + keyName.slice(1);
+    
+    parts.push(keyName);
+    return parts.join(' + ');
+}
+
+/**
+ * Update hotkey display in settings
+ */
+function updateHotkeyDisplay() {
+    const displayEl = document.getElementById('hotkeyMuteDisplay');
+    if (displayEl) {
+        displayEl.textContent = formatHotkeyDisplay(muteHotkey);
+    }
+}
+
+/**
+ * Reset hotkey to default
+ */
+function resetMuteHotkey() {
+    muteHotkey = { ...DEFAULT_MUTE_HOTKEY };
+    saveHotkey();
+    updateHotkeyDisplay();
+    showNotification('Горячая клавиша сброшена на значение по умолчанию (Ctrl+M)', 'success');
+}
+
+/**
+ * Start recording hotkey
+ */
+function startHotkeyRecording() {
+    isRecordingHotkey = true;
+    const btn = document.getElementById('hotkeyMuteBtn');
+    if (btn) {
+        btn.classList.add('recording');
+        btn.querySelector('.hotkey-current-key').textContent = 'Нажмите клавишу...';
+    }
+    // Add temporary keydown listener
+    document.addEventListener('keydown', handleHotkeyRecord, { once: true });
+}
+
+/**
+ * Handle key recording
+ */
+function handleHotkeyRecord(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Ignore certain keys
+    if (e.key === 'Escape') {
+        cancelHotkeyRecording();
+        return;
+    }
+    
+    // Build hotkey object
+    const newHotkey = {
+        key: e.key.toLowerCase(),
+        ctrl: e.ctrlKey || e.metaKey,
+        shift: e.shiftKey,
+        alt: e.altKey,
+        meta: e.metaKey
+    };
+    
+    // Must have at least one modifier or a non-modifier key
+    if (!newHotkey.key || newHotkey.key === 'control' || newHotkey.key === 'shift' || newHotkey.key === 'alt' || newHotkey.key === 'meta') {
+        cancelHotkeyRecording();
+        return;
+    }
+    
+    muteHotkey = newHotkey;
+    saveHotkey();
+    
+    isRecordingHotkey = false;
+    const btn = document.getElementById('hotkeyMuteBtn');
+    if (btn) {
+        btn.classList.remove('recording');
+    }
+    
+    updateHotkeyDisplay();
+    showNotification(`Горячая клавиша установлена: ${formatHotkeyDisplay(muteHotkey)}`, 'success');
+}
+
+/**
+ * Cancel hotkey recording
+ */
+function cancelHotkeyRecording() {
+    isRecordingHotkey = false;
+    const btn = document.getElementById('hotkeyMuteBtn');
+    if (btn) {
+        btn.classList.remove('recording');
+    }
+    updateHotkeyDisplay();
+}
+
+/**
+ * Check if event matches current hotkey
+ */
+function isHotkeyMatch(e) {
+    if (!muteHotkey) return false;
+    
+    const keyMatch = e.key.toLowerCase() === muteHotkey.key;
+    const ctrlMatch = (e.ctrlKey || e.metaKey) === muteHotkey.ctrl;
+    const shiftMatch = e.shiftKey === muteHotkey.shift;
+    const altMatch = e.altKey === muteHotkey.alt;
+    
+    return keyMatch && ctrlMatch && shiftMatch && altMatch;
+}
+
+/**
+ * Global keyboard handler for hotkeys
+ */
+function handleGlobalKeydown(e) {
+    // Don't trigger if recording
+    if (isRecordingHotkey) return;
+    
+    // Don't trigger in input fields
+    const tagName = e.target.tagName;
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
+        // Allow if it's our settings hotkey button focused
+        if (document.activeElement === document.getElementById('hotkeyMuteBtn')) {
+            // Let the recording handler deal with it
+        } else {
+            return;
+        }
+    }
+    
+    // Check mute hotkey
+    if (isHotkeyMatch(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Only work if in a voice room
+        if (currentVoiceRoomId) {
+            // Play the same sound as button click
+            playMuteSound();
+            // Toggle mute
+            setMute(!isMuted);
+        }
+    }
+}
+
+// Initialize hotkey system
+loadHotkey();
+
+// Add event listeners for hotkey settings UI
+const hotkeyMuteBtn = document.getElementById('hotkeyMuteBtn');
+const hotkeyMuteReset = document.getElementById('hotkeyMuteReset');
+
+if (hotkeyMuteBtn) {
+    hotkeyMuteBtn.addEventListener('click', () => {
+        if (!isRecordingHotkey) {
+            startHotkeyRecording();
+        }
+    });
+}
+
+if (hotkeyMuteReset) {
+    hotkeyMuteReset.addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetMuteHotkey();
+    });
+}
+
+// Add global keyboard listener
+document.addEventListener('keydown', handleGlobalKeydown, true); // Use capture phase for background handling

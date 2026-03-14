@@ -4204,6 +4204,100 @@ body {
     flex-shrink: 0;
 }
 
+/* Hotkey Settings Styles */
+.hotkey-settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.hotkey-setting-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+}
+
+.hotkey-setting-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.hotkey-action-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.hotkey-action-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.hotkey-setting-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hotkey-bind-btn {
+    padding: 8px 16px;
+    background: var(--glass-hover);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 120px;
+    text-align: center;
+}
+
+.hotkey-bind-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.hotkey-bind-btn.recording {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: #ef4444;
+    color: #ef4444;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.hotkey-current-key {
+    font-family: monospace;
+}
+
+.hotkey-reset-btn {
+    padding: 8px;
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hotkey-reset-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
 /* ==========================================
    LOGOUT CONFIRMATION MODAL
    ========================================== */
