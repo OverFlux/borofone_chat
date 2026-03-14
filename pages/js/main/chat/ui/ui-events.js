@@ -184,7 +184,10 @@ messagesList.addEventListener('click', (event) => {
 
     const addBtn = event.target.closest('[data-add-reaction]');
     if (addBtn) {
-        toggleReaction(addBtn.dataset.messageId, addBtn.dataset.addReaction);
+        // Close picker immediately - animation will be shown when server confirms
+        const messageId = addBtn.dataset.messageId;
+        const emoji = addBtn.dataset.addReaction;
+        toggleReaction(messageId, emoji);
         closeReactionPicker();
         return;
     }
@@ -200,6 +203,8 @@ messagesList.addEventListener('click', (event) => {
         const messageEl = reactionBtn.closest('.message');
         if (!messageEl) return;
         if (messageEl.dataset.isDeleted === '1') return;
+        
+        // Animation will be shown when server confirms
         toggleReaction(messageEl.dataset.messageId, reactionBtn.dataset.emoji);
         return;
     }

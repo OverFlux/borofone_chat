@@ -520,10 +520,167 @@ function applyReactionUpdate(messageId, reactions, actorUserId = null, action = 
     }
 
     container.innerHTML = renderReactions(ordered);
+    
+    // Trigger animation if reaction was added by current user
+    if (action === 'added' && Number(actorUserId) === Number(currentUser?.id) && actionEmoji) {
+        // Small delay to let the DOM update first
+        requestAnimationFrame(() => {
+            triggerReactionAnimation(messageId, actionEmoji);
+        });
+    }
 }
 
 function isSafeReactionKey(value) {
     return Boolean(value) && value !== '__proto__' && value !== 'constructor' && value !== 'prototype';
+}
+
+// ==========================================
+// Reaction Animation (Telegram-style)
+// ==========================================
+
+// Rate limiting: track last animation time per message
+const reactionAnimationCooldowns = new Map();
+const REACTION_ANIMATION_COOLDOWN_MS = 2000; // 2 seconds cooldown
+
+function triggerReactionAnimation(messageId, emoji, triggerElement = null) {
+    if (!messageId || !emoji) return;
+    
+    // Check cooldown - prevent animation spam
+    const lastAnimationTime = reactionAnimationCooldowns.get(messageId);
+    const now = Date.now();
+    if (lastAnimationTime && (now - lastAnimationTime) < REACTION_ANIMATION_COOLDOWN_MS) {
+        return; // Still in cooldown, skip animation
+    }
+    
+    // Update cooldown
+    reactionAnimationCooldowns.set(messageId, now);
+    
+    // Clean up old entries to prevent memory leak
+    if (reactionAnimationCooldowns.size > 100) {
+        const entries = Array.from(reactionAnimationCooldowns.entries());
+        const cutoffTime = now - REACTION_ANIMATION_COOLDOWN_MS * 2;
+        for (const [key, time] of entries) {
+            if (time < cutoffTime) {
+                reactionAnimationCooldowns.delete(key);
+            }
+        }
+    }
+    
+    // Find the reaction chip that was just added/updated
+    const container = messagesList.querySelector(`[data-reactions-for="${messageId}"]`);
+    if (!container) return;
+    
+    // Find the specific reaction chip for this emoji
+    const reactionChip = container.querySelector(`[data-emoji="${CSS.escape(emoji)}"]`);
+    
+    let startX, startY;
+    
+    if (reactionChip) {
+        // Get position from the reaction chip
+        const rect = reactionChip.getBoundingClientRect();
+        startX = rect.left + rect.width / 2;
+        startY = rect.top + rect.height / 2;
+    } else if (triggerElement) {
+        // Use the trigger element position
+        const rect = triggerElement.getBoundingClientRect();
+        startX = rect.left + rect.width / 2;
+        startY = rect.top + rect.height / 2;
+    } else {
+        // Fallback to center of the message
+        const messageEl = messagesList.querySelector(`[data-message-id="${messageId}"]`);
+        if (!messageEl) return;
+        const rect = messageEl.getBoundingClientRect();
+        startX = rect.right - 50;
+        startY = rect.top + rect.height / 2;
+    }
+    
+    // Create flying emoji - clean and simple
+    createFlyingEmoji(emoji, startX, startY);
+    
+    // Second smaller flying emoji
+    setTimeout(() => {
+        createFlyingEmoji(emoji, startX - 20, startY + 8, true);
+    }, 80);
+    
+    // Third tiny flying emoji
+    setTimeout(() => {
+        createFlyingEmoji(emoji, startX + 25, startY - 8, 'tiny');
+    }, 160);
+    
+    // Fourth extra small flying emoji
+    setTimeout(() => {
+        createFlyingEmoji(emoji, startX - 15, startY + 15, 'tiny');
+    }, 240);
+    
+    // Create burst effect with mini emojis
+    createBurstEffect(emoji, startX, startY);
+}
+
+function createFlyingEmoji(emoji, x, y, small = false) {
+    const el = document.createElement('div');
+    el.className = 'reaction-fly-emoji' + (small ? ' reaction-fly-emoji--small' : '');
+    el.textContent = emoji;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    
+    document.body.appendChild(el);
+    
+    // Remove after animation completes
+    el.addEventListener('animationend', () => {
+        el.remove();
+    });
+}
+
+function createBurstEffect(emoji, x, y) {
+    // Create a clean circular burst of mini emojis
+    const miniEmojis = [
+        // Inner ring - 6 emojis
+        { angle: 0, distance: 25, delay: 0, size: 'normal' },
+        { angle: 60, distance: 25, delay: 15, size: 'normal' },
+        { angle: 120, distance: 25, delay: 30, size: 'normal' },
+        { angle: 180, distance: 25, delay: 45, size: 'normal' },
+        { angle: 240, distance: 25, delay: 60, size: 'normal' },
+        { angle: 300, distance: 25, delay: 75, size: 'normal' },
+        // Middle ring - 6 emojis
+        { angle: 30, distance: 40, delay: 20, size: 'normal' },
+        { angle: 90, distance: 40, delay: 35, size: 'normal' },
+        { angle: 150, distance: 40, delay: 50, size: 'normal' },
+        { angle: 210, distance: 40, delay: 65, size: 'normal' },
+        { angle: 270, distance: 40, delay: 80, size: 'normal' },
+        { angle: 330, distance: 40, delay: 95, size: 'normal' },
+        // Outer ring - 6 small emojis
+        { angle: 0, distance: 55, delay: 40, size: 'small', rotation: 0 },
+        { angle: 60, distance: 55, delay: 55, size: 'small', rotation: 15 },
+        { angle: 120, distance: 55, delay: 70, size: 'small', rotation: -15 },
+        { angle: 180, distance: 55, delay: 85, size: 'small', rotation: 0 },
+        { angle: 240, distance: 55, delay: 100, size: 'small', rotation: 10 },
+        { angle: 300, distance: 55, delay: 115, size: 'small', rotation: -10 },
+    ];
+    
+    miniEmojis.forEach((config) => {
+        setTimeout(() => {
+            const el = document.createElement('div');
+            el.className = 'reaction-burst-emoji' + (config.size === 'small' ? ' reaction-burst-emoji--small' : '');
+            el.textContent = emoji;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            
+            // Calculate burst direction using trigonometry
+            const angleRad = config.angle * (Math.PI / 180);
+            const burstX = Math.sin(angleRad) * config.distance + 'px';
+            const burstY = -Math.cos(angleRad) * config.distance + 'px';
+            
+            el.style.setProperty('--burst-x', burstX);
+            el.style.setProperty('--burst-y', burstY);
+            el.style.setProperty('--rotation', (config.rotation || 0) + 'deg');
+            
+            document.body.appendChild(el);
+            
+            el.addEventListener('animationend', () => {
+                el.remove();
+            });
+        }, config.delay);
+    });
 }
 
 function normalizeAvatarUrl(avatarUrl) {

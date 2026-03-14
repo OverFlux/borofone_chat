@@ -4961,6 +4961,126 @@ body {
     margin-top: 8px;
 }
 
+/* Reaction Flying Emoji Animation */
+.reaction-fly-emoji {
+    position: fixed;
+    pointer-events: none;
+    z-index: 10000;
+    font-size: 22px;
+    line-height: 1;
+    will-change: transform, opacity;
+    filter: none;
+    -webkit-filter: none;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+    box-shadow: none;
+    animation: reactionFlyOut 1.2s cubic-bezier(0.25, 0, 0.5, 1) forwards;
+}
+
+.reaction-fly-emoji--small {
+    font-size: 18px;
+    filter: none;
+    -webkit-filter: none;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+    box-shadow: none;
+    animation: reactionFlyOutSmall 1s cubic-bezier(0.25, 0, 0.5, 1) forwards;
+}
+
+.reaction-fly-emoji--tiny {
+    font-size: 14px;
+    filter: none;
+    -webkit-filter: none;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+    box-shadow: none;
+    animation: reactionFlyOutTiny 0.85s cubic-bezier(0.25, 0, 0.5, 1) forwards;
+}
+
+@keyframes reactionFlyOut {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -350%) scale(1);
+        opacity: 0;
+    }
+}
+
+@keyframes reactionFlyOutSmall {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -300%) scale(1);
+        opacity: 0;
+    }
+}
+
+@keyframes reactionFlyOutTiny {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -250%) scale(1);
+        opacity: 0;
+    }
+}
+
+/* Mini flying emojis burst effect - Circular explosion */
+.reaction-burst-container {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+.reaction-burst-emoji {
+    position: absolute;
+    font-size: 16px;
+    will-change: transform, opacity;
+    filter: none;
+    -webkit-filter: none;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+    box-shadow: none;
+    animation: reactionBurst 0.9s cubic-bezier(0.25, 0, 0.5, 1) forwards;
+}
+
+.reaction-burst-emoji--small {
+    font-size: 12px;
+    filter: none;
+    -webkit-filter: none;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+    box-shadow: none;
+    animation: reactionBurstSmall 0.75s cubic-bezier(0.25, 0, 0.5, 1) forwards;
+}
+
+@keyframes reactionBurst {
+    0% {
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(var(--burst-x), var(--burst-y)) scale(0) rotate(var(--rotation));
+        opacity: 0;
+    }
+}
+
+@keyframes reactionBurstSmall {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(var(--burst-x), var(--burst-y)) scale(0);
+        opacity: 0;
+    }
+}
+
 .reaction-chip,
 .reaction-add-btn {
     border: 1px solid rgba(255, 255, 255, 0.12);
@@ -4970,6 +5090,14 @@ body {
     padding: 2px 8px;
     font-size: 12px;
     cursor: pointer;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.reaction-chip:active,
+.reaction-add-btn:active {
+    transform: scale(0.95);
+    -webkit-tap-highlight-color: transparent;
 }
 
 .reaction-chip.active {
