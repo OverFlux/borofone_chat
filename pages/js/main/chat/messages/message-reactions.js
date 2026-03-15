@@ -540,7 +540,7 @@ function isSafeReactionKey(value) {
 
 // Rate limiting: track last animation time per message
 const reactionAnimationCooldowns = new Map();
-const REACTION_ANIMATION_COOLDOWN_MS = 2000; // 2 seconds cooldown
+const REACTION_ANIMATION_COOLDOWN_MS = 300; // 300ms cooldown between animations
 
 function triggerReactionAnimation(messageId, emoji, triggerElement = null) {
     if (!messageId || !emoji) return;

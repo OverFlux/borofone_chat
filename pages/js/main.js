@@ -6799,15 +6799,6 @@ async function init() {
     // Инициализируем emoji picker
     initEmojiPicker();
     
-    // Инициализируем Twemoji для Discord-подобных эмодзи
-    if (typeof twemoji !== 'undefined') {
-        twemoji.parse(document.body, {
-            base: 'https://cdn.jsdelivr.net/npm/twemoji@14.0.2/assets/',
-            folder: 'svg',
-            ext: '.svg'
-        });
-    }
-    
     // Глобальный keyboard shortcut для открытия emoji picker
     document.addEventListener('keydown', (e) => {
         // Ctrl+E or Cmd+E anywhere to open emoji picker
@@ -6966,63 +6957,6 @@ function initMobileUsersSidebar() {
             usersSidebarOverlay.classList.remove('active');
             document.body.style.overflow = '';
         });
-    }
-    
-    // Swipe gestures для мобильных
-    let touchStartX = 0;
-    let touchEndX = 0;
-    const minSwipeDistance = 50;
-    
-    // Swipe на чате - свайп вправо открывает список пользователей
-    const chatContainer = document.querySelector('.chat-container') || document.querySelector('.messages-container');
-    if (chatContainer) {
-        chatContainer.addEventListener('touchstart', (e) => {
-            touchStartX = e.changedTouches[0].screenX;
-        }, { passive: true });
-        
-        chatContainer.addEventListener('touchend', (e) => {
-            touchEndX = e.changedTouches[0].screenX;
-            handleSwipe();
-        }, { passive: true });
-    }
-    
-    // Swipe на сайдбаре - свайп влево закрывает его
-    usersSidebar.addEventListener('touchstart', (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-    
-    usersSidebar.addEventListener('touchend', (e) => {
-        touchEndX = e.changedTouches[0].screenX;
-        handleSidebarSwipe();
-    }, { passive: true });
-    
-    function handleSwipe() {
-        const swipeDistance = touchEndX - touchStartX;
-        // Свайп вправо - открыть сайдбар
-        if (swipeDistance > minSwipeDistance && window.innerWidth <= 640) {
-            // Проверяем, что сайдбар еще не открыт
-            if (!usersSidebar.classList.contains('active')) {
-                usersSidebar.classList.add('active');
-                if (usersSidebarOverlay) {
-                    usersSidebarOverlay.classList.add('active');
-                }
-                document.body.style.overflow = 'hidden';
-            }
-        }
-    }
-    
-    function handleSidebarSwipe() {
-        const swipeDistance = touchEndX - touchStartX;
-        // Свайп влево - закрыть сайдбар
-        if (swipeDistance < -minSwipeDistance && window.innerWidth <= 640) {
-            if (usersSidebar.classList.contains('active')) {
-                usersSidebar.classList.remove('active');
-                if (usersSidebarOverlay) {
-                    usersSidebarOverlay.classList.remove('active');
-                }
-                document.body.style.overflow = '';
-            }
-        }
     }
 }
 
