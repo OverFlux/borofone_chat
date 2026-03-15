@@ -335,11 +335,11 @@ function startPresenceTracking() {
     // Загружаем всех пользователей сразу
     loadAllUsers();
 
-    // Обновляем каждые 10 секунд
+    // Обновляем каждые 30 секунд (reduced from 10 for better performance)
     presenceInterval = setInterval(() => {
         loadAllUsers();
         sendPresenceHeartbeat();
-    }, 10000);
+    }, 30000);
 }
 
 /**

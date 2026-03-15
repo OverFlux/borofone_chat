@@ -3877,8 +3877,16 @@ function autoResizeMessageInput() {
     messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + 'px';
 }
 
+// Debounce timer for input auto-resize
+let autoResizeTimer = null;
+
 messageInput.addEventListener('input', () => {
-    autoResizeMessageInput();
+    // Debounce auto-resize to prevent layout thrashing on every keystroke
+    clearTimeout(autoResizeTimer);
+    autoResizeTimer = setTimeout(() => {
+        autoResizeMessageInput();
+    }, 16); // ~60fps
+    
     // Update send button state
     sendBtn.disabled = !messageInput.value.trim();
     // Check for text selection (for popup)
@@ -5247,11 +5255,11 @@ function startPresenceTracking() {
     // Загружаем всех пользователей сразу
     loadAllUsers();
 
-    // Обновляем каждые 10 секунд
+    // Обновляем каждые 30 секунд
     presenceInterval = setInterval(() => {
         loadAllUsers();
         sendPresenceHeartbeat();
-    }, 10000);
+    }, 30000);
 }
 
 /**

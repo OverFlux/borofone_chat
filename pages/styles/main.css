@@ -3,6 +3,56 @@
    ========================================== */
 
 /* ==========================================
+   PERFORMANCE OPTIMIZATIONS - Chrome lag fix
+   ========================================== */
+
+/* Fix for Chrome performance issues - isolate rendering for heavy elements */
+.rooms-sidebar,
+.messages-container,
+.emoji-picker,
+.message-toast,
+.voice-panel,
+.modal-overlay,
+.dropdown-menu,
+.context-menu {
+    contain: layout style paint;
+}
+
+/* Fix for Chrome: optimize message rendering */
+.message,
+.message-content,
+.message-text,
+.user-item {
+    contain: layout style;
+}
+
+/* Optimize scrollable areas */
+.messages-list,
+.users-sidebar,
+.emoji-grid,
+.stickers-grid,
+.gifs-grid {
+    contain: layout style;
+    overflow-scrolling: touch;
+}
+
+/* Optimize input to prevent layout thrashing on every keystroke */
+#messageInput {
+    contain: layout style;
+}
+
+/* NOTE: will-change creates persistent compositor layers which combined
+   with backdrop-filter causes severe performance issues in Chrome.
+   Only use will-change dynamically via JS during animations, not permanently. */
+.message-reaction-picker,
+.emoji-picker-modal,
+.modal-overlay,
+.dropdown-menu,
+.context-menu {
+    /* will-change: transform, opacity; - Removed: causes memory issues with backdrop-filter */
+}
+
+/* ==========================================
    БАЗОВЫЕ СТИЛИ И ПЕРЕМЕННЫЕ
    ========================================== */
 
@@ -130,8 +180,8 @@
 [data-theme="amoled"] .chat-main,
 [data-theme="amoled"] .user-panel {
     background: var(--glass-bg) !important;
-    backdrop-filter: blur(35px) saturate(1.15);
-    -webkit-backdrop-filter: blur(35px) saturate(1.15);
+    backdrop-filter: blur(8px) saturate(1.15);
+    -webkit-backdrop-filter: blur(8px) saturate(1.15);
     border-color: var(--glass-border) !important;
     box-shadow: var(--shadow-lg), inset 0 1px 0 var(--inset-border);
 }
@@ -149,8 +199,8 @@
 [data-theme="amoled"] .context-menu {
     background: var(--modal-bg) !important;
     border-color: var(--glass-border) !important;
-    backdrop-filter: blur(25px) saturate(1.2);
-    -webkit-backdrop-filter: blur(25px) saturate(1.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     box-shadow: var(--shadow-lg);
 }
 
@@ -159,8 +209,8 @@
 [data-theme="amoled"] .message-context-menu,
 [data-theme="amoled"] .message-reply-btn {
     background: var(--modal-bg) !important;
-    backdrop-filter: blur(15px) saturate(1.1);
-    -webkit-backdrop-filter: blur(15px) saturate(1.1);
+    backdrop-filter: blur(8px) saturate(1.1);
+    -webkit-backdrop-filter: blur(8px) saturate(1.1);
     border-color: var(--glass-border) !important;
 }
 
@@ -171,6 +221,18 @@ body {
     overflow: hidden;
     height: 100vh;
     -webkit-font-smoothing: antialiased;
+}
+
+/* Chrome fallback for backdrop-filter performance */
+@supports not (backdrop-filter: blur(10px)) {
+    .rooms-sidebar,
+    .chat-main,
+    .users-sidebar,
+    .modal-content,
+    .room-context-menu,
+    .participant-context-menu {
+        background: rgba(30, 31, 34, 0.95) !important;
+    }
 }
 
 /* ==========================================
@@ -185,17 +247,17 @@ body {
     height: 100%;
     z-index: 0;
     pointer-events: none;
-}
+} */
 
-.gradient-orb {
+/* .gradient-orb {
     position: absolute;
     border-radius: 50%;
     filter: blur(120px);
     opacity: 0.2;
     animation: float 30s ease-in-out infinite;
-}
+} */
 
-.orb-1 {
+/* .orb-1 {
     width: 600px;
     height: 600px;
     background: radial-gradient(circle, #DB734F, #c96543);
@@ -248,8 +310,8 @@ body {
 .rooms-sidebar {
     width: 280px;
     background: var(--glass-bg);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--glass-border);
     border-radius: 16px;
     display: flex;
@@ -921,8 +983,8 @@ body {
 .chat-main {
     flex: 1;
     background: var(--glass-bg);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--glass-border);
     border-radius: 16px;
     display: flex;
@@ -2390,8 +2452,8 @@ img.twemoji-emoji {
 .users-sidebar {
     width: 260px;
     background: var(--glass-bg);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--glass-border);
     border-radius: 16px;
     display: flex;
@@ -2484,8 +2546,8 @@ img.twemoji-emoji {
 
 .modal-content {
     background: var(--glass-bg);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--glass-border);
     border-radius: 16px;
     width: 90%;
@@ -2802,10 +2864,15 @@ img.twemoji-emoji {
     }
 }
 
-@media\\\\ \\\\(max-width:\\\\ 640px\\\\)\\\\ \\\\{\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\.rooms-sidebar\\\\ \\\\{\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ position:\\\\ absolute;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ left:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ top:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ bottom:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ z-index:\\\\ 100;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ transform:\\\\ translateX\\\\(-100%\\\\)\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ transition:\\\\ transform\\\\ 0\\\\.3s\\\\ ease;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ margin:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ }
-
-    .rooms-sidebar.active {
-        transform: translateX(0) !important;
+@media (max-width: 640px) {
+    .rooms-sidebar {
+        position: absolute;
+        left: 0 !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        z-index: 100;
+        transform: translateX(-100%) !important;
+        transition: transform 0.3s ease;
     }
 
     /* Users sidebar - выезжает справа */
@@ -2826,23 +2893,8 @@ img.twemoji-emoji {
         pointer-events: none;
     }
 
-    .users-sidebar.active {
-        transform: translateX(0) !important;
-        pointer-events: auto;
-    }
-
     /* Overlay for users sidebar */
     .users-sidebar-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.6);
-        z-index: 999;
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
         transition: opacity 0.3s, visibility 0.3s;
     }
 
@@ -6375,8 +6427,8 @@ img.twemoji-emoji {
     z-index: 10002;
     min-width: 180px;
     background: var(--glass-bg);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--glass-border);
     border-radius: 12px;
     padding: 8px;
@@ -6456,8 +6508,8 @@ img.twemoji-emoji {
     border-radius: 12px;
     padding: 14px;
     background: var(--glass-bg);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--glass-border);
     box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
@@ -6637,7 +6689,6 @@ img.twemoji-emoji {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    display: flex !important;
     align-items: center;
     justify-content: center;
     border-radius: inherit;
@@ -8590,12 +8641,11 @@ img.twemoji-emoji {
 }
 
 /* Мобильная версия чата */
-@media\\\\ \\\\(max-width:\\\\ 640px\\\\)\\\\ \\\\{\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\.rooms-sidebar\\\\ \\\\{\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ position:\\\\ absolute;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ left:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ top:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ bottom:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ z-index:\\\\ 100;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ transform:\\\\ translateX\\\\(-100%\\\\)\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ transition:\\\\ transform\\\\ 0\\\\.3s\\\\ ease;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ margin:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ }
-    
+/* Мобильная версия чата */
+@media (max-width: 640px) {
     /* Показываем мобильные кнопки */
     .mobile-menu-btn,
     .mobile-users-btn {
-        display: flex !important;
     }
     
     /* Скрываем десктопную кнопку users */
@@ -8604,7 +8654,6 @@ img.twemoji-emoji {
     }
     
     .app-container {
-        display: flex !important;
         flex-direction: column;
         height: 100vh !important;
         height: 100dvh !important;
@@ -8664,7 +8713,6 @@ img.twemoji-emoji {
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         border-radius: 0 !important;
         margin: 0 !important;
-        display: flex !important;
         pointer-events: none;
     }
     
@@ -8696,7 +8744,6 @@ img.twemoji-emoji {
     
     /* Кнопка открытия меню */
     .mobile-menu-btn {
-        display: flex !important;
     }
     
     /* Основная область чата */
@@ -8739,7 +8786,6 @@ img.twemoji-emoji {
     
     .games-btn, 
     .voice-toggle-btn {
-        display: flex !important;
         z-index: 501;
         position: relative;
     }
@@ -8902,7 +8948,6 @@ img.twemoji-emoji {
     
     /* Bottom navigation для мобильных */
     .bottom-nav {
-        display: flex !important;
         position: fixed;
         bottom: 0;
         left: 0;
@@ -8991,7 +9036,7 @@ img.twemoji-emoji {
 }
 
 /* Планшеты (768px - 1024px) */
-@media\\ \\(min-width:\\ 641px\\)\\ and\\ \\(max-width:\\ 1024px\\)\\ \\{\\r\\n\\ \\ \\ \\ \\.app-container\\ \\{\\r\\n\\ \\ \\ \\ \\ \\ \\ \\ padding:\\ 12px;\\r\\n\\ \\ \\ \\ }
+@media (min-width: 641px) and (max-width: 1024px) {
     
     .rooms-sidebar {
         width: 220px;
@@ -9016,7 +9061,7 @@ img.twemoji-emoji {
 }
 
 /* Landscape мобильные */
-@media\\\\ \\\\(max-width:\\\\ 640px\\\\)\\\\ \\\\{\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\.rooms-sidebar\\\\ \\\\{\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ position:\\\\ absolute;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ left:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ top:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ bottom:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ z-index:\\\\ 100;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ transform:\\\\ translateX\\\\(-100%\\\\)\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ transition:\\\\ transform\\\\ 0\\\\.3s\\\\ ease;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ margin:\\\\ 0\\\\ !important;\\\\r\\\\n\\\\ \\\\ \\\\ \\\\ }
+@media (max-width: 640px) {
     
     .message-input {
         padding: 8px !important;

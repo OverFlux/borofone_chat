@@ -49,7 +49,7 @@
       redis:
         condition: service_healthy
       mongodb:
-        condition: service_started
+        condition: service_healthy
     networks:
       - borofone_network
 

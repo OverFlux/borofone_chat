@@ -17,6 +17,9 @@ if (sendBtn) {
     });
 }
 
+// Debounce timer for input auto-resize
+let autoResizeTimer = null;
+
 // Shift+Enter for line break (like Discord)
 messageInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -34,7 +37,12 @@ function autoResizeMessageInput() {
 }
 
 messageInput.addEventListener('input', () => {
-    autoResizeMessageInput();
+    // Debounce auto-resize to prevent layout thrashing on every keystroke
+    clearTimeout(autoResizeTimer);
+    autoResizeTimer = setTimeout(() => {
+        autoResizeMessageInput();
+    }, 16); // ~60fps
+    
     // Update send button state
     sendBtn.disabled = !messageInput.value.trim();
     // Check for text selection (for popup)
