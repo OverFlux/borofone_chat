@@ -1764,8 +1764,18 @@ async function loadMessages(roomId) {
                 addMessage(msg, false);
             });
 
+            // Initialize lazy loading for new attachments
+            if (window.observeNewLazyAttachments) {
+                window.observeNewLazyAttachments();
+            }
+
             // Скроллим вниз после загрузки всех сообщений (с ожиданием изображений)
             scrollToBottomInitial();
+            
+            // Initialize lazy loading for new attachments
+            if (window.observeNewLazyAttachments) {
+                window.observeNewLazyAttachments();
+            }
             
             // Initialize audio players for loaded messages
             if (window.initAudioPlayers) {
@@ -3229,6 +3239,11 @@ async function sendMessage() {
             // HTTP fallback — добавляем сразу сами, WS не пришлёт
             if (!messagesList.querySelector(`[data-message-id="${msg.id}"]`)) {
                 addMessage(msg, true, true); // true = animate, true = isOwnMessage
+                
+                // Initialize lazy loading for new attachments
+                if (window.observeNewLazyAttachments) {
+                    window.observeNewLazyAttachments();
+                }
             }
             clearReplyTarget();
         }
@@ -3347,6 +3362,11 @@ function connectWebSocket() {
                             // Определяем, является ли сообщение своим
                             const isOwnMessage = data.user?.id === currentUser?.id;
                             addMessage(data, true, isOwnMessage);
+                            
+                            // Initialize lazy loading for new attachments
+                            if (window.observeNewLazyAttachments) {
+                                window.observeNewLazyAttachments();
+                            }
                         }
 
                         // Если это НАШЕ сообщение — обновляем lastRead с правильным ID

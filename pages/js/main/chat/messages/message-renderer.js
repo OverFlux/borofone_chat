@@ -217,6 +217,11 @@ async function loadMessages(roomId) {
                 scrollToBottomInitial();
             }
             
+            // Initialize lazy loading for new attachments
+            if (window.observeNewLazyAttachments) {
+                window.observeNewLazyAttachments();
+            }
+            
             // Initialize audio players for loaded messages
             if (window.initAudioPlayers) {
                 window.initAudioPlayers();
@@ -372,6 +377,11 @@ function addMessage(msg, animate = false, isOwnMessage = false) {
     // Initialize audio players for new message
     if (window.initAudioPlayers) {
         window.initAudioPlayers();
+    }
+    
+    // Initialize lazy loading for new attachments
+    if (window.observeNewLazyAttachments) {
+        window.observeNewLazyAttachments();
     }
     
     // Attach profile click handler to message avatar

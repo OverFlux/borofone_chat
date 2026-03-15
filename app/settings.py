@@ -18,6 +18,8 @@ class Settings(BaseSettings):
 
     database_url: str = 'postgresql+asyncpg://app:password@localhost:5432/app'
     redis_url: str = 'redis://localhost:6379/0'
+    mongo_url: str = 'mongodb://localhost:27017'
+    mongo_db: str = 'borofone'
     jwt_secret_key: str = 'CHANGE_ME_IN_PRODUCTION_USE_LONG_RANDOM_STRING'
 
     public_base_url: str = ''

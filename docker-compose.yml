@@ -28,6 +28,18 @@
     networks:
       - borofone_network
 
+  mongodb:
+    image: mongo:7
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:27017:27017"
+    networks:
+      - borofone_network
+
   api:
     build: .
     env_file: .env
@@ -36,6 +48,8 @@
         condition: service_healthy
       redis:
         condition: service_healthy
+      mongodb:
+        condition: service_started
     networks:
       - borofone_network
 

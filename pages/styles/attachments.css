@@ -177,6 +177,50 @@
     transform: scale(1.02);
 }
 
+/* Lazy loading styles - placeholder */
+.attachment-lazy {
+    position: relative;
+    min-height: 150px;
+    min-width: 200px;
+    background: var(--glass-bg);
+}
+
+.attachment-lazy .attachment-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--glass-bg) 0%, rgba(255, 255, 255, 0.02) 100%);
+    border: 1px solid var(--glass-border);
+}
+
+.attachment-lazy .attachment-loading {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.attachment-lazy .attachment-error {
+    color: #ff6b6b;
+    font-size: 12px;
+}
+
+.attachment-lazy img {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.attachment-lazy.loaded img {
+    opacity: 1;
+}
+
+.attachment-lazy.error .attachment-placeholder {
+    background: rgba(255, 107, 107, 0.1);
+}
+
 /* File attachments */
 .attachment-file {
     display: flex;

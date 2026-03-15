@@ -68,7 +68,9 @@ async def lifespan(app: FastAPI):
     yield
 
     from app.infra.redis import close_redis
+    from app.infra.mongo import close_mongo
 
+    await close_mongo()
     await close_redis()
     await engine.dispose()
 

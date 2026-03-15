@@ -1146,6 +1146,7 @@ function initPasteHandler() {
 
 /**
  * Отобразить вложения в сообщении.
+ * Использует lazy loading - изображения загружаются только при появлении в viewport.
  */
 function renderMessageAttachments(attachments) {
     if (!attachments || attachments.length === 0) return '';
@@ -1182,24 +1183,34 @@ function renderMessageAttachments(attachments) {
         else if (imageCount === 4) containerClass += ' has-4-images';
     }
     
+    // Generate unique ID for this attachment set
+    const attachmentSetId = 'att-' + Math.random().toString(36).substr(2, 9);
+    
     return `
-        <div class="${containerClass}">
-            ${attachments.map(att => {
+        <div class="${containerClass}" data-attachment-set="${attachmentSetId}">
+            ${attachments.map((att, index) => {
                 const isImage = att.mime_type?.startsWith('image/');
                 const isVideo = att.mime_type?.startsWith('video/');
                 const isAudio = att.mime_type?.startsWith('audio/');
                 const fileUrl = resolveFileUrl(att.file_path);
+                const uniqueId = `${attachmentSetId}-${index}`;
                 
                 if (isImage) {
+                    // Lazy load - use placeholder first, load actual image only when in viewport
                     return `
-                        <div class="attachment-image" onclick="openImageLightbox('${escapeHtmlLocal(fileUrl)}')">
-                            <img src="${escapeHtmlLocal(fileUrl)}" alt="${escapeHtmlLocal(att.filename)}" loading="lazy">
+                        <div class="attachment-image attachment-lazy" 
+                             data-lazy-src="${escapeHtmlLocal(fileUrl)}" 
+                             data-lazy-id="${uniqueId}"
+                             onclick="openImageLightbox('${escapeHtmlLocal(fileUrl)}')">
+                            <div class="attachment-placeholder">
+                                <span class="attachment-loading">Загрузка...</span>
+                            </div>
                         </div>
                     `;
                 } else if (isVideo) {
                     return `
                         <div class="attachment-video">
-                            <video controls preload="metadata" playsinline>
+                            <video controls preload="none" playsinline>
                                 <source src="${escapeHtmlLocal(fileUrl)}" type="${escapeHtmlLocal(att.mime_type)}">
                             </video>
                         </div>
@@ -1722,13 +1733,82 @@ window.addEventListener('pagehide', () => {
     clearDropZonePreviewUrls();
 }, { once: true });
 
-// Listen for new messages and initialize audio players
+// Lazy loading for attachments - load images only when they enter viewport
+let attachmentLazyObserver = null;
+
+function initAttachmentLazyLoading() {
+    if (!('IntersectionObserver' in window)) {
+        // Fallback for older browsers - load all images immediately
+        document.querySelectorAll('.attachment-lazy').forEach(el => {
+            const src = el.dataset.lazySrc;
+            if (src) {
+                const img = document.createElement('img');
+                img.src = src;
+                img.alt = el.querySelector('.attachment-placeholder')?.textContent || 'Image';
+                img.onload = () => el.classList.add('loaded');
+                el.appendChild(img);
+            }
+        });
+        return;
+    }
+    
+    attachmentLazyObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const el = entry.target;
+                const src = el.dataset.lazySrc;
+                
+                if (src) {
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.alt = el.querySelector('.attachment-placeholder')?.textContent || 'Image';
+                    img.onload = () => {
+                        el.classList.add('loaded');
+                        const placeholder = el.querySelector('.attachment-placeholder');
+                        if (placeholder) placeholder.remove();
+                    };
+                    img.onerror = () => {
+                        el.classList.add('error');
+                        const placeholder = el.querySelector('.attachment-placeholder');
+                        if (placeholder) placeholder.innerHTML = '<span class="attachment-error">Ошибка загрузки</span>';
+                    };
+                    el.appendChild(img);
+                }
+                
+                // Stop observing this element
+                attachmentLazyObserver.unobserve(el);
+            }
+        });
+    }, {
+        rootMargin: '100px', // Start loading 100px before element is visible
+        threshold: 0.01
+    });
+    
+    // Observe all lazy elements
+    document.querySelectorAll('.attachment-lazy').forEach(el => {
+        attachmentLazyObserver.observe(el);
+    });
+}
+
+// Function to observe new lazy elements (called after rendering messages)
+function observeNewLazyAttachments() {
+    if (attachmentLazyObserver) {
+        document.querySelectorAll('.attachment-lazy:not(.observed)').forEach(el => {
+            el.classList.add('observed');
+            attachmentLazyObserver.observe(el);
+        });
+    }
+}
+
+// Listen for new messages and initialize audio players + lazy loading
 document.addEventListener('DOMContentLoaded', () => {
     initAllAudioPlayers();
+    initAttachmentLazyLoading();
 });
 
 // Also export for manual initialization after message rendering
 window.initAudioPlayers = initAllAudioPlayers;
+window.observeNewLazyAttachments = observeNewLazyAttachments;
 
 // Export for use elsewhere
 window.audioPlayer = {
