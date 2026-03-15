@@ -31,6 +31,10 @@
     <noscript><link rel="stylesheet" href="styles/version-notification.css"></noscript>
     <noscript><link rel="stylesheet" href="styles/presence.css"></noscript>
     <noscript><link rel="stylesheet" href="styles/attachments.css"></noscript>
+    
+    <!-- Twemoji - Unicode emoji to SVG images (preload for faster rendering) -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" as="script">
+    <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js"></script>
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -168,7 +172,6 @@
                             <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
                             <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                         </svg>
-                        <span class="mobile-users-count" id="mobileUsersCount" style="display: none;"></span>
                     </button>
                     <div class="room-indicator"></div>
                     <h1 class="room-name" id="roomName">Выберите комнату</h1>

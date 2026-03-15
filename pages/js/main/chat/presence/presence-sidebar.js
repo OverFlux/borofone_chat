@@ -83,12 +83,6 @@ function setGlobalOnlineCount(count) {
     if (usersCountEl) {
         usersCountEl.textContent = String(globalOnlineCount);
     }
-
-    const mobileCountEl = document.getElementById('mobileUsersCount');
-    if (mobileCountEl) {
-        mobileCountEl.textContent = String(globalOnlineCount);
-        mobileCountEl.style.display = globalOnlineCount > 0 ? 'inline-flex' : 'none';
-    }
 }
 
 window.setGlobalOnlineCount = setGlobalOnlineCount;
