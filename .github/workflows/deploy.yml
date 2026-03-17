@@ -36,14 +36,11 @@ jobs:
             git fetch --prune origin
             git checkout dev
             git reset --hard origin/dev
-            python3 -m venv .venv || true
-            . .venv/bin/activate
-            python -m pip install --upgrade pip
-            pip install -r requirements.txt
-            alembic upgrade head
-            mkdir -p uploads uploads/avatars uploads/attachments logs
-            systemctl restart borofone-staging
-            systemctl status borofone-staging --no-pager
+            rm -f deploy/docker/.env
+            docker-compose -f deploy/docker/docker-compose.staging.yml up -d --remove-orphans postgres redis
+            docker-compose -f deploy/docker/docker-compose.staging.yml run --rm api alembic upgrade head
+            docker-compose -f deploy/docker/docker-compose.staging.yml up -d --build --remove-orphans api
+            docker-compose -f deploy/docker/docker-compose.staging.yml ps
             echo "[deploy] $(date -Is) done staging commit=${{ github.sha }}"
 
   deploy-production:
@@ -71,13 +68,10 @@ jobs:
             git fetch --prune origin
             git checkout main
             git reset --hard origin/main
-            python3 -m venv .venv || true
-            . .venv/bin/activate
-            python -m pip install --upgrade pip
-            pip install -r requirements.txt
-            alembic upgrade head
-            mkdir -p uploads uploads/avatars uploads/attachments logs
-            systemctl restart borofone-prod
-            systemctl status borofone-prod --no-pager
+            rm -f deploy/docker/.env
+            docker-compose -f deploy/docker/docker-compose.prod.yml up -d --remove-orphans postgres redis
+            docker-compose -f deploy/docker/docker-compose.prod.yml run --rm api alembic upgrade head
+            docker-compose -f deploy/docker/docker-compose.prod.yml up -d --build --remove-orphans api
+            docker-compose -f deploy/docker/docker-compose.prod.yml ps
             echo "[deploy] $(date -Is) done production commit=${{ github.sha }}"
 
