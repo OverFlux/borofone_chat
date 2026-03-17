@@ -31,11 +31,7 @@ jobs:
           command_timeout: 30m
           script: |
             set -euxo pipefail
-            if docker compose version >/dev/null 2>&1; then
-              compose_cmd='docker compose'
-            else
-              compose_cmd='docker-compose'
-            fi
+            compose_cmd='docker-compose'
             cd /opt/borofone-chat-staging
             echo "[deploy] $(date -Is) start staging commit=${{ github.sha }}"
             git fetch --prune origin
@@ -71,11 +67,7 @@ jobs:
           command_timeout: 30m
           script: |
             set -euxo pipefail
-            if docker compose version >/dev/null 2>&1; then
-              compose_cmd='docker compose'
-            else
-              compose_cmd='docker-compose'
-            fi
+            compose_cmd='docker-compose'
             cd /opt/borofone-chat-prod
             echo "[deploy] $(date -Is) start production commit=${{ github.sha }}"
             git fetch --prune origin
