@@ -44,6 +44,7 @@ jobs:
             $compose_cmd -f deploy/docker/docker-compose.staging.yml exec -T postgres sh -lc 'until pg_isready -U "${POSTGRES_USER:-app}" -d postgres -h 127.0.0.1; do sleep 1; done'
             $compose_cmd -f deploy/docker/docker-compose.staging.yml exec -T postgres sh -lc 'psql -U "${POSTGRES_USER:-app}" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='\''${POSTGRES_DB:-borofone_staging}'\''" | grep -q 1 || psql -U "${POSTGRES_USER:-app}" -d postgres -c "CREATE DATABASE ${POSTGRES_DB:-borofone_staging}"'
             $compose_cmd -f deploy/docker/docker-compose.staging.yml run --rm api alembic upgrade head
+            docker ps -q --filter "publish=8001" | xargs -r docker rm -f
             $compose_cmd -f deploy/docker/docker-compose.staging.yml up -d --no-deps --build api
             $compose_cmd -f deploy/docker/docker-compose.staging.yml ps
             echo "[deploy] $(date -Is) done staging commit=${{ github.sha }}"
@@ -81,6 +82,7 @@ jobs:
             $compose_cmd -f deploy/docker/docker-compose.prod.yml exec -T postgres sh -lc 'until pg_isready -U "${POSTGRES_USER:-app}" -d postgres -h 127.0.0.1; do sleep 1; done'
             $compose_cmd -f deploy/docker/docker-compose.prod.yml exec -T postgres sh -lc 'psql -U "${POSTGRES_USER:-app}" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='\''${POSTGRES_DB:-borofone_prod}'\''" | grep -q 1 || psql -U "${POSTGRES_USER:-app}" -d postgres -c "CREATE DATABASE ${POSTGRES_DB:-borofone_prod}"'
             $compose_cmd -f deploy/docker/docker-compose.prod.yml run --rm api alembic upgrade head
+            docker ps -q --filter "publish=8000" | xargs -r docker rm -f
             $compose_cmd -f deploy/docker/docker-compose.prod.yml up -d --no-deps --build api
             $compose_cmd -f deploy/docker/docker-compose.prod.yml ps
             echo "[deploy] $(date -Is) done production commit=${{ github.sha }}"
