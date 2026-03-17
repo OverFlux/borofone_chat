@@ -39,3 +39,23 @@ def test_legacy_leaderboard_endpoint_supports_list_and_submit(tmp_path):
         assert stored[0]['score'] == 1337
     finally:
         settings.__dict__['leaderboard_file'] = original_file
+
+
+def test_legacy_leaderboard_endpoint_is_not_gzipped_for_godot_client(tmp_path):
+    original_file = settings.leaderboard_file
+    settings.__dict__['leaderboard_file'] = tmp_path / 'leaderboard.json'
+
+    try:
+        client = TestClient(app)
+
+        response = client.get(
+            '/games/api/leaderboard.php',
+            params={'action': 'list', 'limit': 20},
+            headers={'Accept-Encoding': 'gzip'},
+        )
+
+        assert response.status_code == 200
+        assert response.headers.get('content-encoding') != 'gzip'
+        assert response.json()['leaderboard'] == []
+    finally:
+        settings.__dict__['leaderboard_file'] = original_file
