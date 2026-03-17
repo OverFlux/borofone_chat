@@ -5,13 +5,12 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.dependencies import get_current_user
-from app.infra.db import get_db
 from app.models import User
 from app.settings import settings
+from app.services.uploads import upload_service
 
 router = APIRouter(prefix="/attachments", tags=["Attachments"])
 
@@ -101,12 +100,25 @@ async def upload_attachments(
         # Формируем URL для доступа
         public_url = f"{settings.attachments_public_path}/{unique_filename}"
         
-        uploaded.append({
+        uploaded_item = {
+            "upload_id": None,
             "filename": file.filename,
             "file_path": public_url,
             "file_size": len(content),
             "mime_type": file.content_type,
-        })
+        }
+        metadata = await upload_service.save_metadata(
+            filename=unique_filename,
+            original_filename=file.filename,
+            file_path=public_url,
+            file_size=len(content),
+            mime_type=file.content_type,
+            user_id=current_user.id,
+        )
+        if metadata is not None:
+            uploaded_item["upload_id"] = metadata.id
+
+        uploaded.append(uploaded_item)
     
     return uploaded
 
@@ -134,6 +146,7 @@ async def delete_attachment(
     #     check ownership via attachments table
     
     os.remove(file_path)
+    await upload_service.delete_metadata_by_filename(filename)
     
     return {"deleted": filename}
 

@@ -79,32 +79,21 @@ function updateCurrentRoomBadge() {
 
 /**
  * Обновить badges для всех комнат (вызывается после loadRooms).
- * Теперь только обновляет badge для текущей комнаты, чтобы избежать
- * загрузки всех сообщений со всех комнат.
  */
 async function updateAllRoomBadges() {
     if (!window.notifications) return;
 
-    // Только обновляем badge для текущей открытой комнаты
-    // Это критически важно - не грузим сообщения со всех комнат!
-    if (currentRoom) {
+    for (const room of rooms) {
         try {
-            // Ограничиваем до 10 сообщений только для подсчёта непрочитанных
-            const response = await fetchWithAuth(`${getApiUrl()}/rooms/${currentRoom.id}/messages?limit=10`);
-            if (!response.ok) return;
+            // Загружаем сообщения комнаты (без отображения)
+            const response = await fetchWithAuth(`${getApiUrl()}/rooms/${room.id}/messages`);
+            if (!response.ok) continue;
 
             const messages = await response.json();
-            const unread = window.notifications.countUnreadMessages(messages, currentRoom.id);
-            updateRoomBadge(currentRoom.id, unread);
+            const unread = window.notifications.countUnreadMessages(messages, room.id);
+            updateRoomBadge(room.id, unread);
         } catch (err) {
-            console.warn(`Failed to load messages for current room ${currentRoom.id}:`, err);
-        }
-    }
-    
-    // Сбрасываем badge для всех остальных комнат (они не открыты)
-    for (const room of rooms) {
-        if (!currentRoom || room.id !== currentRoom.id) {
-            updateRoomBadge(room.id, 0);
+            console.warn(`Failed to load messages for room ${room.id}:`, err);
         }
     }
 }
