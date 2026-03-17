@@ -463,8 +463,11 @@ function closeActivitiesModal() {
 }
 
 function launchGame(gameType = 'blackjack') {
-    // Path to your game
-    const gamePath = './games/blackjack.html';
+    const gamePaths = {
+        blackjack: './games/blackjack.html',
+        tearsOfBfu: './games/tears-of-bfu.html',
+    };
+    const gamePath = gamePaths[gameType] || gamePaths.blackjack;
     
     gameFrame.src = gamePath;
     gameFrame.classList.add('active');
@@ -497,6 +500,9 @@ if (activitiesOverlay) {
 }
 if (launchGameBtn) {
     launchGameBtn.addEventListener('click', () => launchGame('blackjack'));
+}
+if (launchTearsOfBfuBtn) {
+    launchTearsOfBfuBtn.addEventListener('click', () => launchGame('tearsOfBfu'));
 }
 
 function loadStylesheetOnce(href) {
