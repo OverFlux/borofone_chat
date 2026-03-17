@@ -10,7 +10,7 @@
 
 Пример:
 
-* `docker compose -f docker-compose.infra.yml up -d`
+* `docker compose -f deploy/docker/docker-compose.infra.yml up -d`
 * проверь `GET /health` и что `redis: true` (если Redis доступен).&#x20;
 
 ### Приложение

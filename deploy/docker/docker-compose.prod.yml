@@ -1,0 +1,77 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-borofone_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-borofone_prod} -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - prod_network
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - prod_network
+
+  mongodb:
+    image: mongo:7
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-borofone_prod}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-change-me-prod}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-borofone_prod}
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "-u", "${MONGO_INITDB_ROOT_USERNAME:-borofone_prod}", "-p", "${MONGO_INITDB_ROOT_PASSWORD:-change-me-prod}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - prod_network
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    restart: always
+    env_file: ../../.env
+    ports:
+      - "127.0.0.1:${APP_PORT:-8000}:${APP_PORT:-8000}"
+    volumes:
+      - uploads_data:/code/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - prod_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongodb_data:
+  uploads_data:
+
+networks:
+  prod_network:
+    driver: bridge

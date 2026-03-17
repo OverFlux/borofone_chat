@@ -4,15 +4,15 @@ description: Вам это пригодится 26.01.26
 
 # Заметки
 
-Check docker health - `docker compose -f docker-compose.infra.yml ps`
+Check docker health - `docker compose -f deploy/docker/docker-compose.infra.yml ps`
 
 Start api - `uvicorn app.main:app --reload --port 8000`
 
-Enter in psql - `docker compose -f docker-compose.infra.yml exec postgres psql -U app -d app`
+Enter in psql - `docker compose -f deploy/docker/docker-compose.infra.yml exec postgres psql -U app -d app`
 
-UP infra - `docker compose -f docker-compose.infra.yml up -d`
+UP infra - `docker compose -f deploy/docker/docker-compose.infra.yml up -d`
 
-DOWN infra - `docker compose -f docker-compose.infra.yml down`
+DOWN infra - `docker compose -f deploy/docker/docker-compose.infra.yml down`
 
 For DB ROOMS - `SELECT id, title FROM rooms ORDER BY id DESC LIMIT 150;`
 
