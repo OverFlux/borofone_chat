@@ -109,43 +109,9 @@ body {
 			<div id="status-notice"></div>
 		</div>
 
-		<script>
-// Listen for keyboard events from parent page (for iframe embedding)
-window.addEventListener('message', function(event) {
-    if (event.data && (event.data.type === 'keydown' || event.data.type === 'keyup')) {
-        const keyEvent = new KeyboardEvent(event.data.type, {
-            key: event.data.key,
-            code: event.data.code,
-            bubbles: true,
-            cancelable: true
-        });
-        document.dispatchEvent(keyEvent);
-    }
-});
-
-function keepFocus() {
-    const canvas = document.getElementById('canvas');
-    if (canvas) {
-        canvas.tabIndex = 0;
-        canvas.focus();
-    }
-}
-
-keepFocus();
-setInterval(keepFocus, 100);
-
-document.addEventListener('click', keepFocus);
-document.addEventListener('keydown', keepFocus);
-
-window.addEventListener('load', function() {
-    setTimeout(keepFocus, 500);
-    setTimeout(keepFocus, 1000);
-    setTimeout(keepFocus, 2000);
-});
-		</script>
 		<script src="tears-of-bfu.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"tears-of-bfu","experimentalVK":false,"fileSizes":{"tears-of-bfu.pck":15880060,"tears-of-bfu.wasm":37685705},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"tears-of-bfu","experimentalVK":false,"fileSizes":{"tears-of-bfu.pck":15943364,"tears-of-bfu.wasm":37685705},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
@@ -251,3 +217,4 @@ const engine = new Engine(GODOT_CONFIG);
 		</script>
 	</body>
 </html>
+
