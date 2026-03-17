@@ -19,7 +19,7 @@ mkdir -p "${target_dir}"
 
 compose_cmd=(docker-compose -p "${compose_project}" -f "${compose_file}")
 
-"${compose_cmd[@]}" up -d postgres redis
+"${compose_cmd[@]}" up -d --no-recreate postgres redis
 "${compose_cmd[@]}" exec -T postgres sh -lc 'until pg_isready -U "${POSTGRES_USER:-app}" -d postgres -h 127.0.0.1; do sleep 1; done'
 
 if "${compose_cmd[@]}" exec -T postgres sh -lc "psql -U \"\${POSTGRES_USER:-app}\" -d postgres -tAc \"SELECT 1 FROM pg_database WHERE datname='${db_name}'\" | grep -q 1"; then
