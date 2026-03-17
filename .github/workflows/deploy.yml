@@ -37,6 +37,7 @@ jobs:
             git fetch --prune origin
             git checkout dev
             git reset --hard origin/dev
+            systemctl stop borofone-staging || true
             rm -f deploy/docker/.env
             $compose_cmd -f deploy/docker/docker-compose.staging.yml rm -sf postgres redis api || true
             $compose_cmd -f deploy/docker/docker-compose.staging.yml up -d postgres redis
@@ -73,6 +74,7 @@ jobs:
             git fetch --prune origin
             git checkout main
             git reset --hard origin/main
+            systemctl stop borofone-prod || true
             rm -f deploy/docker/.env
             $compose_cmd -f deploy/docker/docker-compose.prod.yml rm -sf postgres redis api || true
             $compose_cmd -f deploy/docker/docker-compose.prod.yml up -d postgres redis
