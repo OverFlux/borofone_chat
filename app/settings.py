@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     emoji_subdir: str = 'emoji'
     stickers_subdir: str = 'stickers'
     gifs_subdir: str = 'gifs'
+    leaderboard_subdir: str = 'web_backend/data'
     avatars_subdir: str = 'avatars'
     attachments_subdir: str = 'attachments'
 
@@ -112,6 +113,10 @@ class Settings(BaseSettings):
     @cached_property
     def gifs_path(self) -> Path:
         return self.pages_path / self.gifs_subdir
+
+    @cached_property
+    def leaderboard_file(self) -> Path:
+        return self.pages_path / self.leaderboard_subdir / 'leaderboard.json'
 
     @property
     def main_page_route(self) -> str:

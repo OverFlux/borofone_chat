@@ -9,7 +9,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import attachments, rooms, voice_rooms, wordle
+from app.api import attachments, games, rooms, voice_rooms, wordle
 from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.http import router as http_router
@@ -187,6 +187,7 @@ app.include_router(rooms.router)
 app.include_router(attachments.router)
 app.include_router(voice_rooms.router)
 app.include_router(wordle.router)
+app.include_router(games.router)
 
 settings.uploads_path.mkdir(parents=True, exist_ok=True)
 
