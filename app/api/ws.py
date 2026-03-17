@@ -84,7 +84,11 @@ async def global_websocket_endpoint(
         from app.infra.redis import get_redis_client
         redis = get_redis_client()
         if redis:
-            await redis.ping()
+            # Use short timeout for ping to avoid blocking
+            await asyncio.wait_for(redis.ping(), timeout=2.0)
+    except asyncio.TimeoutError:
+        print(f"[WS] Redis ping timeout")
+        redis = None
     except Exception as e:
         print(f"[WS] Redis unavailable: {e}")
         redis = None

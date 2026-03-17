@@ -12,7 +12,7 @@ pip install -r requirements.txt
 ### 2. Поднять бд и редис
 
 ```bash
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f deploy/docker/docker-compose.infra.yml up -d
 ```
 
 ### 3. Применить миграции
@@ -64,10 +64,17 @@ borofone_chat/
 │   ├── main.py                 # Entry Point: Initializing FastAPI and Routing
 │   ├── models.py               # SQLAlchemy models (database schema)
 │   ├── settings.py             # Managing settings via Pydantic Settings
-├── .env.production.example     
-├── .env.staging.example        
-├── docker-compose.yml          # Full environment (API + DB + Redis), not tested!
-├── docker-compose.infra.yml    # Local infrastructure (DB + Redis)
+├── deploy/
+│   ├── docker/
+│   │   ├── Dockerfile
+│   │   ├── docker-compose.infra.yml    # Local infrastructure (Postgres + Redis)
+│   │   ├── docker-compose.staging.yml  # Isolated staging environment
+│   │   └── docker-compose.prod.yml     # Isolated production environment
+│   ├── env/
+│   │   ├── .env.production.example
+│   │   └── .env.staging.example
+│   ├── nginx/
+│   └── systemd/
 ├── requirements.txt            
 └── README.md                  
 ```
@@ -84,7 +91,7 @@ This is where you configure the asynchronous database engine and connection pool
 
 `services/messages.py` - functions for working with data. This is where the message processing logic is implemented (for example, checking for duplicates and saving to the database).
 
-`docker-compose.infra.yml` — development config that allows you to run only the PostgreSQL database and Radis cache in containers, leaving the API itself on the host machine for easy debugging.
+`deploy/docker/docker-compose.infra.yml` — development config that allows you to run only the infrastructure in containers, leaving the API itself on the host machine for easy debugging.
 
 ## Usefull commands
 
@@ -95,25 +102,25 @@ This is where you configure the asynchronous database engine and connection pool
 **Check docker health:**
   
 ```bash
-docker compose -f docker-compose.infra.yml ps
+docker compose -f deploy/docker/docker-compose.infra.yml ps
 ```
 
 **UP infra:**
 
 ```bash
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f deploy/docker/docker-compose.infra.yml up -d
 ```
 
 **DOWN infra:**
 
 ```bash
-docker compose -f docker-compose.infra.yml down
+docker compose -f deploy/docker/docker-compose.infra.yml down
 ```
 
 **Enter in psql:**
 
 ```bash
-docker compose -f docker-compose.infra.yml exec postgres psql -U app -d app
+docker compose -f deploy/docker/docker-compose.infra.yml exec postgres psql -U app -d app
 ```
 
 ### // Application
@@ -288,9 +295,9 @@ maybe next time
 ## for vps
 
 git pull origin main
-docker-compose -f docker-compose.prod.yml build --no-cache api
-docker-compose -f docker-compose.prod.yml down
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f deploy/docker/docker-compose.prod.yml build --no-cache api
+docker-compose -f deploy/docker/docker-compose.prod.yml down
+docker-compose -f deploy/docker/docker-compose.prod.yml up -d
 
 ## Sources
 
@@ -308,7 +315,7 @@ dev  -> staging
 Основные артефакты:
 
 - `.github/workflows/deploy.yml` - автодеплой по `push` в `dev` и `main`
-- `.env.production.example` и `.env.staging.example` - шаблоны окружений
+- `deploy/env/.env.production.example` и `deploy/env/.env.staging.example` - шаблоны окружений
 - `deploy/systemd/` - systemd unit-файлы
 - `deploy/nginx/borofone.conf` - reverse proxy для production и staging
 - `scripts/setup_vps.sh` - первичная подготовка VPS
@@ -324,7 +331,7 @@ merge dev main -> GitHub Actions -> production deploy
 Перед включением схемы:
 
 1. Добавь GitHub Secrets для `PROD_*` и `STAGING_*`.
-2. Используй только `.env.production.example` и `.env.staging.example`, затем скопируй их в `/opt/borofone-chat-prod/.env` и `/opt/borofone-chat-staging/.env`.
+2. Используй `deploy/env/.env.production.example` и `deploy/env/.env.staging.example`, затем скопируй их в `/opt/borofone-chat-prod/.env` и `/opt/borofone-chat-staging/.env`.
 3. Установи `deploy/systemd/*.service` и `deploy/nginx/borofone.conf` на VPS.
 4. Включи branch protection для `main`, запрети прямой push и оставь deploy только через PR.
 

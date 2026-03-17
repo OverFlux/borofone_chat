@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    env_file: ../../.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-app} -d $${POSTGRES_DB:-borofone_prod} -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - prod_network
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    env_file: ../../.env
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - prod_network
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    restart: always
+    env_file: ../../.env
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - uploads_data:/code/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - prod_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+
+networks:
+  prod_network:
+    driver: bridge

@@ -50,15 +50,15 @@ def get_connection_pool() -> ConnectionPool:
             settings.redis_url,
             decode_responses=True,
             max_connections=50,
-            socket_connect_timeout=10,
-            socket_timeout=10,
+            socket_connect_timeout=5,      # 5 seconds connection timeout
+            socket_timeout=5,              # 5 seconds socket timeout
             socket_keepalive=True,
             retry_on_timeout=True,
             health_check_interval=30,
-            # Retry конфигурация для автоматических переподключений
+            # Retry configuration - reduce retries to avoid delays
             retry=Retry(
-                ExponentialBackoff(cap=5, base=1),
-                retries=5
+                ExponentialBackoff(cap=2, base=0.5),
+                retries=3
             ),
             # Отключаем проблемные опции
             retry_on_error=[],

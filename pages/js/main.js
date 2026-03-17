@@ -1764,8 +1764,18 @@ async function loadMessages(roomId) {
                 addMessage(msg, false);
             });
 
+            // Initialize lazy loading for new attachments
+            if (window.observeNewLazyAttachments) {
+                window.observeNewLazyAttachments();
+            }
+
             // Скроллим вниз после загрузки всех сообщений (с ожиданием изображений)
             scrollToBottomInitial();
+            
+            // Initialize lazy loading for new attachments
+            if (window.observeNewLazyAttachments) {
+                window.observeNewLazyAttachments();
+            }
             
             // Initialize audio players for loaded messages
             if (window.initAudioPlayers) {
@@ -3229,6 +3239,11 @@ async function sendMessage() {
             // HTTP fallback — добавляем сразу сами, WS не пришлёт
             if (!messagesList.querySelector(`[data-message-id="${msg.id}"]`)) {
                 addMessage(msg, true, true); // true = animate, true = isOwnMessage
+                
+                // Initialize lazy loading for new attachments
+                if (window.observeNewLazyAttachments) {
+                    window.observeNewLazyAttachments();
+                }
             }
             clearReplyTarget();
         }
@@ -3347,6 +3362,11 @@ function connectWebSocket() {
                             // Определяем, является ли сообщение своим
                             const isOwnMessage = data.user?.id === currentUser?.id;
                             addMessage(data, true, isOwnMessage);
+                            
+                            // Initialize lazy loading for new attachments
+                            if (window.observeNewLazyAttachments) {
+                                window.observeNewLazyAttachments();
+                            }
                         }
 
                         // Если это НАШЕ сообщение — обновляем lastRead с правильным ID
@@ -3857,8 +3877,16 @@ function autoResizeMessageInput() {
     messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + 'px';
 }
 
+// Debounce timer for input auto-resize
+let autoResizeTimer = null;
+
 messageInput.addEventListener('input', () => {
-    autoResizeMessageInput();
+    // Debounce auto-resize to prevent layout thrashing on every keystroke
+    clearTimeout(autoResizeTimer);
+    autoResizeTimer = setTimeout(() => {
+        autoResizeMessageInput();
+    }, 16); // ~60fps
+    
     // Update send button state
     sendBtn.disabled = !messageInput.value.trim();
     // Check for text selection (for popup)
@@ -5227,11 +5255,11 @@ function startPresenceTracking() {
     // Загружаем всех пользователей сразу
     loadAllUsers();
 
-    // Обновляем каждые 10 секунд
+    // Обновляем каждые 30 секунд
     presenceInterval = setInterval(() => {
         loadAllUsers();
         sendPresenceHeartbeat();
-    }, 10000);
+    }, 30000);
 }
 
 /**

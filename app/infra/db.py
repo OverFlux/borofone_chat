@@ -10,6 +10,11 @@ engine: AsyncEngine = create_async_engine(
     max_overflow=10,       # Дополнительные соединения при пике нагрузки
     pool_pre_ping=True,    # Проверка соединения перед использованием
     pool_recycle=3600,     # Пересоздание соединений каждый час
+    pool_timeout=10,       # Timeout for getting connection from pool
+    # Connection timeout settings for asyncpg
+    connect_args={
+        "timeout": 10,   # Connection timeout in seconds
+    },
 )
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 

@@ -2,7 +2,7 @@
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -105,22 +105,34 @@ async def create_room(
 @router.get("/rooms/{room_id}/messages", response_model=list[MessageResponse])
 async def list_messages(
     room_id: int,
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=100, description="Max messages to return"),
+    before_id: int = Query(None, description="Return messages before this ID (for pagination)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Get messages for a room with pagination.
+    
+    Args:
+        room_id: Room ID
+        limit: Maximum number of messages to return (default 50)
+        before_id: Return messages before this ID (for pagination)
+    """
     stmt = (
         select(Message)
         .where(Message.room_id == room_id)
-        .options(
-            joinedload(Message.user),
-            selectinload(Message.attachments),
-            selectinload(Message.reactions),
-            selectinload(Message.reply_to).joinedload(Message.user),
-        )
-        .order_by(Message.id.desc())
-        .limit(limit)
     )
+    
+    # Add before_id filter for pagination if provided
+    if before_id is not None:
+        stmt = stmt.where(Message.id < before_id)
+    
+    stmt = stmt.options(
+        joinedload(Message.user),
+        selectinload(Message.attachments),
+        selectinload(Message.reactions),
+        selectinload(Message.reply_to).joinedload(Message.user),
+    ).order_by(Message.id.desc()).limit(limit)
+    
     result = await db.execute(stmt)
     messages = list(reversed(result.scalars().all()))
     return [serialize_message(msg, current_user) for msg in messages]

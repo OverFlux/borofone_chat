@@ -5,11 +5,9 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.dependencies import get_current_user
-from app.infra.db import get_db
 from app.models import User
 from app.settings import settings
 

@@ -71,6 +71,7 @@ const activitiesCloseBtn = document.getElementById('activitiesCloseBtn');
 const gameFrame = document.getElementById('gameFrame');
 const activitiesPlaceholder = document.getElementById('activitiesPlaceholder');
 const launchGameBtn = document.getElementById('launchGameBtn');
+const launchTearsOfBfuBtn = document.getElementById('launchTearsOfBfuBtn');
 const launchWordleBtn = document.getElementById('launchWordleBtn');
 const openNewTabBtn = document.getElementById('openNewTabBtn');
 const dndBtn = document.getElementById('dndBtn');
