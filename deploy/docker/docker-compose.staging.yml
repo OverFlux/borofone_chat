@@ -48,9 +48,13 @@ services:
 
 volumes:
   postgres_data:
+    name: borofone-staging_postgres_data
   redis_data:
+    name: borofone-staging_redis_data
   uploads_data:
+    name: borofone-staging_uploads_data
 
 networks:
   staging_network:
+    name: borofone-staging_network
     driver: bridge

@@ -31,19 +31,24 @@ jobs:
           command_timeout: 30m
           script: |
             set -euxo pipefail
-            compose_cmd='docker-compose'
+            compose_cmd='docker-compose -p borofone-staging'
             cd /opt/borofone-chat-staging
             echo "[deploy] $(date -Is) start staging commit=${{ github.sha }}"
             git fetch --prune origin
             git checkout dev
             git reset --hard origin/dev
+            systemctl stop borofone-staging || true
             rm -f deploy/docker/.env
-            $compose_cmd -f deploy/docker/docker-compose.staging.yml rm -sf postgres redis api || true
-            $compose_cmd -f deploy/docker/docker-compose.staging.yml up -d postgres redis
+            $compose_cmd -f deploy/docker/docker-compose.staging.yml up -d --no-recreate postgres redis
+            $compose_cmd -f deploy/docker/docker-compose.staging.yml exec -T postgres sh -lc 'until pg_isready -U "${POSTGRES_USER:-app}" -d postgres -h 127.0.0.1; do sleep 1; done'
+            bash deploy/scripts/backup-compose-data.sh staging borofone-staging deploy/docker/docker-compose.staging.yml borofone_staging borofone-staging_uploads_data
             $compose_cmd -f deploy/docker/docker-compose.staging.yml exec -T postgres sh -lc 'psql -U "${POSTGRES_USER:-app}" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='\''${POSTGRES_DB:-borofone_staging}'\''" | grep -q 1 || psql -U "${POSTGRES_USER:-app}" -d postgres -c "CREATE DATABASE ${POSTGRES_DB:-borofone_staging}"'
             $compose_cmd -f deploy/docker/docker-compose.staging.yml run --rm api alembic upgrade head
-            docker ps -aq --filter "name=docker_api" | xargs -r docker rm -f
-            $compose_cmd -f deploy/docker/docker-compose.staging.yml up -d --no-deps --build api
+            docker ps -q --filter "publish=8001" | xargs -r docker rm -f
+            $compose_cmd -f deploy/docker/docker-compose.staging.yml stop api || true
+            $compose_cmd -f deploy/docker/docker-compose.staging.yml rm -fsv api || true
+            docker ps -aq --filter "label=com.docker.compose.project=borofone-staging" --filter "label=com.docker.compose.service=api" | xargs -r docker rm -f
+            $compose_cmd -f deploy/docker/docker-compose.staging.yml up -d --no-deps --force-recreate --build api
             $compose_cmd -f deploy/docker/docker-compose.staging.yml ps
             echo "[deploy] $(date -Is) done staging commit=${{ github.sha }}"
 
@@ -67,19 +72,24 @@ jobs:
           command_timeout: 30m
           script: |
             set -euxo pipefail
-            compose_cmd='docker-compose'
+            compose_cmd='docker-compose -p borofone-prod'
             cd /opt/borofone-chat-prod
             echo "[deploy] $(date -Is) start production commit=${{ github.sha }}"
             git fetch --prune origin
             git checkout main
             git reset --hard origin/main
+            systemctl stop borofone-prod || true
             rm -f deploy/docker/.env
-            $compose_cmd -f deploy/docker/docker-compose.prod.yml rm -sf postgres redis api || true
-            $compose_cmd -f deploy/docker/docker-compose.prod.yml up -d postgres redis
+            $compose_cmd -f deploy/docker/docker-compose.prod.yml up -d --no-recreate postgres redis
+            $compose_cmd -f deploy/docker/docker-compose.prod.yml exec -T postgres sh -lc 'until pg_isready -U "${POSTGRES_USER:-app}" -d postgres -h 127.0.0.1; do sleep 1; done'
+            bash deploy/scripts/backup-compose-data.sh production borofone-prod deploy/docker/docker-compose.prod.yml borofone_prod borofone-prod_uploads_data
             $compose_cmd -f deploy/docker/docker-compose.prod.yml exec -T postgres sh -lc 'psql -U "${POSTGRES_USER:-app}" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='\''${POSTGRES_DB:-borofone_prod}'\''" | grep -q 1 || psql -U "${POSTGRES_USER:-app}" -d postgres -c "CREATE DATABASE ${POSTGRES_DB:-borofone_prod}"'
             $compose_cmd -f deploy/docker/docker-compose.prod.yml run --rm api alembic upgrade head
-            docker ps -aq --filter "name=docker_api" | xargs -r docker rm -f
-            $compose_cmd -f deploy/docker/docker-compose.prod.yml up -d --no-deps --build api
+            docker ps -q --filter "publish=8000" | xargs -r docker rm -f
+            $compose_cmd -f deploy/docker/docker-compose.prod.yml stop api || true
+            $compose_cmd -f deploy/docker/docker-compose.prod.yml rm -fsv api || true
+            docker ps -aq --filter "label=com.docker.compose.project=borofone-prod" --filter "label=com.docker.compose.service=api" | xargs -r docker rm -f
+            $compose_cmd -f deploy/docker/docker-compose.prod.yml up -d --no-deps --force-recreate --build api
             $compose_cmd -f deploy/docker/docker-compose.prod.yml ps
             echo "[deploy] $(date -Is) done production commit=${{ github.sha }}"
 

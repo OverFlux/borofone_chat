@@ -45,6 +45,7 @@ uvicorn app.main:app --reload
 
 - При проблемах с uploads - создать директорию /uploads/avatars
 
+
 ## Project structure
 
 ```text
