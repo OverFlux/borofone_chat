@@ -63,6 +63,21 @@ class CachedStaticFiles(StaticFiles):
 
         return response
 
+
+class SelectiveGZipMiddleware:
+    def __init__(self, app, *, excluded_prefixes: tuple[str, ...], **gzip_options):
+        self.app = app
+        self.excluded_prefixes = excluded_prefixes
+        self.gzip_app = GZipMiddleware(app, **gzip_options)
+
+    async def __call__(self, scope, receive, send):
+        if scope['type'] == 'http':
+            path = scope.get('path', '')
+            if any(path.startswith(prefix) for prefix in self.excluded_prefixes):
+                await self.app(scope, receive, send)
+                return
+        await self.gzip_app(scope, receive, send)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
@@ -87,7 +102,12 @@ app.add_middleware(
     allow_headers=['*'],
     expose_headers=['Set-Cookie'],
 )
-app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
+app.add_middleware(
+    SelectiveGZipMiddleware,
+    excluded_prefixes=('/games/api/',),
+    minimum_size=1024,
+    compresslevel=5,
+)
 
 
 @app.middleware('http')
