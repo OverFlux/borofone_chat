@@ -2,14 +2,11 @@ services:
   postgres:
     image: postgres:16
     restart: always
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-borofone_prod}
-      POSTGRES_USER: ${POSTGRES_USER:-app}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+    env_file: ../../.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-borofone_prod} -h 127.0.0.1"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-app} -d $${POSTGRES_DB:-borofone_prod} -h 127.0.0.1"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -19,6 +16,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
+    env_file: ../../.env
     volumes:
       - redis_data:/data
     healthcheck:
@@ -36,7 +34,7 @@ services:
     restart: always
     env_file: ../../.env
     ports:
-      - "127.0.0.1:${APP_PORT:-8000}:${APP_PORT:-8000}"
+      - "127.0.0.1:8000:8000"
     volumes:
       - uploads_data:/code/uploads
     depends_on:
