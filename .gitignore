@@ -14,6 +14,9 @@
 /not_tested
 /uploads/attachments
 /docs
+!/docs/
+!/docs/deployment/
+!/docs/deployment/cicd.md
 /data/leaderboard/*.json
 !/data/leaderboard/.gitkeep
 

@@ -36,8 +36,16 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
-      - uploads_data:/code/uploads
-      - ../../data/leaderboard:/code/pages/web_backend/data
+      - ${HOST_DATA_ROOT:?HOST_DATA_ROOT is required}/uploads:/code/uploads
+      - ${HOST_DATA_ROOT:?HOST_DATA_ROOT is required}/leaderboard:/code/pages/web_backend/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'python -c "import os, urllib.request; urllib.request.urlopen(''http://127.0.0.1:{}/app-config.js''.format(os.environ.get(''APP_PORT'', ''8000'')), timeout=5)"'
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,8 +59,6 @@ volumes:
     name: borofone-prod_postgres_data
   redis_data:
     name: borofone-prod_redis_data
-  uploads_data:
-    name: borofone-prod_uploads_data
 
 networks:
   prod_network:

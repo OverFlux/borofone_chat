@@ -112,8 +112,9 @@ docker compose -f deploy/docker/docker-compose.infra.yml ps
 docker compose -f deploy/docker/docker-compose.infra.yml up -d
 ```
 
-Leaderboard for `tears-of-bfu` is persisted outside the container in `data/leaderboard/leaderboard.json`.
-For staging/production compose stacks this directory is bind-mounted into `/code/pages/web_backend/data`.
+Leaderboard for `tears-of-bfu` is persisted outside the container in `data/leaderboard/leaderboard.json` for local development.
+For staging/production compose stacks, uploads and leaderboard data are stored under `HOST_DATA_ROOT` on the VPS and bind-mounted into the API container.
+The deploy scripts support both `docker compose` and legacy `docker-compose`.
 
 **DOWN infra:**
 
@@ -298,10 +299,10 @@ maybe next time
 
 ## for vps
 
-git pull origin main
-docker-compose -f deploy/docker/docker-compose.prod.yml build --no-cache api
-docker-compose -f deploy/docker/docker-compose.prod.yml down
-docker-compose -f deploy/docker/docker-compose.prod.yml up -d
+```bash
+cd /opt/borofone-chat-prod
+bash deploy/scripts/deploy-stack.sh production
+```
 
 ## Sources
 
@@ -320,7 +321,9 @@ dev  -> staging
 
 - `.github/workflows/deploy.yml` - автодеплой по `push` в `dev` и `main`
 - `deploy/env/.env.production.example` и `deploy/env/.env.staging.example` - шаблоны окружений
-- `deploy/systemd/` - systemd unit-файлы
+- `deploy/scripts/deploy-stack.sh` - единая точка входа для staging/production deploy
+- `deploy/scripts/prepare-persistent-data.sh` - one-time migration of uploads and leaderboard into host storage
+- `deploy/scripts/backup-compose-data.sh` - backup of database, uploads, leaderboard and `.env`
 - `deploy/nginx/borofone.conf` - reverse proxy для production и staging
 - `scripts/setup_vps.sh` - первичная подготовка VPS
 - `docs/deployment/cicd.md` - пошаговые инструкции по setup и security
@@ -336,7 +339,8 @@ merge dev main -> GitHub Actions -> production deploy
 
 1. Добавь GitHub Secrets для `PROD_*` и `STAGING_*`.
 2. Используй `deploy/env/.env.production.example` и `deploy/env/.env.staging.example`, затем скопируй их в `/opt/borofone-chat-prod/.env` и `/opt/borofone-chat-staging/.env`.
-3. Установи `deploy/systemd/*.service` и `deploy/nginx/borofone.conf` на VPS.
-4. Включи branch protection для `main`, запрети прямой push и оставь deploy только через PR.
+3. Заполни `HOST_DATA_ROOT` и `BACKUP_ROOT` абсолютными путями на VPS.
+4. Установи `deploy/nginx/borofone.conf` на VPS.
+5. Включи branch protection для `main`, запрети прямой push и оставь deploy только через PR.
 
 Подробная инструкция: `docs/deployment/cicd.md`.

@@ -7,12 +7,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY pages ./pages
-COPY uploads ./uploads
 COPY alembic ./alembic
 COPY alembic.ini .
 COPY fix_sequences.sql .
 
-RUN mkdir -p /code/pages/web_backend/data /code/uploads
+RUN mkdir -p /code/pages/web_backend/data /code/uploads /code/uploads/avatars /code/uploads/attachments
 
 ENV APP_PORT=8000
 
