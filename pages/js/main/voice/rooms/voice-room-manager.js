@@ -99,7 +99,12 @@ function upsertVoiceParticipant(participant) {
 }
 
 async function loadVoiceRooms() {
-    const response = await fetchWithAuth(`${getApiUrl()}/voice-rooms`);
+    if (!currentServer) {
+        voiceRooms = [];
+        renderVoiceRooms();
+        return;
+    }
+    const response = await fetchWithAuth(`${getApiUrl()}/voice-rooms?server_id=${currentServer.id}`);
     if (!response.ok) return;
     voiceRooms = await response.json();
 
@@ -134,6 +139,15 @@ function attachVoiceAvatarFallbacks(container) {
 
 function renderVoiceRooms() {
     if (!voiceRoomsList) return;
+    if (voiceRooms.length === 0) {
+        voiceRoomsList.innerHTML = `
+            <div class="nova-voice-empty">
+                <span class="nova-voice-empty-icon" aria-hidden="true">⌁</span>
+                <strong>Здесь пока тихо</strong>
+                <span>Голосовой канал появится здесь</span>
+            </div>
+        `;
+    } else {
     voiceRoomsList.innerHTML = voiceRooms.map(room => {
         const participants = voiceRoomParticipantsByRoom[room.id] || [];
         const icons = participants.slice(0, 4).map((participant) => {
@@ -153,6 +167,7 @@ function renderVoiceRooms() {
         const more = participants.length > 4 ? `<span class="voice-room-user-more">+${participants.length - 4}</span>` : '';
         return `<div class="voice-room-item ${room.id === currentVoiceRoomId ? 'active' : ''}" data-voice-room-id="${room.id}"><span class="voice-room-item-title">🔊 ${escapeHtml(room.name)}</span><span class="voice-room-users">${icons}${more}</span></div>`;
     }).join('');
+    }
     attachVoiceAvatarFallbacks(voiceRoomsList);
     voiceRoomState.textContent = currentVoiceRoomId ? `В комнате: ${escapeHtml((voiceRooms.find(r => r.id === currentVoiceRoomId) || {}).name || '')}` : 'Не в голосовой комнате';
     const controlsVisible = !!currentVoiceRoomId;

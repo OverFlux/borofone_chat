@@ -14,6 +14,7 @@ class VoiceParticipant:
     display_name: str
     avatar_url: str | None
     joined_at: str
+    server_id: int | None = None
     muted: bool = False
     deafened: bool = False
     speaking: bool = False
@@ -24,10 +25,16 @@ class VoiceRuntime:
     def __init__(self) -> None:
         self._rooms: dict[int, dict[int, VoiceParticipant]] = defaultdict(dict)
         self._connections: dict[int, set] = defaultdict(set)
+        self._connection_servers: dict[object, int] = {}
         self._user_room: dict[int, int] = {}
         self._lock = asyncio.Lock()
 
-    async def register_connection(self, user_id: int, websocket) -> bool:
+    async def register_connection(
+        self,
+        user_id: int,
+        websocket,
+        server_id: int | None = None,
+    ) -> bool:
         async with self._lock:
             sockets = self._connections.get(user_id)
             was_online = bool(sockets)
@@ -35,6 +42,8 @@ class VoiceRuntime:
                 sockets = set()
                 self._connections[user_id] = sockets
             sockets.add(websocket)
+            if server_id is not None:
+                self._connection_servers[websocket] = server_id
             return not was_online
 
     async def unregister_connection(self, user_id: int, websocket) -> tuple[int | None, VoiceParticipant | None]:
@@ -48,6 +57,7 @@ class VoiceRuntime:
             sockets = self._connections.get(user_id)
             if sockets and websocket in sockets:
                 sockets.remove(websocket)
+                self._connection_servers.pop(websocket, None)
                 if sockets:
                     return None, None, False
                 self._connections.pop(user_id, None)
@@ -67,6 +77,7 @@ class VoiceRuntime:
         username: str,
         display_name: str,
         avatar_url: str | None = None,
+        server_id: int | None = None,
     ) -> tuple[list[dict], VoiceParticipant, int | None, VoiceParticipant | None]:
         async with self._lock:
             prev_room_id = self._user_room.get(user_id)
@@ -85,8 +96,11 @@ class VoiceRuntime:
                     display_name=display_name,
                     avatar_url=avatar_url,
                     joined_at=datetime.now(timezone.utc).isoformat(),
+                    server_id=server_id,
                 )
                 self._rooms[room_id][user_id] = participant
+            elif server_id is not None:
+                participant.server_id = server_id
             self._user_room[user_id] = room_id
             snapshot = [self._as_dict(p) for p in self._rooms[room_id].values()]
             return snapshot, participant, prev_room_id, prev_participant
@@ -130,15 +144,41 @@ class VoiceRuntime:
 
     async def sockets_for_room(self, room_id: int) -> list:
         async with self._lock:
-            user_ids = list(self._rooms.get(room_id, {}).keys())
+            participants = list(self._rooms.get(room_id, {}).values())
+            room_server_id = participants[0].server_id if participants else None
             sockets = []
-            for uid in user_ids:
-                sockets.extend(self._connections.get(uid, set()))
+            for participant in participants:
+                user_sockets = self._connections.get(participant.user_id, set())
+                if room_server_id is None:
+                    sockets.extend(user_sockets)
+                else:
+                    sockets.extend(
+                        socket
+                        for socket in user_sockets
+                        if self._connection_servers.get(socket) == room_server_id
+                    )
             return sockets
 
     async def sockets_for_user(self, user_id: int) -> list:
         async with self._lock:
             return list(self._connections.get(user_id, set()))
+
+    async def sockets_for_user_in_server(self, user_id: int, server_id: int) -> list:
+        async with self._lock:
+            return [
+                socket
+                for socket in self._connections.get(user_id, set())
+                if self._connection_servers.get(socket) == server_id
+            ]
+
+    async def sockets_for_server(self, server_id: int) -> list:
+        async with self._lock:
+            return [
+                socket
+                for sockets in self._connections.values()
+                for socket in sockets
+                if self._connection_servers.get(socket) == server_id
+            ]
 
     async def sockets_all(self) -> list:
         async with self._lock:
@@ -147,8 +187,14 @@ class VoiceRuntime:
                 sockets.extend(conns)
             return sockets
 
-    async def online_users_count(self) -> int:
+    async def online_users_count(self, server_id: int | None = None) -> int:
         async with self._lock:
+            if server_id is not None:
+                return sum(
+                    1
+                    for sockets in self._connections.values()
+                    if any(self._connection_servers.get(socket) == server_id for socket in sockets)
+                )
             return len(self._connections)
 
     @staticmethod

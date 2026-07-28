@@ -1,2366 +1,344 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#DB734F">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Borofone">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="format-detection" content="telephone=no">
-    <meta name="description" content="Borofone Chat - Чат с играми, голосовыми комнатами и Wordle">
-    <title>Borofone Chat</title>
-    
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23DB734F' rx='20' width='100' height='100'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white' font-family='system-ui'>B</text></svg>">
-    
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#242424">
+    <meta name="description" content="Borotalk — голосовые комнаты, демонстрация экрана и простой чат.">
+    <title>Borotalk — комнаты</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" sizes="64x64" href="/icons/borotalk-64.png?v=2">
+    <link rel="icon" href="/favicon.ico?v=3" sizes="any">
+    <link rel="apple-touch-icon" href="/icons/borotalk-192.png?v=2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
-    <link rel="stylesheet" href="styles/main.css">
-    <link rel="preload" href="styles/version-notification.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles/notifications.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles/toast.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles/presence.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles/attachments.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="styles/notifications.css"></noscript>
-    <noscript><link rel="stylesheet" href="styles/toast.css"></noscript>
-    <noscript><link rel="stylesheet" href="styles/version-notification.css"></noscript>
-    <noscript><link rel="stylesheet" href="styles/presence.css"></noscript>
-    <noscript><link rel="stylesheet" href="styles/attachments.css"></noscript>
-    
-    <!-- Twemoji - Unicode emoji to SVG images (preload for faster rendering) -->
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" as="script">
-    <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js"></script>
-    <style>
-        /* Landing-light inspired polish */
-        :root {
-            --bg-base: #1a1a20;
-            --ui-panel-shadow: 0 22px 60px rgba(5, 10, 18, 0.45);
-            --ui-panel-border: color-mix(in srgb, var(--glass-border) 70%, transparent);
-            --ui-soft-glow: color-mix(in srgb, var(--accent) 30%, transparent);
-            --ui-soft-glow-strong: color-mix(in srgb, var(--accent) 55%, transparent);
-        }
-
-        body {
-            position: relative;
-            isolation: isolate;
-        }
-
-        body::before {
-            content: "";
-            position: fixed;
-            inset: -20% 0 0 -10%;
-            background:
-                radial-gradient(circle at 15% 15%, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 55%),
-                radial-gradient(circle at 85% 5%, color-mix(in srgb, var(--accent-hover) 16%, transparent) 0%, transparent 60%),
-                radial-gradient(circle at 70% 75%, color-mix(in srgb, var(--accent) 12%, transparent) 0%, transparent 55%);
-            opacity: 0.55;
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        html[data-theme="light"] body::before {
-            opacity: 0.28;
-        }
-
-        html[data-theme="light"] {
-            --bg-base: #f5f5f7;
-        }
-
-        html[data-theme="amoled"] {
-            --bg-base: #0a0a0f;
-        }
-        .app-container {
-            position: relative;
-            z-index: 1;
-            gap: 12px;
-            padding: 12px;
-            box-sizing: border-box;
-        }
-
-        @media (max-width: 900px) {
-            .app-container {
-                gap: 8px;
-                padding: 8px;
-            }
-        }
-
-        @media (max-width: 640px) {
-            .app-container {
-                gap: 0;
-                padding: 0;
-            }
-        }
-
-        .bg-animation .gradient-orb {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(120px);
-            opacity: 0.18;
-            animation: float 30s ease-in-out infinite;
-        }
-
-        .bg-animation .orb-1 {
-            width: 520px;
-            height: 520px;
-            background: radial-gradient(circle, color-mix(in srgb, var(--accent) 80%, #ffffff), var(--accent));
-            top: -220px;
-            left: -220px;
-        }
-
-        .bg-animation .orb-2 {
-            width: 460px;
-            height: 460px;
-            background: radial-gradient(circle, color-mix(in srgb, var(--accent) 40%, #3ccfcf), #3ccfcf);
-            bottom: -200px;
-            right: -180px;
-            animation-delay: -10s;
-        }
-
-        .bg-animation .orb-3 {
-            width: 420px;
-            height: 420px;
-            background: radial-gradient(circle, color-mix(in srgb, var(--accent) 70%, #f4d35e), #f4d35e);
-            top: 45%;
-            left: 55%;
-            transform: translate(-50%, -50%);
-            animation-delay: -20s;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(120px, -80px) scale(1.05); }
-            66% { transform: translate(-100px, 110px) scale(0.95); }
-        }
-
-        .rooms-sidebar,
-        .chat-main,
-        .users-sidebar {
-            border-radius: 18px;
-            overflow: hidden;
-            border: 1px solid var(--ui-panel-border);
-            box-shadow: var(--ui-panel-shadow);
-            background: linear-gradient(180deg, color-mix(in srgb, var(--glass-bg) 92%, transparent) 0%, color-mix(in srgb, var(--modal-bg) 90%, transparent) 100%);
-        }
-
-        .sidebar-header,
-        .chat-header {
-            background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-        }
-
-        .room-item {
-            border-radius: 12px;
-            transition: transform 0.18s ease, box-shadow 0.2s ease;
-        }
-
-        .room-item:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        .room-item.active {
-            box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 25%, transparent);
-        }
-
-        .message-input-container {
-            border-radius: 16px;
-            border: 1px solid color-mix(in srgb, var(--glass-border) 75%, transparent);
-            background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
-        }
-
-        .send-btn {
-            box-shadow: 0 12px 30px color-mix(in srgb, var(--accent) 30%, transparent);
-        }
-
-        /* Custom palette UI */
-        .appearance-custom-card {
-            margin-top: 12px;
-            padding: 16px;
-            border-radius: 16px;
-            border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-            background: color-mix(in srgb, var(--glass-bg) 85%, transparent);
-            display: grid;
-            gap: 14px;
-        }
-
-        .appearance-custom-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-        }
-
-        .appearance-custom-title {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .appearance-custom-subtitle {
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        .appearance-toggle {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            color: var(--text-secondary);
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .appearance-toggle input {
-            display: none;
-        }
-
-        .toggle-track {
-            position: relative;
-            width: 44px;
-            height: 24px;
-            border-radius: 999px;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            transition: background 0.2s ease, border-color 0.2s ease;
-        }
-
-        .toggle-track::after {
-            content: "";
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: var(--modal-bg);
-            transition: transform 0.2s ease, background 0.2s ease;
-        }
-
-        .appearance-toggle input:checked + .toggle-track {
-            background: color-mix(in srgb, var(--accent) 30%, transparent);
-            border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-        }
-
-        .appearance-toggle input:checked + .toggle-track::after {
-            transform: translateX(20px);
-            background: var(--accent);
-        }
-
-        .appearance-preview {
-            display: grid;
-            grid-template-columns: 120px 1fr;
-            gap: 10px;
-            padding: 12px;
-            border-radius: 12px;
-            border: 1px solid var(--glass-border);
-            background: color-mix(in srgb, var(--bg-base) 82%, transparent);
-        }
-
-        .appearance-preview-sidebar {
-            background: var(--glass-bg);
-            border-radius: 10px;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .appearance-preview-avatar {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: var(--accent);
-            box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent);
-        }
-
-        .appearance-preview-lines span {
-            display: block;
-            height: 6px;
-            border-radius: 999px;
-            background: color-mix(in srgb, var(--text-dim) 45%, transparent);
-            margin-bottom: 6px;
-        }
-
-        .appearance-preview-lines span:last-child {
-            width: 60%;
-            margin-bottom: 0;
-        }
-
-        .appearance-preview-main {
-            background: var(--modal-bg);
-            border-radius: 10px;
-            padding: 10px;
-            display: grid;
-            grid-template-rows: 14px 1fr;
-            gap: 10px;
-        }
-
-        .appearance-preview-header {
-            height: 14px;
-            border-radius: 6px;
-            background: color-mix(in srgb, var(--glass-bg) 85%, transparent);
-        }
-
-        .appearance-preview-chat {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .appearance-preview-bubble {
-            height: 12px;
-            border-radius: 999px;
-            background: color-mix(in srgb, var(--accent) 25%, transparent);
-        }
-
-        .appearance-preview-bubble.secondary {
-            background: color-mix(in srgb, var(--text-dim) 45%, transparent);
-            width: 80%;
-        }
-
-        .appearance-color-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 12px;
-        }
-
-        .color-control {
-            background: var(--glass-bg);
-            border-radius: 12px;
-            border: 1px solid var(--glass-border);
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .color-control-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: var(--text-secondary);
-        }
-
-        .color-control-row {
-            display: grid;
-            grid-template-columns: 40px 1fr;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .color-control-row input[type="color"] {
-            width: 40px;
-            height: 40px;
-            border: none;
-            background: none;
-            padding: 0;
-        }
-
-        .color-sliders {
-            display: grid;
-            gap: 6px;
-        }
-
-        .color-slider {
-            display: grid;
-            grid-template-columns: 18px 1fr 32px;
-            align-items: center;
-            gap: 8px;
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-
-        .color-slider input[type="range"] {
-            width: 100%;
-        }
-
-        .appearance-custom-actions {
-            display: flex;
-            justify-content: flex-end;
-        }
-
-        .appearance-custom-card.disabled {
-            opacity: 0.55;
-        }
-
-        /* Effects toggles */
-        .appearance-effects-card {
-            margin-top: 12px;
-            padding: 14px;
-            border-radius: 16px;
-            border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-            background: color-mix(in srgb, var(--glass-bg) 85%, transparent);
-            display: grid;
-            gap: 12px;
-        }
-
-        .appearance-effect-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 10px 12px;
-            border-radius: 12px;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-        }
-
-        .appearance-effect-info {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .appearance-effect-name {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .appearance-effect-desc {
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-
-        /* Style toggle overrides */
-        body.no-bg-glow::before {
-            opacity: 0;
-        }
-
-        body.no-bg-glow .bg-animation {
-            display: none;
-        }
-
-        body.no-glass-blur .rooms-sidebar,
-        body.no-glass-blur .chat-main,
-        body.no-glass-blur .users-sidebar {
-            box-shadow: none;
-            background: var(--glass-bg);
-        }
-
-        body.no-glass-blur .sidebar-header,
-        body.no-glass-blur .chat-header {
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
-            background: var(--glass-bg);
-        }
-
-        body.no-accent-gradients .send-btn {
-            background: var(--accent);
-            box-shadow: none;
-        }
-
-        body.no-accent-gradients .room-item.active {
-            background: var(--accent-dim);
-            box-shadow: none;
-        }
-
-        body.no-accent-gradients .current-user-avatar,
-        body.no-accent-gradients .room-icon {
-            background: var(--accent);
-            box-shadow: none;
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/nova-app.css?v=21">
+    <script src="/app-config.js"></script>
 </head>
 <body>
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <div class="loading-text">Загрузка...</div>
-            <div class="loading-progress">
-                <div class="loading-progress-bar" id="loadingProgressBar"></div>
-            </div>
-            <div class="loading-status" id="loadingStatus">Инициализация</div>
-        </div>
+    <svg class="ui-icon-sprite" aria-hidden="true">
+        <symbol id="ui-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></symbol>
+        <symbol id="ui-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></symbol>
+        <symbol id="ui-sliders" viewBox="0 0 24 24"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6"></path></symbol>
+        <symbol id="ui-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Zm4.5 3.5a5 5 0 0 1 0 7M18 6a8 8 0 0 1 0 12"></path></symbol>
+        <symbol id="ui-volume-off" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Zm5 4 5 5m0-5-5 5"></path></symbol>
+        <symbol id="ui-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"></path></symbol>
+        <symbol id="ui-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"></path></symbol>
+        <symbol id="ui-mic-off" viewBox="0 0 24 24"><path d="m3 3 18 18M9 5v5a3 3 0 0 0 4.8 2.4M15 9.3V5a3 3 0 0 0-5.1-2.1M5 10a7 7 0 0 0 11.7 5.2M19 10a7 7 0 0 1-.7 3M12 17v5M8 22h8"></path></symbol>
+        <symbol id="ui-headphones" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"></path><path d="M4 14h3v7H5a2 2 0 0 1-2-2v-3a2 2 0 0 1 1-2Zm16 0h-3v7h2a2 2 0 0 0 2-2v-3a2 2 0 0 0-1-2Z"></path></symbol>
+        <symbol id="ui-screen" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8m-4-4v4"></path></symbol>
+        <symbol id="ui-leave" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5m5 5H3m11-9h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"></path></symbol>
+        <symbol id="ui-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"></path></symbol>
+        <symbol id="ui-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7Z"></path><path d="M22 2 11 13"></path></symbol>
+        <symbol id="ui-zoom-out" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7.5"></circle><path d="M7.5 10.5h6M16 16l5 5"></path></symbol>
+        <symbol id="ui-zoom-in" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7.5"></circle><path d="M7.5 10.5h6m-3-3v6M16 16l5 5"></path></symbol>
+        <symbol id="ui-fit" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5M8 12h8"></path></symbol>
+        <symbol id="ui-pip" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><rect x="12" y="11" width="7" height="5" rx="1"></rect></symbol>
+        <symbol id="ui-fullscreen" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5"></path></symbol>
+        <symbol id="ui-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"></path></symbol>
+    </svg>
+    <div class="nova-loading" id="loadingScreen" role="status" aria-live="polite">
+        <span class="brand-mark">B</span>
+        <p id="loadingText">Собираем комнату…</p>
     </div>
 
-    <!-- Activities Modal (Game Window) -->
-    <div class="activities-modal" id="activitiesModal">
-        <div class="activities-overlay" id="activitiesOverlay"></div>
-        <div class="activities-container">
-            <div class="activities-header">
-                <div class="activities-title">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                    </svg>
-                    <span>Игры</span>
-                </div>
-                <button class="activities-close-btn" id="activitiesCloseBtn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="activities-content">
-                <iframe id="gameFrame" src="" frameborder="0" allowfullscreen webkitallowfullscreen mozallowfullscreen tabindex="0"></iframe>
-                <div class="activities-placeholder" id="activitiesPlaceholder">
-                    <div class="placeholder-icon">
-                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                        </svg>
-                    </div>
-                    <h3>Активности</h3>
-                    <p>Выберите игру</p>
-                    <div class="activities-buttons">
-                        <button class="btn-primary" id="launchGameBtn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
-                                <line x1="2" y1="10" x2="22" y2="10"></line>
-                            </svg>
-                            Блэкджек
-                        </button>
-                        <button class="btn-secondary" id="launchTearsOfBfuBtn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 3l2.6 5.26L20 9.27l-4 3.9.94 5.47L12 15.9l-4.94 2.74L8 13.17l-4-3.9 5.4-1.01L12 3z"></path>
-                            </svg>
-                            Tears of BFU
-                        </button>
-                        <button class="btn-secondary" id="launchWordleBtn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                <line x1="9" y1="9" x2="15" y2="15"></line>
-                                <line x1="15" y1="9" x2="9" y2="15"></line>
-                            </svg>
-                            Wordle
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div class="nova-app" id="app" hidden>
+        <nav class="server-rail" aria-label="Серверы">
+            <a class="brand-mark rail-brand" href="/" aria-label="Borotalk">B</a>
+            <div class="server-list" id="serverList"></div>
+            <button class="rail-button" id="discoverButton" type="button" aria-label="Найти сервер или пользователя по ID"><span class="ui-icon icon-search" aria-hidden="true"></span></button>
+            <button class="rail-button" id="createServerButton" type="button" aria-label="Создать сервер"><span class="ui-icon icon-plus" aria-hidden="true"></span></button>
+            <span class="rail-spacer"></span>
+            <button class="rail-avatar" id="profileButton" type="button" aria-label="Настройки профиля">?</button>
+        </nav>
 
-    <div class="bg-animation">
-        <div class="gradient-orb orb-1"></div>
-        <div class="gradient-orb orb-2"></div>
-        <div class="gradient-orb orb-3"></div>
-    </div>
-
-    <div class="app-container">
-        <!-- Mobile sidebar overlay -->
-        <div class="rooms-sidebar-overlay" id="roomsSidebarOverlay"></div>
-        
-        <!-- Rooms Sidebar -->
-        <aside class="rooms-sidebar" id="roomsSidebar" style="display: none;">
-            <div class="sidebar-header">
-                <div class="logo-container">
-                    <div class="logo-shape"></div>
+        <aside class="channel-panel" id="channelPanel">
+            <header class="server-heading">
+                <div>
+                    <span class="eyebrow">пространство</span>
+                    <h1 id="serverName">Borotalk</h1>
                 </div>
-                <h2 class="sidebar-title">Комнаты</h2>
-            </div>
-            <div class="rooms-list" id="roomsList">
-                <div class="placeholder-message">
-                    <span class="placeholder-icon">#</span>
-                    <p>Загрузка комнат...</p>
-                </div>
-            </div>
-            <div class="sidebar-footer">
-                <div class="current-user-card" id="currentUserCard">
-                    <div class="current-user-avatar" id="currentUserAvatar"></div>
-                    <div class="current-user-meta">
-                        <div class="current-user-name" id="currentUserName">Пользователь</div>
-                        <div class="current-user-username" id="currentUserUsername">@username</div>
-                    </div>
-                    <button class="settings-btn-sidebar" id="settingsBtnSidebar" title="Настройки">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                        </svg>
-                    </button>
-                    <!-- Avatar Dropdown Menu -->
-                    <div class="avatar-dropdown" id="avatarDropdown">
-                        <div class="dropdown-header">Сменить статус</div>
-                        <button class="dropdown-item" data-status="online">
-                            <span class="status-indicator online"></span>
-                            <span>В сети</span>
-                        </button>
-                        <button class="dropdown-item" data-status="dnd">
-                            <span class="status-indicator dnd"></span>
-                            <span>Не беспокоить</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Chat Area -->
-        <main class="chat-main">
-            <header class="chat-header">
-                <div class="header-left">
-                    <!-- Mobile menu button -->
-                    <button class="mobile-menu-btn icon-btn" id="mobileMenuBtn" title="Меню" style="display: none;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="3" y1="12" x2="21" y2="12"></line>
-                            <line x1="3" y1="6" x2="21" y2="6"></line>
-                            <line x1="3" y1="18" x2="21" y2="18"></line>
-                        </svg>
-                    </button>
-                    <!-- Mobile users button -->
-                    <button class="mobile-users-btn icon-btn" id="mobileUsersBtn" title="Пользователи" style="display: none;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
-                    </button>
-                    <div class="room-indicator"></div>
-                    <h1 class="room-name" id="roomName">Выберите комнату</h1>
-                </div>
-                <div class="header-right">
-                    <button class="icon-btn games-btn" id="activitiesTab" title="Игры и активности">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                        </svg>
-                    </button>
-                    <div class="connection-status connecting" id="connectionStatus" style="cursor: pointer;" title="Нажмите для статистики">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="status-bulb">
-                            <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4.5 12.5c.5 2 2.5 3.5 4.5 4.5 2-1 4-2.5 4.5-4.5A7 7 0 0 0 12 2z"></path>
-                        </svg>
-                    </div>
-                    <button class="voice-toggle-btn" id="voiceToggleBtn" title="Голосовые каналы">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                        </svg>
-                    </button>
-                    <!-- Connection Stats Popup -->
-                    <div class="connection-stats-popup" id="connectionStatsPopup">
-                        <div class="stats-popup-header">Статистика подключения</div>
-                        <div class="stats-popup-content">
-                            <div class="stats-row">
-                                <span class="stats-label">Статус:</span>
-                                <span class="stats-value" id="statsStatus">-</span>
-                            </div>
-                            <div class="stats-row">
-                                <span class="stats-label">Время в сети:</span>
-                                <span class="stats-value" id="statsUptime">-</span>
-                            </div>
-                            <div class="stats-row">
-                                <span class="stats-label">Отправлено:</span>
-                                <span class="stats-value" id="statsSent">0</span>
-                            </div>
-                            <div class="stats-row">
-                                <span class="stats-label">Получено:</span>
-                                <span class="stats-value" id="statsReceived">0</span>
-                            </div>
-                            <div class="stats-row">
-                                <span class="stats-label">Пинг:</span>
-                                <span class="stats-value" id="statsPing">-</span>
-                            </div>
-                            <div class="stats-row">
-                                <span class="stats-label">Переподключений:</span>
-                                <span class="stats-value" id="statsReconnects">0</span>
-                            </div>
-                        </div>
-                    </div>
+                <div class="server-heading-actions">
+                    <span class="online-pill"><i></i><span id="onlineCount">0</span></span>
+                    <button class="tiny-button" id="serverSettingsButton" type="button" aria-label="Управление сервером"><span class="ui-icon icon-sliders" aria-hidden="true"></span></button>
                 </div>
             </header>
 
-            <div class="voice-overlay" id="voiceOverlay">
-                <div class="voice-overlay-backdrop"></div>
-                <div class="voice-overlay-resize-handle" id="voiceResizeHandle"></div>
-                <div class="voice-overlay-header">
-                    <div class="voice-overlay-heading">
-                        <div class="voice-overlay-kicker">Voice Space</div>
-                        <div class="voice-overlay-title" id="voiceRoomState">Не в голосовой комнате</div>
+            <div class="channel-scroll">
+                <section class="channel-section">
+                    <div class="section-heading">
+                        <span>Голосовые</span>
+                        <button class="tiny-button" id="createVoiceButton" type="button" aria-label="Создать голосовой канал"><span class="ui-icon icon-plus" aria-hidden="true"></span></button>
                     </div>
-                    <div class="voice-overlay-actions">
-                        <button class="btn-secondary voice-overlay-settings-toggle" id="toggleVoiceSettingsBtn" title="Аудио-настройки" aria-expanded="false">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <line x1="4" y1="21" x2="4" y2="14"></line>
-                                <line x1="4" y1="10" x2="4" y2="3"></line>
-                                <line x1="12" y1="21" x2="12" y2="12"></line>
-                                <line x1="12" y1="8" x2="12" y2="3"></line>
-                                <line x1="20" y1="21" x2="20" y2="16"></line>
-                                <line x1="20" y1="12" x2="20" y2="3"></line>
-                                <line x1="2" y1="14" x2="6" y2="14"></line>
-                                <line x1="10" y1="8" x2="14" y2="8"></line>
-                                <line x1="18" y1="16" x2="22" y2="16"></line>
-                            </svg>
-                        </button>
-                        <button class="btn-secondary voice-overlay-collapse" id="collapseVoiceBtn" title="Свернуть/развернуть">
-                            <span id="collapseIcon">▼</span>
-                        </button>
-                        <button class="btn-secondary voice-overlay-create" id="createVoiceRoomBtn">+ Создать аудио</button>
+                    <div class="channel-list" id="voiceRoomList"></div>
+                </section>
+
+                <section class="channel-section">
+                    <div class="section-heading">
+                        <span>Текстовые</span>
+                        <button class="tiny-button" id="createTextButton" type="button" aria-label="Создать текстовый канал"><span class="ui-icon icon-plus" aria-hidden="true"></span></button>
                     </div>
-                </div>
-                <div class="voice-overlay-body">
-                    <div class="voice-overlay-main">
-                        <div class="voice-collapsed-participants" id="voiceCollapsedParticipants"></div>
-                        <div class="voice-participants-grid" id="voiceParticipantsGrid"></div>
-                        <div class="voice-rooms-list" id="voiceRoomsList"></div>
+                    <div class="channel-list" id="textRoomList"></div>
+                </section>
+
+                <section class="channel-section">
+                    <div class="section-heading">
+                        <span>Личные</span>
+                        <button class="tiny-button" id="newDirectButton" type="button" aria-label="Найти пользователя"><span class="ui-icon icon-plus" aria-hidden="true"></span></button>
                     </div>
-                    <div class="voice-overlay-sidepanel" id="voiceSettingsPanel">
-                        <div class="voice-settings-header">
-                            <div class="voice-settings-title">Audio mix</div>
-                            <div class="voice-settings-subtitle">Точные уровни в компактном окне</div>
-                        </div>
-                        <div class="local-audio-controls" id="localAudioControls">
-                            <div class="control-group compact">
-                                <label for="micVolumeSlider">🎤 Microphone</label>
-                                <input type="range" id="micVolumeSlider" min="0" max="100" value="100" class="volume-slider">
-                                <span class="volume-value" id="micVolumeValue">100%</span>
-                            </div>
-                            <div class="control-group compact">
-                                <label for="headphoneVolumeSlider">🎧 Headphones</label>
-                                <input type="range" id="headphoneVolumeSlider" min="0" max="400" value="200" class="volume-slider">
-                                <span class="volume-value" id="headphoneVolumeValue">200%</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="screen-share-stage" id="screenShareStage">
-                    <div class="screen-share-stage-header">
-                        <div class="screen-share-stage-title">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                                <line x1="8" y1="21" x2="16" y2="21"></line>
-                                <line x1="12" y1="17" x2="12" y2="21"></line>
-                            </svg>
-                            Screen share
-                        </div>
-                        <div class="screen-share-stage-count" id="screenShareCount">0</div>
-                    </div>
-                    <div class="screen-share-grid" id="screenShareGrid"></div>
-                </div>
-                <div class="voice-controls" id="voiceControls">
-                    <button class="btn-secondary voice-control-btn" id="toggleMicBtn" disabled title="Микрофон" aria-label="Mic">
-                        <span class="voice-control-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-                        </span>
-                    </button>
-                    <button class="btn-secondary voice-control-btn" id="toggleDeafenBtn" disabled title="Заглушить всё" aria-label="Deafen">
-                        <span class="voice-control-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-                        </span>
-                    </button>
-                    <button class="btn-secondary voice-control-btn" id="toggleScreenShareBtn" disabled title="Демонстрация экрана" aria-label="Share screen">
-                        <span class="voice-control-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-                        </span>
-                    </button>
-                    <button class="btn-secondary voice-control-btn danger" id="leaveVoiceBtn" disabled title="Покинуть комнату" aria-label="Leave">
-                        <span class="voice-control-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                        </span>
-                    </button>
-                </div>
+                    <div class="channel-list" id="directList"></div>
+                </section>
             </div>
 
-            <div class="messages-container" id="messagesContainer">
-                <button class="scroll-to-bottom" id="scrollToBottom" onclick="ScrollManager.forceScrollToBottom()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                    <span id="scrollToBottomText"></span>
-                </button>
-                <div class="messages-list" id="messagesList">
-                    <div class="placeholder-message">
-                        <span class="placeholder-icon">💬</span>
-                        <p>Выберите комнату, чтобы начать общение</p>
+            <footer class="self-card">
+                <span class="avatar avatar-mint" id="selfAvatar">?</span>
+                <span class="self-copy">
+                    <strong id="selfName">Пользователь</strong>
+                    <small id="selfUsername">@username</small>
+                </span>
+                <button class="icon-button" id="settingsButton" type="button" aria-label="Настройки"><span class="ui-icon icon-sliders" aria-hidden="true"></span></button>
+            </footer>
+        </aside>
+
+        <main class="voice-stage">
+            <header class="stage-header">
+                <div class="stage-title">
+                    <button class="mobile-button" id="openChannelsButton" type="button" aria-label="Открыть каналы"><span class="ui-icon icon-menu" aria-hidden="true"></span></button>
+                    <span class="channel-symbol" aria-hidden="true"><span class="ui-icon icon-volume"></span></span>
+                    <div>
+                        <span class="eyebrow">голосовая комната</span>
+                        <h2 id="voiceTitle">Выберите канал</h2>
                     </div>
                 </div>
-            </div>
-
-            <div class="message-input-container">
-                <!-- Typing Indicator -->
-                <div class="typing-indicator hidden" id="typingIndicator">
-                    <span class="dots">
-                        <span class="dot"></span>
-                        <span class="dot"></span>
-                        <span class="dot"></span>
-                    </span>
-                    <span class="typing-users" id="typingUsers"></span>
-                    <span class="typing-text" id="typingText"></span>
+                <div class="stage-actions">
+                    <span class="connection-dot" id="connectionDot" data-state="connecting" title="Подключение"></span>
+                    <button class="soft-button share-reopen-button" id="openShareFocusButton" type="button" hidden><span class="ui-icon icon-screen" aria-hidden="true"></span><span>Трансляция</span></button>
+                    <button class="soft-button mobile-chat-button" id="openChatButton" type="button">Чат</button>
+                    <button class="soft-button" id="membersButton" type="button">
+                        <span id="memberCount">0</span> участников
+                    </button>
                 </div>
+            </header>
 
-                <form class="message-form" id="messageForm">
-                    <div class="input-wrapper">
-                        <button type="button" class="attach-btn" id="attachBtn" title="Прикрепить файлы">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path>
-                            </svg>
-                        </button>
-                        <button type="button" class="emoji-btn" id="emojiBtn" title="Эмодзи (Ctrl+E)">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-                                <line x1="9" y1="9" x2="9.01" y2="9"></line>
-                                <line x1="15" y1="9" x2="15.01" y2="9"></line>
-                            </svg>
-                        </button>
-                        <textarea
-                            id="messageInput"
-                            placeholder="Выберите комнату..."
-                            autocomplete="off"
-                            disabled
-                            rows="1"
-                        ></textarea>
-                        <button type="submit" class="send-btn" id="sendBtn" disabled>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                    </div>
-                </form>
-                <!-- Markdown Format Popup -->
-                <div class="markdown-popup hidden" id="markdownPopup">
-                    <button type="button" class="md-popup-btn" data-md-format="bold" title="Жирный (Ctrl+B)">
-                        <strong>B</strong>
-                    </button>
-                    <button type="button" class="md-popup-btn" data-md-format="italic" title="Курсив (Ctrl+I)">
-                        <em>I</em>
-                    </button>
-                    <button type="button" class="md-popup-btn" data-md-format="strikethrough" title="Зачёркнутый">
-                        <del>S</del>
-                    </button>
-                    <button type="button" class="md-popup-btn" data-md-format="code" title="Код">&lt;/&gt;</button>
-                    <button type="button" class="md-popup-btn" data-md-format="link" title="Ссылка">🔗</button>
+            <section class="stage-content">
+                <div class="stage-intro" id="stageIntro">
+                    <span class="voice-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span class="eyebrow">voice first</span>
+                    <h2>Разговор начинается<br>в один клик.</h2>
+                    <p>Выберите голосовой канал слева. Микрофон включится только после вашего действия.</p>
+                    <div class="stage-presence" id="stagePresence" hidden></div>
+                    <button class="primary-button" id="joinSelectedButton" type="button" disabled>Войти в канал</button>
                 </div>
-
-                <!-- Emoji Picker Panel -->
-                <div class="emoji-picker hidden" id="emojiPicker">
-                    <!-- Telegram-style tabs -->
-                    <div class="emoji-tabs">
-                        <button type="button" class="emoji-tab active" data-tab="emoji">Эмодзи</button>
-                        <button type="button" class="emoji-tab" data-tab="stickers">Стикеры</button>
-                        <button type="button" class="emoji-tab" data-tab="gifs">Гифки</button>
-                    </div>
-                    
-                    <!-- Emoji content (with categories) -->
-                    <div class="emoji-content" id="emojiContent">
-                        <div class="emoji-categories">
-                            <button type="button" class="emoji-category-btn active" data-category="custom">🎨</button>
-                            <button type="button" class="emoji-category-btn" data-category="smileys">😀</button>
-                            <button type="button" class="emoji-category-btn" data-category="animals">🐶</button>
-                            <button type="button" class="emoji-category-btn" data-category="food">🍔</button>
-                            <button type="button" class="emoji-category-btn" data-category="activities">⚽</button>
-                            <button type="button" class="emoji-category-btn" data-category="travel">🚗</button>
-                            <button type="button" class="emoji-category-btn" data-category="objects">💡</button>
-                            <button type="button" class="emoji-category-btn" data-category="symbols">❤️</button>
-                            <button type="button" class="emoji-category-btn" data-category="flags">🚩</button>
-                        </div>
-                        <div class="emoji-grid" id="emojiGrid"></div>
-                    </div>
-                    
-                    <!-- Stickers content -->
-                    <div class="emoji-content hidden" id="stickersContent">
-                        <div class="stickers-grid" id="stickersGrid">
-                            <div class="emoji-loading">Загрузка стикеров...</div>
+                <div class="participant-grid" id="participantGrid" aria-live="polite"></div>
+                <div class="share-stage" id="shareStage" hidden>
+                    <div class="share-heading">
+                        <span class="share-title"><i></i><span id="shareTitle">Демонстрация экрана</span></span>
+                        <div class="share-toolbar" aria-label="Управление трансляцией">
+                            <button class="share-tool" id="shareZoomOutButton" type="button" aria-label="Уменьшить"><span class="ui-icon icon-zoom-out" aria-hidden="true"></span></button>
+                            <output class="share-zoom-label" id="shareZoomLabel" aria-live="polite">100%</output>
+                            <button class="share-tool" id="shareZoomInButton" type="button" aria-label="Увеличить"><span class="ui-icon icon-zoom-in" aria-hidden="true"></span></button>
+                            <button class="share-tool" id="shareFitButton" type="button" aria-label="Заполнить окно"><span class="ui-icon icon-fit" aria-hidden="true"></span></button>
+                            <button class="share-tool" id="sharePipButton" type="button" aria-label="Картинка в картинке"><span class="ui-icon icon-pip" aria-hidden="true"></span></button>
+                            <button class="share-tool" id="shareFullscreenButton" type="button" aria-label="Полноэкранный режим"><span class="ui-icon icon-fullscreen" aria-hidden="true"></span></button>
+                            <button class="share-tool" id="closeShareFocusButton" type="button" aria-label="Свернуть демонстрацию"><span class="ui-icon icon-close" aria-hidden="true"></span></button>
                         </div>
                     </div>
-                    
-                    <!-- GIFs content -->
-                    <div class="emoji-content hidden" id="gifsContent">
-                        <div class="gifs-grid" id="gifsGrid">
-                            <div class="emoji-loading">Загрузка гифок...</div>
-                        </div>
+                    <div class="share-viewport" id="shareViewport">
+                        <div class="share-videos" id="shareVideos"></div>
                     </div>
+                    <div class="share-audio-controls" id="shareAudioControls">
+                        <button class="share-audio-mute" id="shareAudioMuteButton" type="button" aria-label="Выключить звук трансляции">
+                            <span class="ui-icon icon-volume" aria-hidden="true"></span>
+                        </button>
+                        <label class="share-volume-field" for="shareVolumeSlider">
+                            <span id="shareAudioHint">Звук трансляции</span>
+                            <input id="shareVolumeSlider" type="range" min="0" max="100" step="1" value="100">
+                        </label>
+                        <output id="shareVolumeLabel" for="shareVolumeSlider">100%</output>
+                    </div>
+                    <div class="share-switcher" id="shareSwitcher" aria-label="Доступные трансляции" hidden></div>
                 </div>
-            </div>
+            </section>
+
+            <footer class="voice-dock" aria-label="Управление голосом">
+                <div class="now-connected">
+                    <i id="voiceStatusDot"></i>
+                    <span><small>сейчас</small><strong id="voiceStatus" role="status" aria-live="polite">Не подключены</strong></span>
+                </div>
+                <div class="voice-buttons">
+                    <button class="control-button" id="micButton" type="button" disabled aria-label="Выключить микрофон"><span class="ui-icon icon-mic" aria-hidden="true"></span><span class="control-label" id="micButtonLabel">Микрофон</span></button>
+                    <button class="control-button" id="deafenButton" type="button" disabled aria-label="Заглушить звук"><span class="ui-icon icon-headphones" aria-hidden="true"></span><span class="control-label" id="deafenButtonLabel">Звук</span></button>
+                    <button class="control-button" id="shareButton" type="button" disabled aria-label="Начать демонстрацию экрана"><span class="ui-icon icon-screen" aria-hidden="true"></span><span class="control-label" id="shareButtonLabel">Экран</span></button>
+                    <button class="control-button danger" id="leaveButton" type="button" disabled aria-label="Выйти из голосового канала"><span class="ui-icon icon-leave" aria-hidden="true"></span><span class="control-label">Выйти</span></button>
+                </div>
+            </footer>
         </main>
 
-        <!-- Mobile users sidebar overlay -->
-        <div class="users-sidebar-overlay" id="usersSidebarOverlay"></div>
-
-        <!-- Users Sidebar -->
-        <aside class="users-sidebar" id="usersSidebar">
-            <div class="sidebar-header">
-
-                <h3 class="sidebar-title">Участники</h3>
-                <span class="users-count" id="usersCount">0</span>
-            </div>
-            <!-- Search input for users -->
-            <div class="users-search">
-                <input type="text" id="usersSearch" placeholder="Поиск..." class="search-input">
-            </div>
-            <div class="users-list" id="usersList">
-                <div class="placeholder-message">
-                    <p>Список участников загружается...</p>
+        <aside class="chat-panel" id="chatPanel">
+            <header class="chat-header">
+                <div>
+                    <span class="eyebrow" id="chatKicker">текстовый канал</span>
+                    <h2 id="chatTitle">Выберите чат</h2>
+                </div>
+                <button class="icon-button mobile-close" id="closeChatButton" type="button" aria-label="Закрыть чат"><span class="ui-icon icon-close" aria-hidden="true"></span></button>
+            </header>
+            <div class="message-list" id="messageList" aria-live="polite">
+                <div class="empty-state">
+                    <span>#</span>
+                    <strong>Чат рядом с голосом</strong>
+                    <p>Короткие сообщения без лишнего.</p>
                 </div>
             </div>
-            <!-- Pagination controls -->
-            <div class="users-pagination" id="usersPagination">
-                <button class="pagination-btn" id="prevPage" disabled>&larr;</button>
-                <span class="page-info" id="pageInfo">1</span>
-                <button class="pagination-btn" id="nextPage" disabled>&rarr;</button>
-            </div>
+            <div class="typing-line" id="typingLine" aria-live="polite"></div>
+            <form class="composer" id="messageForm">
+                <div class="emoji-popover" id="emojiPopover" hidden></div>
+                <button class="composer-button" id="emojiButton" type="button" aria-label="Открыть эмодзи"><span class="ui-icon icon-smile" aria-hidden="true"></span></button>
+                <textarea id="messageInput" rows="1" maxlength="2000" aria-describedby="messageLimit" placeholder="Выберите чат" disabled></textarea>
+                <button class="send-button" id="sendButton" type="submit" disabled aria-label="Отправить сообщение"><span class="ui-icon icon-send" aria-hidden="true"></span></button>
+                <output class="message-limit" id="messageLimit" for="messageInput" aria-live="polite"></output>
+            </form>
         </aside>
     </div>
 
-    <!-- Create Room Modal -->
-    <div class="modal-overlay" id="createRoomModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Создать комнату</h3>
-                <button class="modal-close" id="closeModalBtn">&times;</button>
-            </div>
-            <form id="createRoomForm">
-                <div class="form-group">
-                    <label for="roomTypeInput">Тип комнаты</label>
-                    <select id="roomTypeInput" required>
-                        <option value="text">Текстовая</option>
-                        <option value="voice">Аудио</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="roomNameInput">Название комнаты</label>
-                    <input
-                        type="text"
-                        id="roomNameInput"
-                        placeholder="Введите название..."
-                        required
-                        maxlength="50"
-                    />
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" id="cancelModalBtn">Отмена</button>
-                    <button type="submit" class="btn-primary">Создать</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <div class="scrim" id="scrim" hidden></div>
 
-        <!-- Screen Share Modal -->
-    <div class="modal-overlay" id="screenShareModal">
-        <div class="modal-content screen-share-modal-content">
-            <div class="modal-header">
-                <h3>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                        <line x1="8" y1="21" x2="16" y2="21"></line>
-                        <line x1="12" y1="17" x2="12" y2="21"></line>
-                    </svg>
-                    Screen share setup
-                </h3>
-                <button class="modal-close" id="closeScreenShareModalBtn">&times;</button>
+    <dialog class="nova-dialog" id="discoverDialog">
+        <form method="dialog" class="dialog-shell">
+            <header>
+                <div><span class="eyebrow">быстрый поиск</span><h2>Найти по ID</h2></div>
+                <button class="icon-button" value="cancel" aria-label="Закрыть"><span class="ui-icon icon-close" aria-hidden="true"></span></button>
+            </header>
+            <label class="field">
+                <span>Уникальный ID</span>
+                <input id="discoveryId" type="number" min="1" inputmode="numeric" placeholder="Например, 184">
+            </label>
+            <div class="dialog-actions">
+                <button class="primary-button" id="findServerButton" type="button">Найти сервер</button>
+                <button class="soft-button" id="findUserButton" type="button">Найти человека</button>
             </div>
-            <div class="screen-share-modal-body">
-                <div class="screen-share-options-row">
-                    <div class="screen-share-option">
-                        <label for="screenShareQuality">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="23 7 16 12 23 17 23 7"></polygon>
-                                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-                            </svg>
-                            Quality
-                        </label>
-                        <select id="screenShareQuality">
-                            <option value="balanced">Balanced (1080p / 30fps)</option>
-                            <option value="quality">High quality (1440p / 60fps)</option>
-                            <option value="performance">Performance (720p / 15fps)</option>
+            <div class="search-result" id="discoveryResult" aria-live="polite"></div>
+        </form>
+    </dialog>
+
+    <dialog class="nova-dialog compact-dialog" id="createChannelDialog">
+        <form class="dialog-shell" id="createChannelForm">
+            <header>
+                <div><span class="eyebrow">новый канал</span><h2 id="createChannelTitle">Создать канал</h2></div>
+                <button class="icon-button" id="closeCreateDialog" type="button" aria-label="Закрыть"><span class="ui-icon icon-close" aria-hidden="true"></span></button>
+            </header>
+            <label class="field">
+                <span>Название</span>
+                <input id="channelNameInput" maxlength="100" autocomplete="off" required placeholder="Например, Кухня">
+            </label>
+            <button class="primary-button" type="submit">Создать</button>
+        </form>
+    </dialog>
+
+    <dialog class="nova-dialog settings-dialog" id="serverDialog">
+        <form method="dialog" class="dialog-shell">
+            <header>
+                <div><span class="eyebrow">управление сервером</span><h2 id="serverDialogTitle">Сервер</h2></div>
+                <button class="icon-button" value="cancel" aria-label="Закрыть"><span class="ui-icon icon-close" aria-hidden="true"></span></button>
+            </header>
+            <div class="server-id-card">
+                <span>Уникальный ID</span>
+                <strong id="serverIdValue">—</strong>
+            </div>
+            <section class="settings-section" id="serverOwnerSettings">
+                <h3>Основное</h3>
+                <label class="field"><span>Название сервера</span><input id="serverManageName" maxlength="100"></label>
+                <label class="switch-row"><span>Разрешить вход по ID</span><input id="serverJoinableToggle" type="checkbox"></label>
+                <button class="primary-button" id="saveServerButton" type="button">Сохранить сервер</button>
+            </section>
+            <section class="settings-section" id="transferOwnerSection">
+                <h3>Передать владельца</h3>
+                <label class="field"><span>Новый владелец</span><select id="transferOwnerSelect"></select></label>
+                <button class="soft-button" id="transferOwnerButton" type="button">Передать права</button>
+            </section>
+            <button class="soft-button logout-button" id="leaveServerButton" type="button">Покинуть сервер</button>
+            <button class="danger-button" id="deleteServerButton" type="button">Удалить сервер</button>
+        </form>
+    </dialog>
+
+    <dialog class="nova-dialog settings-dialog" id="settingsDialog">
+        <form method="dialog" class="dialog-shell">
+            <header>
+                <div><span class="eyebrow">Borotalk</span><h2>Настройки</h2></div>
+                <button class="icon-button" value="cancel" aria-label="Закрыть"><span class="ui-icon icon-close" aria-hidden="true"></span></button>
+            </header>
+            <section class="settings-section">
+                <h3>Профиль</h3>
+                <label class="field"><span>Отображаемое имя</span><input id="profileDisplayName" maxlength="50" autocomplete="name"></label>
+                <label class="field"><span>Никнейм на английском</span><input id="profileUsername" maxlength="32" autocomplete="off"></label>
+                <div class="field">
+                    <span>Встроенный аватар</span>
+                    <div class="avatar-preset-grid" id="avatarPresetGrid">
+                        <button class="avatar-choice preset-mint-star" type="button" data-avatar-preset="mint-star">✦</button>
+                        <button class="avatar-choice preset-violet-orbit" type="button" data-avatar-preset="violet-orbit">◖</button>
+                        <button class="avatar-choice preset-peach-wave" type="button" data-avatar-preset="peach-wave">≈</button>
+                        <button class="avatar-choice preset-mint-dot" type="button" data-avatar-preset="mint-dot">●</button>
+                        <button class="avatar-choice preset-violet-arrow" type="button" data-avatar-preset="violet-arrow">↟</button>
+                        <button class="avatar-choice preset-peach-b" type="button" data-avatar-preset="peach-b">B</button>
+                    </div>
+                </div>
+                <button class="primary-button" id="saveProfileButton" type="button">Сохранить профиль</button>
+            </section>
+            <section class="settings-section">
+                <h3>Тема</h3>
+                <div class="theme-options">
+                    <button class="theme-card" data-theme-choice="light" type="button"><i class="theme-preview light"></i><span>Светлая</span></button>
+                    <button class="theme-card" data-theme-choice="dark" type="button"><i class="theme-preview dark"></i><span>Тёмная</span></button>
+                </div>
+            </section>
+            <section class="settings-section">
+                <h3>Аудио</h3>
+                <div class="audio-device-grid">
+                    <label class="field">
+                        <span>Микрофон</span>
+                        <select id="audioInputSelect" aria-describedby="audioDeviceHint">
+                            <option value="">Системный микрофон</option>
                         </select>
-                    </div>
-                    <div class="screen-share-option screen-share-option-toggle">
-                        <label for="screenShareAudio">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                            </svg>
-                            Capture system audio
-                        </label>
-                        <input type="checkbox" id="screenShareAudio">
-                    </div>
+                    </label>
+                    <label class="field">
+                        <span>Устройство вывода</span>
+                        <select id="audioOutputSelect" aria-describedby="audioDeviceHint">
+                            <option value="">Системное устройство</option>
+                        </select>
+                    </label>
                 </div>
-                <div class="screen-share-preview-wrap" id="screenSharePreviewWrap">
-                    <video id="screenSharePreview" autoplay muted playsinline></video>
-                    <div class="screen-share-preview-empty" id="screenSharePreviewEmpty">
-                        <div class="screen-share-preview-icon">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                                <line x1="8" y1="21" x2="16" y2="21"></line>
-                                <line x1="12" y1="17" x2="12" y2="21"></line>
-                            </svg>
-                        </div>
-                        <div class="screen-share-preview-text">Pick a screen or window to preview</div>
-                    </div>
-                    <div class="screen-share-preview-meta" id="screenSharePreviewMeta"></div>
-                </div>
-                <div class="screen-share-picker-actions">
-                    <button type="button" class="btn-secondary" id="pickScreenSourceBtn">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                        </svg>
-                        Choose source
-                    </button>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn-secondary" id="cancelScreenShareBtn">Cancel</button>
-                <button type="button" class="btn-primary" id="startScreenShareBtn" disabled>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
-                    Start sharing
-                </button>
-            </div>
+                <p class="settings-note" id="audioDeviceHint">Названия устройств появятся после разрешения доступа к микрофону.</p>
+            </section>
+            <section class="settings-section">
+                <h3>Звуки</h3>
+                <label class="switch-row"><span>Звуки подключения</span><input id="soundToggle" type="checkbox" checked></label>
+            </section>
+            <button class="soft-button logout-button" id="logoutButton" type="button">Выйти из аккаунта</button>
+        </form>
+    </dialog>
+
+    <dialog class="nova-dialog members-dialog" id="membersDialog">
+        <form method="dialog" class="dialog-shell">
+            <header>
+                <div><span class="eyebrow">пространство</span><h2>Участники</h2></div>
+                <button class="icon-button" value="cancel" aria-label="Закрыть"><span class="ui-icon icon-close" aria-hidden="true"></span></button>
+            </header>
+            <div class="member-list" id="memberList"></div>
+        </form>
+    </dialog>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+    <div class="participant-volume-popover" id="participantVolumePopover" role="dialog" aria-label="Громкость участника" hidden>
+        <strong id="participantVolumeName">Участник</strong>
+        <label for="participantVolumeSlider">Громкость голоса</label>
+        <div class="participant-volume-row">
+            <input id="participantVolumeSlider" type="range" min="0" max="100" step="1" value="100">
+            <output id="participantVolumeLabel" for="participantVolumeSlider">100%</output>
         </div>
+        <small>Настройка действует только у вас</small>
     </div>
+    <div id="remoteAudio" hidden></div>
 
-    <!-- Screen Share Viewer -->
-    <div class="modal-overlay" id="screenViewerModal">
-        <div class="modal-content screen-viewer-modal-content">
-            <div class="screen-viewer-header">
-                <h3 id="screenViewerTitle">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                        <line x1="8" y1="21" x2="16" y2="21"></line>
-                        <line x1="12" y1="17" x2="12" y2="21"></line>
-                    </svg>
-                    Screen share
-                </h3>
-                <div class="screen-viewer-actions">
-                    <button type="button" class="btn-secondary" id="screenViewerPopoutBtn">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                            <polyline points="15 3 21 3 21 9"></polyline>
-                            <line x1="10" y1="14" x2="21" y2="3"></line>
-                        </svg>
-                        Popout
-                    </button>
-                    <button type="button" class="btn-secondary" id="screenViewerPipBtn">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                            <rect x="12" y="12" width="7" height="5" rx="1"></rect>
-                        </svg>
-                        PiP
-                    </button>
-                    <button class="modal-close" id="closeScreenViewerModalBtn">&times;</button>
-                </div>
-            </div>
-            <div class="screen-viewer-body">
-                <video id="screenViewerVideo" autoplay playsinline controls></video>
-            </div>
-        </div>
-    </div>
-
-    <!-- Settings Modal -->
-    <div class="modal-overlay" id="settingsModal">
-        <div class="modal-content settings-modal-content settings-modal-tabs">
-            <div class="settings-tabs-sidebar">
-                <div class="settings-tabs-header">
-                    <h3>Настройки</h3>
-                    <button class="modal-close" id="closeSettingsBtn">&times;</button>
-                </div>
-                <nav class="settings-tabs-nav">
-                    <button class="settings-tab-btn active" data-tab="account">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                        <span>Аккаунт</span>
-                    </button>
-                    <button class="settings-tab-btn" data-tab="appearance">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="5"></circle>
-                            <line x1="12" y1="1" x2="12" y2="3"></line>
-                            <line x1="12" y1="21" x2="12" y2="23"></line>
-                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                            <line x1="1" y1="12" x2="3" y2="12"></line>
-                            <line x1="21" y1="12" x2="23" y2="12"></line>
-                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                        </svg>
-                        <span>Оформление</span>
-                    </button>
-                    <button class="settings-tab-btn" data-tab="audio">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                        </svg>
-                        <span>Аудио</span>
-                    </button>
-                    <button class="settings-tab-btn" data-tab="logs">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10 9 9 9 8 9"></polyline>
-                        </svg>
-                        <span>Логи</span>
-                    </button>
-                    <button class="settings-tab-btn admin-tab-btn" data-tab="admin" style="display: none;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                            <path d="M9 12l2 2 4-4"></path>
-                        </svg>
-                        <span>Админ-панель</span>
-                    </button>
-                    <button class="settings-tab-btn" data-tab="danger">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                            <polyline points="16 17 21 12 16 7"></polyline>
-                            <line x1="21" y1="12" x2="9" y2="12"></line>
-                        </svg>
-                        <span>Выход</span>
-                    </button>
-                </nav>
-            </div>
-            <div class="settings-tabs-content">
-                <!-- Account Tab -->
-                <div class="settings-tab-panel active" id="tab-account">
-                    <form id="settingsForm">
-                        <h4 class="settings-section-title">Информация профиля</h4>
-                        <div class="profile-card">
-                            <div class="profile-avatar-wrapper">
-                                <div class="profile-avatar" id="settingsAvatarPreview">
-                                    
-                                </div>
-                                <div class="profile-avatar-actions">
-                                    <label class="profile-action-btn" for="avatarInput" title="Сменить фото">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                                            <circle cx="12" cy="13" r="4"></circle>
-                                        </svg>
-                                    </label>
-                                    <button type="button" class="profile-action-btn profile-action-remove removeAvatarBtn" id="removeAvatarBtn" title="Удалить фото">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <polyline points="3 6 5 6 21 6"></polyline>
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                        </svg>
-                                    </button>
-                                </div>
-                                <input type="file" id="avatarInput" accept="image/*" style="display: none;">
-                            </div>
-                            <div class="profile-info">
-                                <div class="profile-field">
-                                    <label class="profile-label">Nickname</label>
-                                    <div class="profile-value-wrapper">
-                                        <span class="profile-value" id="settingsUserDisplayName">ruber</span>
-                                        <button type="button" class="profile-edit-btn" title="Изменить имя">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                    <input type="text" class="profile-input" id="settingsDisplayNameInput" placeholder="Ваше имя" style="display: none;">
-                                </div>
-                                <div class="profile-field">
-                                    <label class="profile-label">Tag</label>
-                                    <div class="profile-value-wrapper">
-                                        <span class="profile-value profile-tag" id="settingsUserTag">@qqracha</span>
-                                        <button type="button" class="profile-edit-btn" title="Изменить никнейм">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                    <input type="text" class="profile-input" id="settingsUsernameInput" placeholder="@username" style="display: none;">
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Avatar Cropper -->
-                        <div class="avatar-cropper-container" id="avatarCropperContainer" style="display: none;">
-                            <div class="avatar-cropper-header">
-                                <h4>Редактирование аватарки</h4>
-                                <button type="button" class="cropper-close-btn" id="closeCropperBtn">&times;</button>
-                            </div>
-                            <div class="avatar-cropper-body">
-                                <div class="avatar-cropper-preview" id="avatarCropperPreview">
-                                    <div class="avatar-cropper-preview-inner" id="cropperPreviewInner">
-                                        <img id="cropperImage" src="" alt="Crop preview">
-                                    </div>
-                                </div>
-                                <div class="avatar-cropper-controls">
-                                    <div class="cropper-zoom-label">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="11" cy="11" r="8"></circle>
-                                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                                            <line x1="11" y1="8" x2="11" y2="14"></line>
-                                            <line x1="8" y1="11" x2="14" y2="11"></line>
-                                        </svg>
-                                        <span>Масштаб</span>
-                                    </div>
-                                    <input type="range" class="cropper-zoom-slider" id="cropperZoomSlider" min="0.1" max="3" step="0.05" value="1">
-                                </div>
-                            </div>
-                            <div class="avatar-cropper-footer">
-                                <button type="button" class="btn-secondary" id="cancelCropBtn">Отмена</button>
-                                <button type="button" class="btn-primary" id="applyCropBtn">Сохранить аватарку</button>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="settingsDisplayName">Nickname</label>
-                            <input type="text" id="settingsDisplayName" maxlength="50" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="settingsUsername">Tag</label>
-                            <input type="text" id="settingsUsername" maxlength="32" required>
-                        </div>
-                        <div class="modal-actions settings-modal-actions">
-                            <button type="button" class="btn-secondary" id="cancelSettingsBtn">Отмена</button>
-                            <button type="submit" class="btn-primary">Сохранить</button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Appearance Tab -->
-                <div class="settings-tab-panel" id="tab-appearance">
-                    <h4 class="settings-section-title">Тема интерфейса</h4>
-                    <div class="theme-options-compact">
-                        <div class="theme-option-card active" data-theme="standard">
-                            <div class="theme-card-preview theme-card-standard"></div>
-                            <div class="theme-card-info">
-                                <span class="theme-card-name">Стандартная</span>
-                                <span class="theme-card-desc">Тёмная тема</span>
-                            </div>
-                        </div>
-                        <div class="theme-option-card" data-theme="light">
-                            <div class="theme-card-preview theme-card-light"></div>
-                            <div class="theme-card-info">
-                                <span class="theme-card-name">Светлая</span>
-                                <span class="theme-card-desc">Светлый дизайн</span>
-                            </div>
-                        </div>
-                        <div class="theme-option-card" data-theme="amoled">
-                            <div class="theme-card-preview theme-card-amoled"></div>
-                            <div class="theme-card-info">
-                                <span class="theme-card-name">AMOLED</span>
-                                <span class="theme-card-desc">Чёрный OLED</span>
-                            </div>
-                        </div>
-                    </div>
-                    <h4 class="settings-section-title" style="margin-top: 16px;">Custom palette</h4>
-                    <div class="appearance-custom-card" id="customPaletteCard">
-                        <div class="appearance-custom-header">
-                            <div>
-                                <div class="appearance-custom-title">Color studio</div>
-                                <div class="appearance-custom-subtitle">Tune the base colors with RGB sliders</div>
-                            </div>
-                            <label class="appearance-toggle">
-                                <input type="checkbox" id="customColorsToggle">
-                                <span class="toggle-track"></span>
-                                <span class="toggle-label" id="customColorsState">off</span>
-                            </label>
-                        </div>
-                        <div class="appearance-preview" id="customColorsPreview">
-                            <div class="appearance-preview-sidebar">
-                                <div class="appearance-preview-avatar"></div>
-                                <div class="appearance-preview-lines">
-                                    <span style="width: 80%;"></span>
-                                    <span style="width: 65%;"></span>
-                                    <span></span>
-                                </div>
-                            </div>
-                            <div class="appearance-preview-main">
-                                <div class="appearance-preview-header"></div>
-                                <div class="appearance-preview-chat">
-                                    <div class="appearance-preview-bubble"></div>
-                                    <div class="appearance-preview-bubble secondary"></div>
-                                    <div class="appearance-preview-bubble" style="width: 60%;"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="appearance-color-grid">
-                            <div class="color-control" data-color-key="body">
-                                <div class="color-control-header">
-                                    <span>body background</span>
-                                    <span class="color-value" id="colorValueBody">rgb(0, 0, 0)</span>
-                                </div>
-                                <div class="color-control-row">
-                                    <input type="color" id="colorBody">
-                                    <div class="color-sliders">
-                                        <div class="color-slider">
-                                            <span>R</span>
-                                            <input type="range" id="colorBodyR" min="0" max="255">
-                                            <span class="color-slider-value" id="colorBodyRValue">0</span>
-                                        </div>
-                                        <div class="color-slider">
-                                            <span>G</span>
-                                            <input type="range" id="colorBodyG" min="0" max="255">
-                                            <span class="color-slider-value" id="colorBodyGValue">0</span>
-                                        </div>
-                                        <div class="color-slider">
-                                            <span>B</span>
-                                            <input type="range" id="colorBodyB" min="0" max="255">
-                                            <span class="color-slider-value" id="colorBodyBValue">0</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="color-control" data-color-key="panel">
-                                <div class="color-control-header">
-                                    <span>glass panels</span>
-                                    <span class="color-value" id="colorValuePanel">rgb(0, 0, 0)</span>
-                                </div>
-                                <div class="color-control-row">
-                                    <input type="color" id="colorPanel">
-                                    <div class="color-sliders">
-                                        <div class="color-slider">
-                                            <span>R</span>
-                                            <input type="range" id="colorPanelR" min="0" max="255">
-                                            <span class="color-slider-value" id="colorPanelRValue">0</span>
-                                        </div>
-                                        <div class="color-slider">
-                                            <span>G</span>
-                                            <input type="range" id="colorPanelG" min="0" max="255">
-                                            <span class="color-slider-value" id="colorPanelGValue">0</span>
-                                        </div>
-                                        <div class="color-slider">
-                                            <span>B</span>
-                                            <input type="range" id="colorPanelB" min="0" max="255">
-                                            <span class="color-slider-value" id="colorPanelBValue">0</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="color-control" data-color-key="chat">
-                                <div class="color-control-header">
-                                    <span>modal surface</span>
-                                    <span class="color-value" id="colorValueChat">rgb(0, 0, 0)</span>
-                                </div>
-                                <div class="color-control-row">
-                                    <input type="color" id="colorChat">
-                                    <div class="color-sliders">
-                                        <div class="color-slider">
-                                            <span>R</span>
-                                            <input type="range" id="colorChatR" min="0" max="255">
-                                            <span class="color-slider-value" id="colorChatRValue">0</span>
-                                        </div>
-                                        <div class="color-slider">
-                                            <span>G</span>
-                                            <input type="range" id="colorChatG" min="0" max="255">
-                                            <span class="color-slider-value" id="colorChatGValue">0</span>
-                                        </div>
-                                        <div class="color-slider">
-                                            <span>B</span>
-                                            <input type="range" id="colorChatB" min="0" max="255">
-                                            <span class="color-slider-value" id="colorChatBValue">0</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="color-control" data-color-key="accent">
-                                <div class="color-control-header">
-                                    <span>accent</span>
-                                    <span class="color-value" id="colorValueAccent">rgb(0, 0, 0)</span>
-                                </div>
-                                <div class="color-control-row">
-                                    <input type="color" id="colorAccent">
-                                    <div class="color-sliders">
-                                        <div class="color-slider">
-                                            <span>R</span>
-                                            <input type="range" id="colorAccentR" min="0" max="255">
-                                            <span class="color-slider-value" id="colorAccentRValue">0</span>
-                                        </div>
-                                        <div class="color-slider">
-                                            <span>G</span>
-                                            <input type="range" id="colorAccentG" min="0" max="255">
-                                            <span class="color-slider-value" id="colorAccentGValue">0</span>
-                                        </div>
-                                        <div class="color-slider">
-                                            <span>B</span>
-                                            <input type="range" id="colorAccentB" min="0" max="255">
-                                            <span class="color-slider-value" id="colorAccentBValue">0</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="color-control" data-color-key="text">
-                                <div class="color-control-header">
-                                    <span>text</span>
-                                    <span class="color-value" id="colorValueText">rgb(0, 0, 0)</span>
-                                </div>
-                                <div class="color-control-row">
-                                    <input type="color" id="colorText">
-                                    <div class="color-sliders">
-                                        <div class="color-slider">
-                                            <span>R</span>
-                                            <input type="range" id="colorTextR" min="0" max="255">
-                                            <span class="color-slider-value" id="colorTextRValue">0</span>
-                                        </div>
-                                        <div class="color-slider">
-                                            <span>G</span>
-                                            <input type="range" id="colorTextG" min="0" max="255">
-                                            <span class="color-slider-value" id="colorTextGValue">0</span>
-                                        </div>
-                                        <div class="color-slider">
-                                            <span>B</span>
-                                            <input type="range" id="colorTextB" min="0" max="255">
-                                            <span class="color-slider-value" id="colorTextBValue">0</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="appearance-custom-actions">
-                            <button type="button" class="btn-secondary" id="customColorsReset">reset</button>
-                        </div>
-                    </div>
-
-                    <h4 class="settings-section-title" style="margin-top: 16px;">Style extras</h4>
-                    <div class="appearance-effects-card" id="appearanceEffectsCard">
-                        <div class="appearance-effect-row">
-                            <div class="appearance-effect-info">
-                                <div class="appearance-effect-name">Background glow</div>
-                                <div class="appearance-effect-desc">Accent orbs and soft gradients</div>
-                            </div>
-                            <label class="appearance-toggle">
-                                <input type="checkbox" id="toggleBgGlow">
-                                <span class="toggle-track"></span>
-                                <span class="toggle-label" id="toggleBgGlowState">on</span>
-                            </label>
-                        </div>
-                        <div class="appearance-effect-row">
-                            <div class="appearance-effect-info">
-                                <div class="appearance-effect-name">Glass blur</div>
-                                <div class="appearance-effect-desc">Shadow + blur on panels</div>
-                            </div>
-                            <label class="appearance-toggle">
-                                <input type="checkbox" id="toggleGlassBlur">
-                                <span class="toggle-track"></span>
-                                <span class="toggle-label" id="toggleGlassBlurState">on</span>
-                            </label>
-                        </div>
-                        <div class="appearance-effect-row">
-                            <div class="appearance-effect-info">
-                                <div class="appearance-effect-name">Accent gradients</div>
-                                <div class="appearance-effect-desc">Buttons and active highlights</div>
-                            </div>
-                            <label class="appearance-toggle">
-                                <input type="checkbox" id="toggleAccentGradients">
-                                <span class="toggle-track"></span>
-                                <span class="toggle-label" id="toggleAccentGradientsState">on</span>
-                            </label>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- Audio Tab -->
-                <div class="settings-tab-panel" id="tab-audio">
-                    <h4 class="settings-section-title">Настройки аудио</h4>
-                    <div class="audio-settings-grid">
-                        <div class="audio-setting-item">
-                            <div class="audio-setting-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                                    <line x1="12" y1="19" x2="12" y2="23"></line>
-                                    <line x1="8" y1="23" x2="16" y2="23"></line>
-                                </svg>
-                            </div>
-                            <div class="audio-setting-control">
-                                <label for="settingsMicVolume">Громкость микрофона</label>
-                                <div class="slider-container">
-                                    <input type="range" id="settingsMicVolume" min="0" max="100" value="100" class="settings-volume-slider">
-                                    <span class="volume-value-display" id="settingsMicVolumeValue">100%</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="audio-setting-item">
-                            <div class="audio-setting-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-                                </svg>
-                            </div>
-                            <div class="audio-setting-control">
-                                <label for="settingsHeadphoneVolume">Громкость наушников</label>
-                                <div class="slider-container">
-                                    <input type="range" id="settingsHeadphoneVolume" min="0" max="400" value="200" class="settings-volume-slider">
-                                    <span class="volume-value-display" id="settingsHeadphoneVolumeValue">100%</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="audio-tip">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="16" x2="12" y2="12"></line>
-                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                        </svg>
-                        <span>Эти настройки применяются к голосовым комнатам</span>
-                    </div>
-
-                    <!-- Voice Hotkeys Section -->
-                    <h4 class="settings-section-title" style="margin-top: 24px;">Горячие клавиши</h4>
-                    <div class="hotkey-settings-list">
-                        <div class="hotkey-setting-item">
-                            <div class="hotkey-setting-label">
-                                <span class="hotkey-action-name">Mute mic</span>
-                                <span class="hotkey-action-desc">In voice channel</span>
-                            </div>
-                            <div class="hotkey-setting-control">
-                                <button type="button" class="hotkey-bind-btn" id="hotkeyMuteBtn">
-                                    <span class="hotkey-current-key" id="hotkeyMuteDisplay">Не назначено</span>
-                                </button>
-                                <button type="button" class="hotkey-reset-btn" id="hotkeyMuteReset" title="Сбросить на значение по умолчанию">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                                        <path d="M3 3v5h5"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Logs Tab -->
-                <div class="settings-tab-panel" id="tab-logs">
-                    <h4 class="settings-section-title">Логи подключения <span id="logsVersion" class="version-badge">загрузка...</span></h4>
-                    <div class="logs-stats-container">
-                        <div class="logs-stat-card">
-                            <div class="logs-stat-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <polyline points="12 6 12 12 16 14"></polyline>
-                                </svg>
-                            </div>
-                            <div class="logs-stat-info">
-                                <span class="logs-stat-label">Статус</span>
-                                <span class="logs-stat-value" id="logsStatsStatus">-</span>
-                            </div>
-                        </div>
-                        <div class="logs-stat-card">
-                            <div class="logs-stat-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                                    <line x1="12" y1="19" x2="12" y2="23"></line>
-                                    <line x1="8" y1="23" x2="16" y2="23"></line>
-                                </svg>
-                            </div>
-                            <div class="logs-stat-info">
-                                <span class="logs-stat-label">Время в сети</span>
-                                <span class="logs-stat-value" id="logsStatsUptime">-</span>
-                            </div>
-                        </div>
-                        <div class="logs-stat-card">
-                            <div class="logs-stat-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                                </svg>
-                            </div>
-                            <div class="logs-stat-info">
-                                <span class="logs-stat-label">Отправлено</span>
-                                <span class="logs-stat-value" id="logsStatsSent">0</span>
-                            </div>
-                        </div>
-                        <div class="logs-stat-card">
-                            <div class="logs-stat-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                                </svg>
-                            </div>
-                            <div class="logs-stat-info">
-                                <span class="logs-stat-label">Получено</span>
-                                <span class="logs-stat-value" id="logsStatsReceived">0</span>
-                            </div>
-                        </div>
-                        <div class="logs-stat-card">
-                            <div class="logs-stat-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                                </svg>
-                            </div>
-                            <div class="logs-stat-info">
-                                <span class="logs-stat-label">Пинг</span>
-                                <span class="logs-stat-value" id="logsStatsPing">-</span>
-                            </div>
-                        </div>
-                        <div class="logs-stat-card">
-                            <div class="logs-stat-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="23 4 23 10 17 10"></polyline>
-                                    <polyline points="1 20 1 14 7 14"></polyline>
-                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                                </svg>
-                            </div>
-                            <div class="logs-stat-info">
-                                <span class="logs-stat-label">Переподключений</span>
-                                <span class="logs-stat-value" id="logsStatsReconnects">0</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="logs-section">
-                        <div class="logs-header">
-                            <h5>История событий</h5>
-                            <button type="button" class="btn-clear-logs" id="clearLogsBtn" title="Очистить логи">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                </svg>
-                                Очистить
-                            </button>
-                        </div>
-                        <button type="button" class="logs-action-btn" id="checkVersionBtn">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7 10 12 15 17 10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            Проверить обновления
-                        </button>
-                        <div class="settings-version-info">
-                            <span class="settings-version-label">Версия приложения:</span>
-                            <span class="settings-version-value" id="settingsVersionInfo">-</span>
-                        </div>
-                        <div class="logs-list" id="logsList">
-                            <div class="logs-empty">Пока нет записей</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Danger/Logout Tab -->
-                <div class="settings-tab-panel" id="tab-danger">
-                    <h4 class="settings-section-title">Опасная зона</h4>
-                    <div class="danger-zone">
-                        <p class="danger-zone-text">Выйти из аккаунта на этом устройстве</p>
-                        <button type="button" class="btn-logout-full" id="logoutBtn">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                <polyline points="16 17 21 12 16 7"></polyline>
-                                <line x1="21" y1="12" x2="9" y2="12"></line>
-                            </svg>
-                            Выйти из аккаунта
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Admin Tab -->
-                <div class="settings-tab-panel" id="tab-admin">
-                    <h4 class="settings-section-title">Управление системой</h4>
-                    <div class="admin-panel-container">
-                        <!-- Rooms Management Section -->
-                        <div class="admin-section">
-                            <div class="admin-section-header">
-                                <div class="admin-section-icon rooms-icon">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                                    </svg>
-                                </div>
-                                <div class="admin-section-title">
-                                    <h5>Управление комнатами</h5>
-                                    <p>Создание и удаление чат-комнат</p>
-                                </div>
-                            </div>
-                            <div class="admin-section-content">
-                                <div class="admin-room-form">
-                                    <div class="admin-room-form-group">
-                                        <input type="text" id="adminRoomName" placeholder="Название комнаты" maxlength="100">
-                                    </div>
-                                    <div class="admin-room-form-group">
-                                        <input type="text" id="adminRoomDesc" placeholder="Описание (опционально)" maxlength="500">
-                                    </div>
-                                    <button type="button" class="btn-primary" id="adminCreateRoomBtn">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                                        </svg>
-                                        Создать
-                                    </button>
-                                </div>
-                                <div class="admin-rooms-list">
-                                    <div class="admin-rooms-list-header">
-                                        <span>Название</span>
-                                        <span>Создана</span>
-                                        <span>Действия</span>
-                                    </div>
-                                    <div class="admin-rooms-list-body" id="adminRoomsListBody">
-                                        <!-- Rooms will be loaded here -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Invite Codes Section -->
-                        <div class="admin-section">
-                            <div class="admin-section-header">
-                                <div class="admin-section-icon">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                                        <polyline points="10 17 15 12 10 7"></polyline>
-                                        <line x1="15" y1="12" x2="3" y2="12"></line>
-                                    </svg>
-                                </div>
-                                <div class="admin-section-title">
-                                    <h5>Пригласительные коды</h5>
-                                    <p>Создание и управление инвайтами для регистрации</p>
-                                </div>
-                            </div>
-                            <div class="admin-section-content">
-                                <div class="invite-form-row">
-                                    <div class="invite-form-group">
-                                        <label for="inviteMaxUses">Лимит использований</label>
-                                        <input type="number" id="inviteMaxUses" min="1" max="100" value="1">
-                                    </div>
-                                    <div class="invite-form-group">
-                                        <label for="inviteExpiresIn">Истекает через (часов)</label>
-                                        <input type="number" id="inviteExpiresIn" min="1" max="168" value="24">
-                                    </div>
-                                    <button type="button" class="btn-primary" id="createInviteBtn">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                                        </svg>
-                                        Создать код
-                                    </button>
-                                </div>
-                                <div class="invites-list" id="invitesList">
-                                    <div class="invites-list-header">
-                                        <span>Код</span>
-                                        <span>Использовано</span>
-                                        <span>Истекает</span>
-                                        <span>Действия</span>
-                                    </div>
-                                    <div class="invites-list-body" id="invitesListBody">
-                                        <!-- Invites will be loaded here -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Logout Confirmation Modal -->
-    <div class="modal-overlay" id="logoutConfirmModal">
-        <div class="modal-content confirm-modal">
-            <div class="confirm-modal-icon">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                    <polyline points="16 17 21 12 16 7"></polyline>
-                    <line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
-            </div>
-            <h3 class="confirm-modal-title">Выйти из аккаунта?</h3>
-            <p class="confirm-modal-text">Вы уверены, что хотите выйти? После выхода вам нужно будет войти снова.</p>
-            <div class="confirm-modal-actions">
-                <button type="button" class="btn-secondary" id="cancelLogoutBtn">Отмена</button>
-                <button type="button" class="btn-danger" id="confirmLogoutBtn">Выйти</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- User Profile Popup -->
-    <div class="user-profile-popup hidden" id="userProfilePopup">
-        <div class="user-profile-backdrop" id="userProfileBackdrop"></div>
-        <div class="user-profile-card">
-            <div class="user-profile-header">
-                <div class="user-profile-avatar" id="userProfileAvatar">
-                    <img src="" alt="" class="user-profile-avatar-img">
-                </div>
-            </div>
-            <div class="user-profile-info">
-                <div class="user-profile-name" id="userProfileName"></div>
-                <div class="user-profile-username" id="userProfileUsername"></div>
-            </div>
-            <div class="user-profile-divider"></div>
-            <div class="user-profile-member-since">
-                <span class="user-profile-label">Участник с</span>
-                <span class="user-profile-value" id="userProfileMemberSince"></span>
-            </div>
-            <div class="user-profile-actions">
-                <button class="user-profile-action-btn" id="userProfileMessageBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                    Написать сообщение
-                </button>
-            </div>
-            <button class="user-profile-close-btn" id="userProfileCloseBtn">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-            </button>
-        </div>
-    </div>
-
-    <script defer src="/app-config.js"></script>
-    <script defer src="js/config.js"></script>
-    <script defer src="js/notifications.js"></script>
-    <script defer src="js/main/chat/notifications/toast-notifications.js"></script>
-    <script defer src="js/main/chat/ui/version-checker.js"></script>
-    <script defer src="js/attachments.js"></script>
-    <script type="module" src="js/app/bootstrap.js"></script>
+    <script type="module" src="/js/nova-main.js?v=21"></script>
 </body>
-
-<!-- PWA Service Worker Registration -->
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js')
-                .then((registration) => {
-                    console.log('SW registered:', registration.scope);
-                    
-                    // Проверяем обновления
-                    registration.addEventListener('updatefound', () => {
-                        const newWorker = registration.installing;
-                        newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                // Новая версия доступна
-                                if (confirm('Доступна новая версия приложения. Обновить?')) {
-                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                    location.reload();
-                                }
-                            }
-                        });
-                    });
-                })
-                .catch((error) => {
-                    console.error('SW registration failed:', error);
-                });
-        });
-    }
-    
-    // PWA Install Prompt
-    let deferredPrompt;
-    const installBanner = document.createElement('div');
-    installBanner.className = 'pwa-install-banner';
-    installBanner.innerHTML = `
-        <div style="
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(135deg, #DB734F, #e88d6d);
-            color: white;
-            padding: 16px 24px;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            z-index: 10000;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-family: system-ui, -apple-system, sans-serif;
-            animation: slideUp 0.3s ease;
-        ">
-            <span>Установить приложение?</span>
-            <button id="installYes" style="
-                background: white;
-                color: #DB734F;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 8px;
-                font-weight: 600;
-                cursor: pointer;
-            ">Да</button>
-            <button id="installNo" style="
-                background: transparent;
-                color: white;
-                border: 1px solid rgba(255,255,255,0.5);
-                padding: 8px 12px;
-                border-radius: 8px;
-                cursor: pointer;
-            ">Нет</button>
-        </div>
-    `;
-    
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        
-        // Показываем баннер только если не установлено
-        if (!window.matchMedia('(display-mode: standalone)').matches) {
-            setTimeout(() => {
-                document.body.appendChild(installBanner);
-            }, 3000);
-        }
-    });
-    
-    document.getElementById('installYes')?.addEventListener('click', async () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') {
-                console.log('App installed');
-            }
-            deferredPrompt = null;
-        }
-        installBanner.remove();
-    });
-    
-    document.getElementById('installNo')?.addEventListener('click', () => {
-        installBanner.remove();
-    });
-    
-    // Скрываем баннер если приложение уже установлено
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-        installBanner.style.display = 'none';
-    }
-</script>
-<script>
-    (function () {
-        const container = document.getElementById('messagesContainer');
-        const list = document.getElementById('messagesList');
-        if (!container || !list) return;
-
-        let scheduled = false;
-        const scrollToBottom = () => {
-            container.scrollTop = container.scrollHeight;
-        };
-        const requestScroll = () => {
-            if (scheduled) return;
-            scheduled = true;
-            requestAnimationFrame(() => {
-                scrollToBottom();
-                scheduled = false;
-            });
-        };
-
-        const observer = new MutationObserver(requestScroll);
-        observer.observe(list, { childList: true, subtree: true });
-
-        window.addEventListener('load', () => {
-            requestScroll();
-            setTimeout(scrollToBottom, 200);
-        });
-    })();
-
-    (function () {
-        const storageKey = 'telegramCustomPalette';
-        const root = document.documentElement;
-        const card = document.getElementById('customPaletteCard');
-        const preview = document.getElementById('customColorsPreview');
-        const toggle = document.getElementById('customColorsToggle');
-        const stateLabel = document.getElementById('customColorsState');
-        const resetBtn = document.getElementById('customColorsReset');
-
-        if (!card || !toggle) return;
-
-        const controls = [
-            {
-                key: 'body',
-                varName: '--bg-base',
-                inputId: 'colorBody',
-                valueId: 'colorValueBody',
-                sliders: { r: 'colorBodyR', g: 'colorBodyG', b: 'colorBodyB' },
-                sliderValues: { r: 'colorBodyRValue', g: 'colorBodyGValue', b: 'colorBodyBValue' }
-            },
-            {
-                key: 'panel',
-                varName: '--glass-bg',
-                inputId: 'colorPanel',
-                valueId: 'colorValuePanel',
-                sliders: { r: 'colorPanelR', g: 'colorPanelG', b: 'colorPanelB' },
-                sliderValues: { r: 'colorPanelRValue', g: 'colorPanelGValue', b: 'colorPanelBValue' }
-            },
-            {
-                key: 'chat',
-                varName: '--modal-bg',
-                inputId: 'colorChat',
-                valueId: 'colorValueChat',
-                sliders: { r: 'colorChatR', g: 'colorChatG', b: 'colorChatB' },
-                sliderValues: { r: 'colorChatRValue', g: 'colorChatGValue', b: 'colorChatBValue' }
-            },
-            {
-                key: 'accent',
-                varName: '--accent',
-                inputId: 'colorAccent',
-                valueId: 'colorValueAccent',
-                sliders: { r: 'colorAccentR', g: 'colorAccentG', b: 'colorAccentB' },
-                sliderValues: { r: 'colorAccentRValue', g: 'colorAccentGValue', b: 'colorAccentBValue' }
-            },
-            {
-                key: 'text',
-                varName: '--text-primary',
-                inputId: 'colorText',
-                valueId: 'colorValueText',
-                sliders: { r: 'colorTextR', g: 'colorTextG', b: 'colorTextB' },
-                sliderValues: { r: 'colorTextRValue', g: 'colorTextGValue', b: 'colorTextBValue' }
-            }
-        ];
-
-        const derivedVars = [
-            '--bg-gradient',
-            '--bg-primary',
-            '--bg-secondary',
-            '--bg-tertiary',
-            '--panel-bg',
-            '--accent-hover',
-            '--accent-dim',
-            '--accent-glow',
-            '--text-secondary',
-            '--text-dim',
-            '--glass-border',
-            '--input-bg',
-            '--input-border',
-            '--scrollbar-track',
-            '--scrollbar-thumb'
-        ];
-
-        const clamp = (value) => Math.max(0, Math.min(255, Math.round(value)));
-        const hexToRgb = (hex) => {
-            const cleaned = hex.replace('#', '');
-            const full = cleaned.length === 3
-                ? cleaned.split('').map((c) => c + c).join('')
-                : cleaned.padEnd(6, '0');
-            return {
-                r: parseInt(full.slice(0, 2), 16),
-                g: parseInt(full.slice(2, 4), 16),
-                b: parseInt(full.slice(4, 6), 16)
-            };
-        };
-
-        const parseColor = (value) => {
-            if (!value) return { r: 0, g: 0, b: 0 };
-            const trimmed = value.trim();
-            if (trimmed.startsWith('#')) {
-                return hexToRgb(trimmed);
-            }
-            const match = trimmed.match(/rgba?\(([^)]+)\)/i);
-            if (match) {
-                const parts = match[1].split(',').map(part => parseFloat(part.trim()));
-                return {
-                    r: clamp(parts[0] || 0),
-                    g: clamp(parts[1] || 0),
-                    b: clamp(parts[2] || 0)
-                };
-            }
-            return { r: 0, g: 0, b: 0 };
-        };
-
-        const rgbToHex = ({ r, g, b }) => {
-            const toHex = (channel) => clamp(channel).toString(16).padStart(2, '0');
-            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-        };
-
-        const rgbToString = ({ r, g, b }) => `rgb(${clamp(r)}, ${clamp(g)}, ${clamp(b)})`;
-        const rgbaToString = ({ r, g, b }, alpha) => `rgba(${clamp(r)}, ${clamp(g)}, ${clamp(b)}, ${alpha})`;
-
-        const luminance = ({ r, g, b }) => {
-            const normalize = (channel) => {
-                const value = channel / 255;
-                return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
-            };
-            const rr = normalize(r);
-            const gg = normalize(g);
-            const bb = normalize(b);
-            return 0.2126 * rr + 0.7152 * gg + 0.0722 * bb;
-        };
-
-        const mix = (a, b, amount) => {
-            const weight = Math.max(0, Math.min(1, amount));
-            return {
-                r: clamp(a.r + (b.r - a.r) * weight),
-                g: clamp(a.g + (b.g - a.g) * weight),
-                b: clamp(a.b + (b.b - a.b) * weight)
-            };
-        };
-
-        const getComputedColor = (varName) => parseColor(getComputedStyle(root).getPropertyValue(varName));
-
-        const getColorState = (key, fallbackVar) => {
-            return state.colors[key] || getComputedColor(fallbackVar);
-        };
-
-        const setPreviewStyle = (colors, derived) => {
-            if (!preview) return;
-            const style = preview.style;
-            controls.forEach((control) => {
-                const color = colors[control.key];
-                if (color) {
-                    style.setProperty(control.varName, rgbToString(color));
-                }
-            });
-            Object.entries(derived).forEach(([varName, value]) => {
-                style.setProperty(varName, value);
-            });
-        };
-
-        const applyDerived = () => {
-            const body = getColorState('body', '--bg-base');
-            const panel = getColorState('panel', '--glass-bg');
-            const accent = getColorState('accent', '--accent');
-            const text = getColorState('text', '--text-primary');
-            const isDark = luminance(body) < 0.5;
-            const contrastTarget = isDark ? { r: 255, g: 255, b: 255 } : { r: 0, g: 0, b: 0 };
-
-            const accentHover = mix(accent, contrastTarget, 0.18);
-            const textSecondary = mix(text, body, 0.55);
-            const textDim = mix(text, body, 0.72);
-            const glassBorder = mix(panel, text, isDark ? 0.2 : 0.12);
-            const inputBg = mix(panel, body, isDark ? 0.35 : 0.2);
-            const inputBorder = mix(panel, text, isDark ? 0.18 : 0.12);
-            const scrollbarTrack = mix(body, text, isDark ? 0.08 : 0.05);
-            const scrollbarThumb = mix(body, text, isDark ? 0.2 : 0.14);
-            const panelBg = mix(panel, body, 0.18);
-            const bgSecondary = mix(body, panel, 0.25);
-            const bgTertiary = mix(body, panel, 0.45);
-
-            return {
-                '--bg-gradient': rgbToString(body),
-                '--bg-primary': rgbToString(body),
-                '--bg-secondary': rgbToString(bgSecondary),
-                '--bg-tertiary': rgbToString(bgTertiary),
-                '--panel-bg': rgbaToString(panelBg, isDark ? 0.3 : 0.6),
-                '--accent-hover': rgbToString(accentHover),
-                '--accent-dim': rgbaToString(accent, 0.12),
-                '--accent-glow': rgbaToString(accent, 0.35),
-                '--text-secondary': rgbToString(textSecondary),
-                '--text-dim': rgbToString(textDim),
-                '--glass-border': rgbaToString(glassBorder, isDark ? 0.18 : 0.12),
-                '--input-bg': rgbaToString(inputBg, isDark ? 0.14 : 0.08),
-                '--input-border': rgbaToString(inputBorder, isDark ? 0.2 : 0.12),
-                '--scrollbar-track': rgbaToString(scrollbarTrack, isDark ? 0.12 : 0.08),
-                '--scrollbar-thumb': rgbaToString(scrollbarThumb, isDark ? 0.3 : 0.2)
-            };
-        };
-
-        const applyColors = () => {
-            controls.forEach((control) => {
-                const color = state.colors[control.key];
-                if (color) {
-                    root.style.setProperty(control.varName, rgbToString(color));
-                    if (control.key === 'body') {
-                        root.style.setProperty('--bg-gradient', rgbToString(color));
-                    }
-                }
-            });
-            const derived = applyDerived();
-            Object.entries(derived).forEach(([varName, value]) => {
-                root.style.setProperty(varName, value);
-            });
-            setPreviewStyle(state.colors, derived);
-        };
-
-        const clearCustom = () => {
-            controls.forEach((control) => root.style.removeProperty(control.varName));
-            derivedVars.forEach((varName) => root.style.removeProperty(varName));
-        };
-
-        const setControlsEnabled = (enabled) => {
-            card.classList.toggle('disabled', !enabled);
-            if (stateLabel) stateLabel.textContent = enabled ? 'on' : 'off';
-            controls.forEach((control) => {
-                const input = document.getElementById(control.inputId);
-                const r = document.getElementById(control.sliders.r);
-                const g = document.getElementById(control.sliders.g);
-                const b = document.getElementById(control.sliders.b);
-                if (input) input.disabled = !enabled;
-                if (r) r.disabled = !enabled;
-                if (g) g.disabled = !enabled;
-                if (b) b.disabled = !enabled;
-            });
-        };
-
-        const updateControlUI = (control, color) => {
-            const input = document.getElementById(control.inputId);
-            const value = document.getElementById(control.valueId);
-            const sliderR = document.getElementById(control.sliders.r);
-            const sliderG = document.getElementById(control.sliders.g);
-            const sliderB = document.getElementById(control.sliders.b);
-            const sliderRValue = document.getElementById(control.sliderValues.r);
-            const sliderGValue = document.getElementById(control.sliderValues.g);
-            const sliderBValue = document.getElementById(control.sliderValues.b);
-
-            if (input) input.value = rgbToHex(color);
-            if (value) value.textContent = rgbToString(color);
-            if (sliderR) sliderR.value = color.r;
-            if (sliderG) sliderG.value = color.g;
-            if (sliderB) sliderB.value = color.b;
-            if (sliderRValue) sliderRValue.textContent = color.r;
-            if (sliderGValue) sliderGValue.textContent = color.g;
-            if (sliderBValue) sliderBValue.textContent = color.b;
-        };
-
-        const updatePreviewOnly = () => {
-            const derived = applyDerived();
-            setPreviewStyle(state.colors, derived);
-        };
-
-        const saveState = () => {
-            const payload = {
-                enabled: state.enabled,
-                colors: Object.fromEntries(
-                    Object.entries(state.colors).map(([key, color]) => [key, rgbToHex(color)])
-                )
-            };
-            localStorage.setItem(storageKey, JSON.stringify(payload));
-        };
-
-        const loadState = () => {
-            const stored = localStorage.getItem(storageKey);
-            if (!stored) return null;
-            try {
-                const parsed = JSON.parse(stored);
-                return {
-                    enabled: Boolean(parsed.enabled),
-                    colors: Object.fromEntries(
-                        Object.entries(parsed.colors || {}).map(([key, value]) => [key, parseColor(value)])
-                    )
-                };
-            } catch (err) {
-                return null;
-            }
-        };
-
-        const getThemeDefaults = () => {
-            const defaults = {};
-            controls.forEach((control) => {
-                defaults[control.key] = getComputedColor(control.varName);
-            });
-            return defaults;
-        };
-
-        let state = loadState() || {
-            enabled: false,
-            colors: getThemeDefaults()
-        };
-
-        controls.forEach((control) => {
-            const input = document.getElementById(control.inputId);
-            const sliderR = document.getElementById(control.sliders.r);
-            const sliderG = document.getElementById(control.sliders.g);
-            const sliderB = document.getElementById(control.sliders.b);
-
-            const updateFromColor = (color) => {
-                state.colors[control.key] = {
-                    r: clamp(color.r),
-                    g: clamp(color.g),
-                    b: clamp(color.b)
-                };
-                updateControlUI(control, state.colors[control.key]);
-                updatePreviewOnly();
-                if (state.enabled) applyColors();
-                saveState();
-            };
-
-            if (input) {
-                input.addEventListener('input', () => updateFromColor(parseColor(input.value)));
-            }
-
-            const updateFromSliders = () => {
-                updateFromColor({
-                    r: sliderR ? sliderR.value : 0,
-                    g: sliderG ? sliderG.value : 0,
-                    b: sliderB ? sliderB.value : 0
-                });
-            };
-
-            if (sliderR) sliderR.addEventListener('input', updateFromSliders);
-            if (sliderG) sliderG.addEventListener('input', updateFromSliders);
-            if (sliderB) sliderB.addEventListener('input', updateFromSliders);
-        });
-
-        toggle.addEventListener('change', () => {
-            state.enabled = toggle.checked;
-            if (state.enabled) {
-                applyColors();
-            } else {
-                clearCustom();
-                updatePreviewOnly();
-            }
-            setControlsEnabled(state.enabled);
-            saveState();
-        });
-
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => {
-                clearCustom();
-                state.colors = getThemeDefaults();
-                state.enabled = false;
-                toggle.checked = false;
-                controls.forEach((control) => updateControlUI(control, state.colors[control.key]));
-                updatePreviewOnly();
-                setControlsEnabled(false);
-                saveState();
-            });
-        }
-
-        controls.forEach((control) => updateControlUI(control, state.colors[control.key]));
-        toggle.checked = state.enabled;
-        setControlsEnabled(state.enabled);
-        updatePreviewOnly();
-        if (state.enabled) applyColors();
-
-        document.querySelectorAll('.theme-option-card').forEach((cardEl) => {
-            cardEl.addEventListener('click', () => {
-                if (state.enabled) return;
-                setTimeout(() => {
-                    state.colors = getThemeDefaults();
-                    controls.forEach((control) => updateControlUI(control, state.colors[control.key]));
-                    updatePreviewOnly();
-                    saveState();
-                }, 50);
-            });
-        });
-    })();
-
-    (function () {
-        const storageKey = 'telegramStyleToggles';
-        const body = document.body;
-        const toggles = [
-            { id: 'toggleBgGlow', key: 'bgGlow', className: 'no-bg-glow', labelId: 'toggleBgGlowState' },
-            { id: 'toggleGlassBlur', key: 'glassBlur', className: 'no-glass-blur', labelId: 'toggleGlassBlurState' },
-            { id: 'toggleAccentGradients', key: 'accentGradients', className: 'no-accent-gradients', labelId: 'toggleAccentGradientsState' }
-        ];
-
-        const defaults = {
-            bgGlow: true,
-            glassBlur: true,
-            accentGradients: true
-        };
-
-        const loadState = () => {
-            const stored = localStorage.getItem(storageKey);
-            if (!stored) return { ...defaults };
-            try {
-                return { ...defaults, ...JSON.parse(stored) };
-            } catch (err) {
-                return { ...defaults };
-            }
-        };
-
-        const saveState = () => {
-            localStorage.setItem(storageKey, JSON.stringify(state));
-        };
-
-        const updateLabel = (toggle, value) => {
-            const label = document.getElementById(toggle.labelId);
-            if (label) label.textContent = value ? 'on' : 'off';
-        };
-
-        const applyState = () => {
-            if (!body) return;
-            toggles.forEach((toggle) => {
-                body.classList.toggle(toggle.className, !state[toggle.key]);
-            });
-        };
-
-        let state = loadState();
-        toggles.forEach((toggle) => {
-            const input = document.getElementById(toggle.id);
-            if (!input) return;
-            input.checked = !!state[toggle.key];
-            updateLabel(toggle, input.checked);
-            input.addEventListener('change', () => {
-                state[toggle.key] = input.checked;
-                updateLabel(toggle, input.checked);
-                applyState();
-                saveState();
-            });
-        });
-
-        applyState();
-        saveState();
-    })();
-</script>
 </html>
-
-
-

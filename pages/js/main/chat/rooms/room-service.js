@@ -3,8 +3,13 @@
 // ==========================================
 
 async function loadRooms() {
+    if (!currentServer) {
+        rooms = [];
+        roomsList.innerHTML = '<div class="placeholder-message"><p>Выберите сервер</p></div>';
+        return;
+    }
     try {
-        const response = await fetchWithAuth(`${getApiUrl()}/rooms`);
+        const response = await fetchWithAuth(`${getApiUrl()}/rooms?server_id=${currentServer.id}`);
 
         if (!response.ok) {
             throw new Error('Failed to load rooms');
@@ -62,14 +67,14 @@ async function loadRooms() {
 async function createRoom() {
     const title = roomNameInput.value.trim();
     const roomType = roomTypeInput?.value || 'text';
-    if (!title) return;
+    if (!title || !currentServer) return;
 
     try {
         if (roomType === 'voice') {
             const response = await fetchWithAuth(`${getApiUrl()}/voice-rooms`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: title }),
+                body: JSON.stringify({ server_id: currentServer.id, name: title }),
             });
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
@@ -80,6 +85,8 @@ async function createRoom() {
             roomNameInput.value = '';
             closeModal();
             await loadVoiceRooms();
+            reconnectWebSocketForServer();
+            await wsReady;
             await joinVoiceRoom(room.id);
             startSpeakingDetector();
             return;
@@ -89,7 +96,7 @@ async function createRoom() {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title }),
+            body: JSON.stringify({ server_id: currentServer.id, title }),
         });
 
         if (response.status === 403) {
@@ -112,6 +119,7 @@ async function createRoom() {
         roomNameInput.value = '';
         closeModal();
         await loadRooms();
+        reconnectWebSocketForServer();
     } catch (err) {
         console.error('Failed to create room:', err);
         alert('Ошибка сети');
@@ -122,6 +130,8 @@ function selectRoom(roomId) {
     currentRoom = rooms.find(r => r.id === roomId);
 
     if (!currentRoom) return;
+    currentConversation = null;
+    renderDirectConversations();
 
     // Update UI
     document.querySelectorAll('.room-item').forEach(el => {

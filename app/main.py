@@ -6,10 +6,10 @@ from typing import Callable
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import attachments, games, rooms, voice_rooms, wordle
+from app.api import attachments, direct_messages, games, rooms, servers, voice_rooms, wordle
 from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.http import router as http_router
@@ -147,7 +147,10 @@ async def app_config_js() -> Response:
 
 @app.get('/')
 async def root():
-    return RedirectResponse(url=settings.main_page_path.lstrip('/'))
+    return FileResponse(
+        settings.pages_path / 'index.html',
+        headers={'Cache-Control': 'no-cache'},
+    )
 
 
 @app.get('/favicon.ico')
@@ -203,6 +206,8 @@ app.include_router(http_router, tags=['HTTP'])
 app.include_router(ws_router, tags=['Websocket'])
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(servers.router)
+app.include_router(direct_messages.router)
 app.include_router(rooms.router)
 app.include_router(attachments.router)
 app.include_router(voice_rooms.router)

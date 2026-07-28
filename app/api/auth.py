@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.db import get_db
-from app.models import Invite, User
+from app.models import Invite, Room, Server, ServerMember, User, VoiceRoom
 from app.settings import settings
 from app.schemas.auth import (
     LoginRequest,
@@ -211,6 +211,115 @@ async def login(
 
     return {"message": "Login successful"}
 
+
+@router.post("/demo")
+async def demo_login(
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create or reuse a local demo user and issue a normal cookie session."""
+    if settings.app_env.lower() not in {"development", "dev", "local"}:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    demo_email = "demo@borotalk.local"
+    demo_username = "borotalk_demo"
+
+    result = await db.execute(select(User).where(User.email == demo_email))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        username_result = await db.execute(select(User).where(User.username == demo_username))
+        if username_result.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Reserved demo username is already in use",
+            )
+
+        user = User(
+            email=demo_email,
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            username=demo_username,
+            display_name="Demo User",
+            role="member",
+            is_active=True,
+        )
+        db.add(user)
+        await db.flush()
+        await db.commit()
+        await db.refresh(user)
+    elif not user.is_active:
+        user.is_active = True
+        await db.commit()
+
+    server = (
+        await db.execute(
+            select(Server).where(
+                Server.owner_id == user.id,
+                Server.name == "Boro friends",
+            )
+        )
+    ).scalar_one_or_none()
+    if server is None:
+        server = Server(name="Boro friends", owner_id=user.id, is_joinable=True)
+        db.add(server)
+        await db.flush()
+
+    membership = (
+        await db.execute(
+            select(ServerMember).where(
+                ServerMember.server_id == server.id,
+                ServerMember.user_id == user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if membership is None:
+        db.add(ServerMember(server_id=server.id, user_id=user.id, role="owner"))
+
+    text_room = (
+        await db.execute(
+            select(Room).where(Room.server_id == server.id, Room.title == "общий")
+        )
+    ).scalar_one_or_none()
+    if text_room is None:
+        db.add(Room(server_id=server.id, title="общий", created_by=user.id))
+
+    existing_voice_names = set(
+        (
+            await db.execute(
+                select(VoiceRoom.name).where(
+                    VoiceRoom.server_id == server.id,
+                    VoiceRoom.is_active.is_(True),
+                )
+            )
+        ).scalars().all()
+    )
+    for room_name in ("Кухня", "Ночной разговор", "Не отвлекать"):
+        if room_name not in existing_voice_names:
+            db.add(
+                VoiceRoom(
+                    server_id=server.id,
+                    name=room_name,
+                    created_by=user.id,
+                    is_active=True,
+                )
+            )
+    await db.commit()
+
+    access_token = create_access_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
+    set_auth_cookies(response, access_token, refresh_token)
+
+    return {
+        "message": "Demo login successful",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "display_name": user.display_name,
+        },
+        "server_id": server.id,
+    }
+
+
 @router.post("/refresh")
 async def refresh(
     request: Request,
@@ -343,6 +452,7 @@ async def update_profile(
     display_name: str = Form(...),
     username: str = Form(...),
     remove_avatar: bool = Form(False),
+    avatar_preset: str | None = Form(None),
     avatar: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -374,6 +484,12 @@ async def update_profile(
     avatar_url = current_user.avatar_url
     if remove_avatar:
         avatar_url = None
+
+    if avatar_preset:
+        allowed_presets = {"mint-star", "violet-orbit", "peach-wave", "mint-dot", "violet-arrow", "peach-b"}
+        if avatar_preset not in allowed_presets:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown avatar preset")
+        avatar_url = f"preset:{avatar_preset}"
 
     if avatar:
         ext = Path(avatar.filename or "").suffix.lower()

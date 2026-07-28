@@ -12,7 +12,7 @@ from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.redis import room_presence_key
-from app.models import User
+from app.models import ServerMember, User
 
 
 async def user_joined_room(redis: Redis | None, room_id: int, user_id: int) -> None:
@@ -120,6 +120,7 @@ async def set_user_offline(db: AsyncSession, user_id: int) -> None:
 async def get_all_users_with_status(
     db: AsyncSession,
     room_id: Optional[int] = None,
+    server_id: Optional[int] = None,
     status_filter: Optional[str] = None,  # "online", "offline", or None for all
     search_query: Optional[str] = None,
     sort_by: str = "last_seen",  # "last_seen", "username", "display_name"
@@ -146,6 +147,11 @@ async def get_all_users_with_status(
     
     # Базовый запрос - все активные пользователи
     stmt = select(User).where(User.is_active == True)
+    if server_id is not None:
+        stmt = (
+            stmt.join(ServerMember, ServerMember.user_id == User.id)
+            .where(ServerMember.server_id == server_id)
+        )
     
     # Применяем фильтр по статусу
     if status_filter == "online":

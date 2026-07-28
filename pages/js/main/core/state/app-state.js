@@ -3,8 +3,13 @@
 // ==========================================
 
 let currentRoom = null;
+let servers = [];
+let currentServer = null;
+let directConversations = [];
+let currentConversation = null;
 let ws = null;
 let wsConnecting = false;
+let wsReconnectTimer = null;
 const seenIncomingMessageIds = new Set();
 const seenIncomingMessageOrder = [];
 const MAX_SEEN_INCOMING_MESSAGES = 1000;

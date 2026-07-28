@@ -1,5 +1,5 @@
 import { app } from './runtime.js';
-import { legacyMainScripts } from './manifest.js';
+import { legacyMainScripts } from './manifest.js?v=3';
 import { loadScriptsSequentially } from './loaders/sequential.js';
 
 async function bootstrap() {

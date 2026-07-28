@@ -5,8 +5,9 @@ from typing import Optional
 
 from app.dependencies import get_current_user
 from app.infra.db import get_db
-from app.models import Room, User
+from app.models import Room, ServerMember, User
 from app.schemas.rooms import RoomCreate, RoomResponse
+from app.services.access import require_room_member, require_server_manager, require_server_member
 from app.services.presence import get_all_users_with_status, set_user_online, set_user_offline, check_and_update_offline_users
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
@@ -15,6 +16,7 @@ router = APIRouter(prefix="/rooms", tags=["Rooms"])
 def _room_to_response(room: Room) -> RoomResponse:
     return RoomResponse(
         id=room.id,
+        server_id=room.server_id,
         title=room.title,
         description=room.description,
         created_at=room.created_at.isoformat(),
@@ -23,10 +25,16 @@ def _room_to_response(room: Room) -> RoomResponse:
 
 @router.get("", response_model=list[RoomResponse])
 async def list_rooms(
+    server_id: int = Query(..., gt=0),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Room).order_by(Room.created_at.asc()))
+    await require_server_member(db, server_id, current_user)
+    result = await db.execute(
+        select(Room)
+        .where(Room.server_id == server_id)
+        .order_by(Room.created_at.asc())
+    )
     return [_room_to_response(r) for r in result.scalars().all()]
 
 
@@ -36,13 +44,10 @@ async def create_room(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can create rooms",
-        )
+    await require_server_manager(db, payload.server_id, current_user)
 
     room = Room(
+        server_id=payload.server_id,
         title=payload.title,
         description=payload.description,
         created_by=current_user.id,
@@ -62,9 +67,7 @@ async def get_room(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    room = await db.get(Room, room_id)
-    if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+    room = await require_room_member(db, room_id, current_user)
     return _room_to_response(room)
 
 
@@ -80,8 +83,16 @@ async def get_online_users_in_room(
     Returns:
         List[dict]: Список пользователей с полями id, username, display_name, avatar_url
     """
-    # Загружаем данные пользователей из БД (глобальный онлайн)
-    stmt = select(User).where(User.is_online == True, User.is_active == True)
+    room = await require_room_member(db, room_id, current_user)
+    stmt = (
+        select(User)
+        .join(ServerMember, ServerMember.user_id == User.id)
+        .where(
+            ServerMember.server_id == room.server_id,
+            User.is_online.is_(True),
+            User.is_active.is_(True),
+        )
+    )
     result = await db.execute(stmt)
     users = result.scalars().all()
     
@@ -103,12 +114,8 @@ async def delete_room(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    room = await db.get(Room, room_id)
-    if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
-
-    if current_user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can delete rooms")
+    room = await require_room_member(db, room_id, current_user)
+    await require_server_manager(db, room.server_id, current_user)
 
     await db.delete(room)
     await db.commit()
@@ -135,9 +142,11 @@ async def get_all_users(
     - Сортировку по последней активности, имени или отображаемому имени
     - Пагинацию
     """
+    room = await require_room_member(db, room_id, current_user)
     users, total = await get_all_users_with_status(
         db=db,
-        room_id=None,
+        room_id=room.id,
+        server_id=room.server_id,
         status_filter=status,
         search_query=search,
         sort_by=sort_by,
@@ -162,6 +171,9 @@ async def mark_user_online(
     current_user: User = Depends(get_current_user),
 ):
     """Отметить пользователя как онлайн (вызывается при входе в комнату)."""
+    await require_room_member(db, room_id, current_user)
+    if user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot change another user's status")
     await set_user_online(db, user_id)
     return {"status": "ok", "user_id": user_id, "is_online": True}
 
@@ -174,6 +186,9 @@ async def mark_user_offline(
     current_user: User = Depends(get_current_user),
 ):
     """Отметить пользователя как оффлайн (вызывается при выходе из комнаты)."""
+    await require_room_member(db, room_id, current_user)
+    if user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot change another user's status")
     await set_user_offline(db, user_id)
     return {"status": "ok", "user_id": user_id, "is_online": False}
 
@@ -185,6 +200,7 @@ async def sync_users_status(
     current_user: User = Depends(get_current_user),
 ):
     """Синхронизировать статусы пользователей (проверить кто оффлайн)."""
+    await require_room_member(db, room_id, current_user)
     from app.infra.redis import get_redis_client
     redis = get_redis_client()
     await check_and_update_offline_users(db, redis)

@@ -2,6 +2,28 @@
 
 *A simple chat implemented within: FastApi, Redis, Postgres, Docker and SQLAlchemy.*
 
+## One-click запуск через Radmin VPN
+
+Для обычного запуска на Windows дважды нажми:
+
+```text
+START_BOROTALK.bat
+```
+
+Лаунчер автоматически:
+
+- найдёт IP адаптера Radmin VPN;
+- запустит PostgreSQL и Redis через Docker Desktop;
+- создаст локальное Python-окружение и применит миграции;
+- подготовит и установит HTTPS-сертификат;
+- откроет только нужный порт Windows Firewall для сети Radmin;
+- создаст многоразовый инвайт;
+- соберёт папку `BOROTALK_SHARE`, которую можно отправить друзьям;
+- откроет Borotalk в браузере.
+
+Первый запуск запросит права администратора и может занять несколько минут.
+Для остановки используется `STOP_BOROTALK.bat`.
+
 ## !! Setup
 
 ### 1. Установить зависимости

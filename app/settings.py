@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     app_host: str = '127.0.0.1'
     app_port: int = 8000
 
-    database_url: str = 'postgresql+asyncpg://app:password@localhost:5432/app'
+    database_url: str = 'postgresql+asyncpg://app:app@localhost:5432/app'
     redis_url: str = 'redis://localhost:6379/0'
     jwt_secret_key: str = 'CHANGE_ME_IN_PRODUCTION_USE_LONG_RANDOM_STRING'
 

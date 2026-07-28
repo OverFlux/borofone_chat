@@ -1,10 +1,11 @@
-# SSL Certificate Generation Script for Windows
+﻿# SSL Certificate Generation Script for Windows
 # Run this script in PowerShell as Administrator
 
 param(
     [string]$IpAddress = "",
     [string]$OutputDir = ".\ssl",
-    [string]$Password = ""
+    [string]$Password = "",
+    [switch]$Force
 )
 
 if (-not $IpAddress) {
@@ -26,10 +27,27 @@ if (-not (Test-Path $OutputDir)) {
 }
 
 Write-Host "Step 1: Creating self-signed certificate..." -ForegroundColor Cyan
+$parsedIp = $null
+$isIpAddress = [System.Net.IPAddress]::TryParse($IpAddress, [ref]$parsedIp)
+$subjectAlternativeName = if ($isIpAddress) {
+    "2.5.29.17={text}IPAddress=$IpAddress&DNS=localhost"
+} else {
+    "2.5.29.17={text}DNS=$IpAddress&DNS=localhost"
+}
 $cert = New-SelfSignedCertificate `
-    -DnsName $IpAddress `
+    -Type Custom `
+    -Subject "CN=$IpAddress" `
     -CertStoreLocation "cert:\LocalMachine\My" `
     -FriendlyName "Borofone Chat SSL" `
+    -KeyAlgorithm RSA `
+    -KeyLength 2048 `
+    -HashAlgorithm SHA256 `
+    -KeyExportPolicy Exportable `
+    -KeyUsage DigitalSignature, KeyEncipherment `
+    -TextExtension @(
+        "2.5.29.37={text}1.3.6.1.5.5.7.3.1",
+        $subjectAlternativeName
+    ) `
     -NotAfter (Get-Date).AddYears(5)
 
 Write-Host "Certificate created with Thumbprint: $($cert.Thumbprint)" -ForegroundColor Green
@@ -37,12 +55,12 @@ Write-Host "Certificate created with Thumbprint: $($cert.Thumbprint)" -Foregroun
 Write-Host "Step 2: Exporting to PFX format..." -ForegroundColor Cyan
 $pfxPath = Join-Path $OutputDir "voice.pfx"
 $securePassword = ConvertTo-SecureString -String $Password -Force -AsPlainText
-Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $securePassword | Out-Null
+Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $securePassword -Force:$Force | Out-Null
 Write-Host "PFX exported to: $pfxPath" -ForegroundColor Green
 
 Write-Host "Step 3: Exporting public certificate..." -ForegroundColor Cyan
 $crtPath = Join-Path $OutputDir "cert.crt"
-Export-Certificate -Cert $cert -FilePath $crtPath -Type CERT | Out-Null
+Export-Certificate -Cert $cert -FilePath $crtPath -Type CERT -Force:$Force | Out-Null
 Write-Host "Public certificate exported to: $crtPath" -ForegroundColor Green
 
 Write-Host "Step 4: Converting to PEM format..." -ForegroundColor Cyan

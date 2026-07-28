@@ -27,3 +27,8 @@
 *.crt
 *.key
 /.VSCodeCounter
+/.borotalk/
+/BOROTALK_SHARE/
+/.venv/
+/tmp/
+/pages/web_backend/data/

@@ -3,7 +3,11 @@
 // ==========================================
 
 function getStoredTheme() {
-    return localStorage.getItem('chatTheme') || 'standard';
+    const savedTheme = localStorage.getItem('chatTheme');
+    if (savedTheme === 'light' || savedTheme === 'standard') {
+        return savedTheme;
+    }
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'standard';
 }
 
 function applyTheme(theme) {
@@ -58,6 +62,12 @@ document.querySelectorAll('.theme-option-card').forEach(card => {
         localStorage.setItem('chatTheme', theme);
         applyTheme(theme);
         updateThemeUI(theme);
+    });
+    card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            card.click();
+        }
     });
 });
 if (replyPreview && messageForm && messageForm.parentElement) {

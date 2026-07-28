@@ -33,6 +33,11 @@ def room_events_channel(room_id: int) -> str:
     return redis_key('room', room_id, 'events')
 
 
+def user_events_channel(user_id: int) -> str:
+    """Private real-time events (direct messages, membership changes) for one user."""
+    return redis_key('user', user_id, 'events')
+
+
 def room_presence_key(room_id: int) -> str:
     return redis_key('room', room_id, 'online')
 
