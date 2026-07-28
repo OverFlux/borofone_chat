@@ -6,6 +6,7 @@ from pydantic import BaseModel, field_validator
 # Scheme for creating a room.
 class RoomCreate(BaseModel):
 
+    server_id: int
     title: str
     description: str | None = None
 
@@ -32,6 +33,7 @@ class RoomCreate(BaseModel):
 class RoomResponse(BaseModel):
 
     id: int
+    server_id: int
     title: str
     description: str | None
     created_at: str # ISO 8601

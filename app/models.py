@@ -12,6 +12,7 @@ from typing import Optional
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
@@ -144,6 +145,56 @@ class Invite(Base):
     )
 
 
+class Server(Base):
+    """A private Borotalk server. All channels and presence are scoped to it."""
+
+    __tablename__ = "servers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    owner_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    is_joinable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class ServerMember(Base):
+    """Membership is the authorization boundary for servers and their channels."""
+
+    __tablename__ = "server_members"
+    __table_args__ = (
+        UniqueConstraint("server_id", "user_id", name="uq_server_member"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    server_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("servers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="member")
+    joined_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class Room(Base):
     """
     Модель комнаты чата.
@@ -153,6 +204,12 @@ class Room(Base):
     __tablename__ = "rooms"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    server_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("servers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     title: Mapped[str] = mapped_column(String(100), nullable=False)  # уменьшили с 200 до 100
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -181,6 +238,12 @@ class VoiceRoom(Base):
     __tablename__ = "voice_rooms"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    server_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("servers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     created_by: Mapped[Optional[int]] = mapped_column(
         Integer,
@@ -327,3 +390,58 @@ class MessageReaction(Base):
 
     message: Mapped["Message"] = relationship("Message", back_populates="reactions")
     user: Mapped["User"] = relationship("User")
+
+
+class DirectConversation(Base):
+    """A single canonical private conversation between two users."""
+
+    __tablename__ = "direct_conversations"
+    __table_args__ = (
+        CheckConstraint("user_low_id < user_high_id", name="ck_direct_conversation_user_order"),
+        UniqueConstraint("user_low_id", "user_high_id", name="uq_direct_conversation_pair"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_low_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_high_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class DirectMessage(Base):
+    __tablename__ = "direct_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("direct_conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    sender_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    nonce: Mapped[Optional[str]] = mapped_column(String(25), nullable=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

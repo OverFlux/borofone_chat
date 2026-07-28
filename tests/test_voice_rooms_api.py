@@ -16,6 +16,9 @@ class _FakeResult:
     def scalar_one(self):
         return self._rows[0]
 
+    def scalar_one_or_none(self):
+        return self._rows[0] if self._rows else None
+
     def scalars(self):
         return self
 
@@ -44,10 +47,12 @@ class FakeDB:
 
     async def execute(self, stmt):
         sql = str(stmt)
+        if "FROM server_members" in sql:
+            return _FakeResult([object()])
         if "WHERE voice_rooms.id" in sql:
             target_id = list(self.rooms.keys())[-1]
             return _FakeResult([self.rooms[target_id]])
-        active = [r for r in self.rooms.values() if r.is_active]
+        active = [r for r in self.rooms.values() if r.is_active and r.server_id == 1]
         active.sort(key=lambda r: r.created_at, reverse=True)
         return _FakeResult(active)
 
@@ -77,16 +82,16 @@ def test_voice_rooms_crud_and_permissions():
     admin = _mk_user(2, role="admin")
     other = _mk_user(3)
 
-    old_room = VoiceRoom(id=10, name="Old", created_by=owner.id, is_active=True, created_at=datetime(2023, 1, 1, tzinfo=timezone.utc))
-    inactive = VoiceRoom(id=11, name="Inactive", created_by=owner.id, is_active=False, created_at=datetime(2023, 1, 2, tzinfo=timezone.utc))
+    old_room = VoiceRoom(id=10, server_id=1, name="Old", created_by=owner.id, is_active=True, created_at=datetime(2023, 1, 1, tzinfo=timezone.utc))
+    inactive = VoiceRoom(id=11, server_id=1, name="Inactive", created_by=owner.id, is_active=False, created_at=datetime(2023, 1, 2, tzinfo=timezone.utc))
     db.rooms[10] = old_room
     db.rooms[11] = inactive
 
-    created = asyncio.run(create_voice_room(VoiceRoomCreate(name="  Team Call  "), db, owner))
+    created = asyncio.run(create_voice_room(VoiceRoomCreate(server_id=1, name="  Team Call  "), db, owner))
     assert created.name == "Team Call"
     assert created.created_by == owner.id
 
-    listed = asyncio.run(list_voice_rooms(db, owner))
+    listed = asyncio.run(list_voice_rooms(1, db, owner))
     assert [r.id for r in listed][0] == created.id
     assert inactive.id not in [r.id for r in listed]
 
@@ -105,7 +110,7 @@ def test_voice_rooms_crud_and_permissions():
 def test_voice_room_participants_snapshot_endpoint():
     db = FakeDB()
     owner = _mk_user(1)
-    room = VoiceRoom(id=20, name="Daily", created_by=owner.id, is_active=True, created_at=datetime.now(timezone.utc))
+    room = VoiceRoom(id=20, server_id=1, name="Daily", created_by=owner.id, is_active=True, created_at=datetime.now(timezone.utc))
     db.rooms[20] = room
 
     asyncio.run(voice_runtime.join_room(room.id, owner.id, owner.username, owner.display_name))

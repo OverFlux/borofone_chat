@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api import ws as ws_module
-from app.models import User
+from app.models import ServerMember, User, VoiceRoom
 from app.security import create_access_token
 from app.services.voice import voice_runtime
 
@@ -16,11 +16,33 @@ class FakeDB:
             return self.user
         return None
 
+    async def execute(self, statement):
+        sql = str(statement)
+        if "FROM server_members" in sql:
+            return FakeResult([object()])
+        if "voice_rooms.id" in sql:
+            return FakeResult([77])
+        return FakeResult([])
+
     async def commit(self):
         return None
 
     async def rollback(self):
         return None
+
+
+class FakeResult:
+    def __init__(self, values):
+        self.values = values
+
+    def scalar_one_or_none(self):
+        return self.values[0] if self.values else None
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return self.values
 
 
 class FakeSessionLocal:
@@ -67,9 +89,16 @@ def test_voice_websocket_join_screen_share_and_leave(monkeypatch):
     token = create_access_token({"sub": str(user.id)})
 
     with TestClient(app) as client:
-        with client.websocket_connect(f"/ws?token={token}") as websocket:
+        with client.websocket_connect(f"/ws?token={token}&server_id=1") as websocket:
             connected = websocket.receive_json()
             assert connected == {"type": "connected", "user": {"id": user.id}}
+
+            websocket.send_json({"type": "ping"})
+            while True:
+                heartbeat = websocket.receive_json()
+                if heartbeat.get("type") == "pong":
+                    break
+            assert heartbeat == {"type": "pong"}
 
             websocket.send_json({"type": "join_room", "room_id": 77})
 
@@ -107,6 +136,16 @@ def test_voice_websocket_join_screen_share_and_leave(monkeypatch):
             assert presence["type"] == "voice_room_presence"
             assert presence["room_id"] == 77
             assert len(presence["participants"]) == 1
+
+            websocket.send_json({"type": "set_mute", "room_id": 77, "muted": True})
+            muted_update = websocket.receive_json()
+            assert muted_update["type"] == "participant_updated"
+            assert muted_update["participant"]["muted"] is True
+
+            websocket.send_json({"type": "set_deafen", "room_id": 77, "deafened": True})
+            deafened_update = websocket.receive_json()
+            assert deafened_update["type"] == "participant_updated"
+            assert deafened_update["participant"]["deafened"] is True
 
             websocket.send_json({"type": "set_screen_share", "room_id": 77, "sharing": True})
 

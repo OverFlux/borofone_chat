@@ -1,108 +1,54 @@
-﻿<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Borofone Chat - Регистрация</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles/register.css">
-</head>
-<body>
-    <div class="bg-animation">
-        <div class="gradient-orb orb-1"></div>
-        <div class="gradient-orb orb-2"></div>
-        <div class="gradient-orb orb-3"></div>
-    </div>
-
-    <div class="logo-badge">
-        <div class="logo-container">
-            <div class="logo-shape"></div>
-        </div>
-    </div>
-
-    <div class="container">
-        <div class="card">
-            <div class="form-section">
-                <h1>Создайте аккаунт</h1>
-                <p class="subtitle">Присоединяйтесь к Borofone Chat</p>
-
-                <form id="registerForm">
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input id="email" type="email" placeholder="your@email.com" required autocomplete="email" />
-                    </div>
-
-                    <div class="form-group">
-                        <label for="username">Username</label>
-                        <input id="username" type="text" placeholder="username" required maxlength="32" autocomplete="username" />
-                    </div>
-
-                    <div class="form-group">
-                        <label for="displayName">Отображаемое имя</label>
-                        <input id="displayName" type="text" placeholder="Ваше имя" required maxlength="50" />
-                    </div>
-
-                    <div class="form-group">
-                        <label for="password">Пароль</label>
-                        <input id="password" type="password" placeholder="Минимум 8 символов" required minlength="8" autocomplete="new-password" />
-                    </div>
-
-                    <div class="form-group">
-                        <label for="inviteCode">Инвайт-код</label>
-                        <input id="inviteCode" type="text" placeholder="Введите код приглашения" required />
-                    </div>
-
-                    <button type="submit">Зарегистрироваться</button>
-                    <div class="error" id="errorText"></div>
-                </form>
-
-                <div class="footer">
-                    Уже есть аккаунт? <a href="./login.html">Войти</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#242424">
+    <title>Регистрация — Borotalk</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="/icons/borotalk-64.png?v=2">
+    <link rel="icon" href="/favicon.ico?v=3" sizes="any">
+    <link rel="apple-touch-icon" href="/icons/borotalk-192.png?v=2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/nova-auth.css?v=7">
     <script src="/app-config.js"></script>
-    <script src="js/config.js"></script>
-    <script>
-        const API_URL = window.getApiUrl ? window.getApiUrl() : window.location.origin;
-        const APP_ROUTES = window.getAppRoutes ? window.getAppRoutes() : { main: '/main.html' };
+</head>
+<body data-auth-mode="register">
+    <main class="auth-page">
+        <section class="auth-story">
+            <a class="brand" href="/"><span>B</span>Borotalk</a>
+            <div class="story-copy">
+                <span class="eyebrow">своё пространство</span>
+                <h1>Меньше меню.<br>Больше голоса.</h1>
+                <p>Присоединяйтесь по приглашению и сразу заходите в нужную комнату.</p>
+            </div>
+            <ol class="join-steps">
+                <li><span>1</span><strong>Создайте профиль</strong></li>
+                <li><span>2</span><strong>Найдите сервер по ID</strong></li>
+                <li><span>3</span><strong>Начните разговор</strong></li>
+            </ol>
+        </section>
 
-        const registerForm = document.getElementById('registerForm');
-        const errorText = document.getElementById('errorText');
-
-        registerForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            errorText.textContent = '';
-
-            const payload = {
-                email: document.getElementById('email').value.trim(),
-                username: document.getElementById('username').value.trim(),
-                display_name: document.getElementById('displayName').value.trim(),
-                password: document.getElementById('password').value.trim(),
-                invite_code: document.getElementById('inviteCode').value.trim(),
-            };
-
-            try {
-                const response = await fetch(`${API_URL}/auth/register`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-
-                const data = await response.json();
-                if (!response.ok) {
-                    errorText.textContent = data.detail || 'Ошибка регистрации';
-                    return;
-                }
-
-                window.location.href = APP_ROUTES.main;
-            } catch (err) {
-                errorText.textContent = 'Ошибка сети. Попробуйте позже.';
-            }
-        });
-    </script>
+        <section class="auth-form-panel">
+            <form class="auth-form register-form" id="authForm" method="post" action="/auth/register" autocomplete="on">
+                <div class="mobile-brand"><span>B</span>Borotalk</div>
+                <span class="eyebrow">новый профиль</span>
+                <h2>Создать аккаунт</h2>
+                <p class="form-lead">Только необходимое для входа и общения.</p>
+                <div class="field-pair">
+                    <label><span>Email</span><input id="email" name="email" type="email" autocomplete="username" required placeholder="you@example.com"></label>
+                    <label><span>Никнейм</span><input id="username" name="profile_nickname" type="text" autocomplete="off" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_]+" placeholder="your_name"></label>
+                </div>
+                <label><span>Отображаемое имя</span><input id="displayName" maxlength="50" required autocomplete="name" placeholder="Как вас называть"></label>
+                <label><span>Пароль</span><input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Минимум 8 символов"></label>
+                <label><span>Инвайт-код</span><input id="inviteCode" required autocomplete="off" placeholder="Код приглашения"></label>
+                <p class="form-error" id="errorText" aria-live="polite"></p>
+                <button class="primary-button" type="submit">Создать аккаунт</button>
+                <p class="auth-link">Уже зарегистрированы? <a href="/login.html">Войти</a></p>
+            </form>
+        </section>
+    </main>
+    <script type="module" src="/js/nova-auth.js?v=5"></script>
 </body>
 </html>

@@ -1,103 +1,54 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Borofone Chat - Вход</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles/login.css">
-</head>
-<body>
-    <div class="bg-animation">
-        <div class="gradient-orb orb-1"></div>
-        <div class="gradient-orb orb-2"></div>
-        <div class="gradient-orb orb-3"></div>
-    </div>
-
-    <!-- Абстрактное лого -->
-    <div class="logo-badge">
-        <div class="logo-container">
-            <div class="logo-shape"></div>
-        </div>
-    </div>
-
-    <div class="container">
-        <div class="card">
-            <!-- Левая секция - форма -->
-            <div class="form-section">
-                <h1>С возвращением!</h1>
-                <p class="subtitle">Мы рады видеть вас снова</p>
-
-                <form id="loginForm">
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input 
-                            id="email" 
-                            type="email" 
-                            placeholder="your@email.com" 
-                            required 
-                            autocomplete="email"
-                        />
-                    </div>
-
-                    <div class="form-group">
-                        <label for="password">Пароль</label>
-                        <input 
-                            id="password" 
-                            type="password" 
-                            placeholder="Введите пароль" 
-                            required
-                            autocomplete="current-password"
-                        />
-                    </div>
-
-                    <div class="form-footer">
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" id="remember" />
-                            <label for="remember">Запомнить меня</label>
-                        </div>
-                        <a href="#" class="forgot-password">Забыли пароль?</a>
-                    </div>
-
-                    <button type="submit">Войти</button>
-                    <div class="error" id="errorText"></div>
-                </form>
-
-                <div class="footer">
-                    Нет аккаунта? <a href="./register.html">Зарегистрироваться</a>
-                </div>
-            </div>
-
-            <!-- Правая секция - QR -->
-            <div class="qr-section">
-                <div class="qr-placeholder">
-                    <div class="qr-icon">📱</div>
-                </div>
-                <h3 class="qr-title">Быстрый вход</h3>
-                <p class="qr-description">
-                    Отсканируйте QR-код в мобильном приложении для мгновенного входа
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Живые подсказки -->
-    <div class="tips-container">
-        <div class="tip-card" id="tipCard">
-            <div class="tip-header">
-                <div class="tip-marker">//</div>
-                <div class="tip-title">Совет</div>
-            </div>
-            <div class="tip-content" id="tipContent">
-                Используйте надёжный пароль длиной не менее 12 символов
-            </div>
-            <div class="tip-progress" id="tipProgress"></div>
-        </div>
-    </div>
-
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#242424">
+    <title>Вход — Borotalk</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="/icons/borotalk-64.png?v=2">
+    <link rel="icon" href="/favicon.ico?v=3" sizes="any">
+    <link rel="apple-touch-icon" href="/icons/borotalk-192.png?v=2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/nova-auth.css?v=7">
     <script src="/app-config.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/tips.js"></script>
+</head>
+<body data-auth-mode="login">
+    <main class="auth-page">
+        <section class="auth-story">
+            <a class="brand" href="/"><span>B</span>Borotalk</a>
+            <div class="story-copy">
+                <span class="eyebrow">voice first</span>
+                <h1>Зашёл.<br>Услышал своих.</h1>
+                <p>Голосовые комнаты и демонстрация экрана без настройки бесконечных панелей.</p>
+            </div>
+            <div class="room-preview">
+                <header><span><i></i> Кухня</span><small>3 в разговоре</small></header>
+                <div class="preview-people">
+                    <span class="person mint">Е<small>Егор</small></span>
+                    <span class="person violet">М<small>Миша</small></span>
+                    <span class="person peach">А<small>Аня</small></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="auth-form-panel">
+            <form class="auth-form" id="authForm" method="post" action="/auth/login" autocomplete="on">
+                <div class="mobile-brand"><span>B</span>Borotalk</div>
+                <span class="eyebrow">с возвращением</span>
+                <h2>Войти в Borotalk</h2>
+                <p class="form-lead">Продолжите разговор там, где остановились.</p>
+                <label><span>Email</span><input id="email" name="email" type="email" autocomplete="username" required placeholder="you@example.com"></label>
+                <label><span>Пароль</span><input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Ваш пароль"></label>
+                <p class="form-error" id="errorText" aria-live="polite"></p>
+                <button class="primary-button" type="submit">Войти</button>
+                <div class="or-line"><span>или</span></div>
+                <button class="demo-button" id="demoButton" type="button">Открыть демо-комнату</button>
+                <p class="auth-link">Нет аккаунта? <a href="/register.html">Зарегистрироваться</a></p>
+            </form>
+        </section>
+    </main>
+    <script type="module" src="/js/nova-auth.js?v=5"></script>
 </body>
 </html>

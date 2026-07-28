@@ -5,6 +5,9 @@
 // Подключаемся к глобальному WS ОДИН РАЗ при загрузке
 function connectWebSocket() {
     if (ws || wsConnecting) return; // уже подключены
+    if (!currentServer) return;
+
+    const serverId = currentServer.id;
     
     // Track reconnect if we already had a connection before
     if (connectionStats.connectedAt !== null) {
@@ -15,7 +18,7 @@ function connectWebSocket() {
     wsConnecting = true;
 
     wsReady = new Promise((resolve) => {
-        const wsUrl = `${getWsUrl()}/ws`;
+        const wsUrl = `${getWsUrl()}/ws?server_id=${encodeURIComponent(serverId)}`;
         const socket = new WebSocket(wsUrl);
         
         // Таймаут на подключение - 10 секунд
@@ -108,6 +111,8 @@ function connectWebSocket() {
                             }
                         }
                     }
+                } else if (data.type === 'direct_message') {
+                    handleIncomingDirectMessage(data);
                 } else if (data.type === 'reaction') {
                     applyReactionUpdate(data.message_id, data.reactions || [], data.actor_user_id, data.action, data.emoji);
                     closeReactionPicker();
@@ -270,10 +275,26 @@ function connectWebSocket() {
             wsConnecting = false;
             resolveConnection();
 
-            // Переподключаемся через 3 секунды
-            setTimeout(() => connectWebSocket(), 3000);
+            // Переподключаемся только к всё ещё выбранному серверу.
+            if (currentServer?.id === serverId) {
+                clearTimeout(wsReconnectTimer);
+                wsReconnectTimer = setTimeout(() => connectWebSocket(), 3000);
+            }
         };
     });
+}
+
+function reconnectWebSocketForServer() {
+    clearTimeout(wsReconnectTimer);
+    wsReconnectTimer = null;
+
+    const previousSocket = ws;
+    ws = null;
+    wsConnecting = false;
+    if (previousSocket && previousSocket.readyState < WebSocket.CLOSING) {
+        previousSocket.close(1000, 'server changed');
+    }
+    connectWebSocket();
 }
 
 function updateConnectionStatus(status) {

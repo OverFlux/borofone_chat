@@ -56,7 +56,8 @@ async function init() {
     await loadCurrentUser();
     completeLoadingTask('Конфигурация');
 
-    await loadRooms();
+    await loadServers();
+    await loadDirectConversations();
     completeLoadingTask('Интерфейс');
 
     // Инициализируем ScrollManager после загрузки комнат
@@ -64,11 +65,7 @@ async function init() {
         window.ScrollManager.init('messagesContainer', 'messagesList', null);
     }
 
-    loadVoiceRooms().catch((error) => {
-        console.warn('[Voice] Failed to load voice rooms during init:', error);
-    });
-
-    // WebSocket и voice rooms больше не блокируют первый экран.
+    // WebSocket больше не блокирует первый экран.
     connectWebSocket();
     completeLoadingTask('Подключение');
 

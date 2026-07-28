@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#242424">
+    <meta name="description" content="Borotalk — голосовые комнаты, демонстрация экрана и простой чат для своих.">
+    <title>Borotalk — зашёл и услышал своих</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="/icons/borotalk-64.png?v=2">
+    <link rel="icon" href="/favicon.ico?v=3" sizes="any">
+    <link rel="apple-touch-icon" href="/icons/borotalk-192.png?v=2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="/styles/landing.css?v=6">
+    <script defer src="/app-config.js"></script>
+    <script defer src="/js/landing.js?v=4"></script>
+    <script defer src="/js/demo-login.js?v=1"></script>
+</head>
+<body>
+    <a class="skip-link" href="#main">Перейти к содержимому</a>
+
+    <header class="site-header" aria-label="Главная навигация">
+        <a class="brand" href="/" aria-label="Borotalk, на главную">
+            <span class="brand-mark" aria-hidden="true"><span></span></span>
+            <span>Borotalk</span>
+        </a>
+
+        <nav class="header-nav" aria-label="Разделы страницы">
+            <a href="#how-it-works">Как работает</a>
+            <a href="#features">Возможности</a>
+        </nav>
+
+        <div class="header-actions">
+            <button class="theme-toggle" type="button" aria-label="Включить светлую тему" title="Переключить тему">
+                <span class="theme-icon theme-icon-dark" aria-hidden="true">●</span>
+                <span class="theme-icon theme-icon-light" aria-hidden="true">○</span>
+            </button>
+            <a class="button button-small button-quiet" href="/login.html">Войти</a>
+        </div>
+    </header>
+
+    <main id="main">
+        <section class="hero">
+            <div class="hero-glow hero-glow-one" aria-hidden="true"></div>
+            <div class="hero-glow hero-glow-two" aria-hidden="true"></div>
+
+            <div class="hero-copy">
+                <p class="eyebrow"><span class="live-dot"></span> Голосовая связь для своих</p>
+                <h1>Зашёл.<br>Услышал своих.</h1>
+                <p class="hero-lead">
+                    Голосовые комнаты, демонстрация экрана и простой чат.
+                    Никакой настройки ради настройки — только то, что помогает быть рядом.
+                </p>
+                <div class="hero-actions">
+                    <a class="button button-primary" href="/login.html">
+                        Открыть Borotalk
+                        <span aria-hidden="true">↗</span>
+                    </a>
+                    <a class="text-link" href="#how-it-works">Посмотреть, как работает</a>
+                </div>
+                <button class="demo-login-button" id="demo-login-button" type="button" hidden>
+                    <span class="demo-login-dot" aria-hidden="true"></span>
+                    Войти как demo
+                </button>
+                <p class="demo-login-error" id="demo-login-error" role="status" aria-live="polite"></p>
+                <div class="hero-note">
+                    <span class="avatar-stack" aria-hidden="true">
+                        <span class="mini-avatar avatar-mint">Е</span>
+                        <span class="mini-avatar avatar-purple">М</span>
+                        <span class="mini-avatar avatar-peach">А</span>
+                    </span>
+                    <span>Прямое соединение через вашу привычную сеть</span>
+                </div>
+            </div>
+
+            <div class="demo-wrap" aria-label="Интерактивный макет Borotalk">
+                <div class="demo-orbit orbit-one" aria-hidden="true"></div>
+                <div class="demo-orbit orbit-two" aria-hidden="true"></div>
+
+                <div class="demo-window">
+                    <div class="demo-titlebar">
+                        <div class="window-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+                        <span class="demo-title">Borotalk</span>
+                        <span class="connection-pill"><span></span> сеть готова</span>
+                    </div>
+
+                    <div class="demo-app">
+                        <aside class="server-rail" aria-label="Демо-серверы">
+                            <button class="server-chip active" type="button" aria-label="Сервер BFU">B</button>
+                            <button class="server-chip" type="button" aria-label="Сервер Friends">F</button>
+                            <span class="server-divider" aria-hidden="true"></span>
+                            <button class="server-chip server-add" type="button" aria-label="Добавить сервер">+</button>
+                            <span class="rail-spacer"></span>
+                            <span class="self-avatar">В</span>
+                        </aside>
+
+                        <aside class="channel-rail">
+                            <div class="server-heading">
+                                <div>
+                                    <span class="server-kicker">Сервер</span>
+                                    <strong>BFU lounge</strong>
+                                </div>
+                                <span class="online-count"><span></span> 6</span>
+                            </div>
+
+                            <p class="channel-label">Голосовые</p>
+                            <div class="channel-list" role="list">
+                                <button class="channel-button active" type="button" data-channel="kitchen" aria-pressed="true">
+                                    <span class="channel-symbol" aria-hidden="true">◖</span>
+                                    <span>Кухня</span>
+                                    <span class="channel-badge">4</span>
+                                </button>
+                                <button class="channel-button" type="button" data-channel="night" aria-pressed="false">
+                                    <span class="channel-symbol" aria-hidden="true">◖</span>
+                                    <span>Ночной разговор</span>
+                                    <span class="channel-badge">2</span>
+                                </button>
+                                <button class="channel-button" type="button" data-channel="focus" aria-pressed="false">
+                                    <span class="channel-symbol" aria-hidden="true">◖</span>
+                                    <span>Не отвлекать</span>
+                                    <span class="channel-badge">1</span>
+                                </button>
+                            </div>
+
+                            <div class="channel-footer">
+                                <span class="footer-avatar">В</span>
+                                <div><strong>voskboy</strong><span>в сети</span></div>
+                                <span class="footer-status" aria-hidden="true"></span>
+                            </div>
+                        </aside>
+
+                        <section class="voice-stage" aria-live="polite">
+                            <div class="voice-heading">
+                                <div>
+                                    <p>Голосовой канал</p>
+                                    <h2 id="demo-channel-title">Кухня</h2>
+                                </div>
+                                <span class="voice-status" id="demo-status">Можно подключаться</span>
+                            </div>
+
+                            <div class="screen-card" id="screen-card" aria-hidden="true">
+                                <div class="screen-toolbar"><span></span><span></span><span></span></div>
+                                <div class="screen-content">
+                                    <div class="screen-code">
+                                        <i></i><i></i><i></i><i></i><i></i>
+                                    </div>
+                                    <span>Экран Егора</span>
+                                </div>
+                            </div>
+
+                            <div class="participant-grid" id="participant-grid">
+                                <article class="participant participant-speaking">
+                                    <span class="participant-avatar avatar-mint">Е</span>
+                                    <span class="sound-wave" aria-label="говорит"><i></i><i></i><i></i></span>
+                                    <strong>Егор</strong>
+                                </article>
+                                <article class="participant">
+                                    <span class="participant-avatar avatar-purple">М</span>
+                                    <span class="participant-state" aria-hidden="true">●</span>
+                                    <strong>Миша</strong>
+                                </article>
+                                <article class="participant">
+                                    <span class="participant-avatar avatar-peach">А</span>
+                                    <span class="participant-state muted" aria-hidden="true">×</span>
+                                    <strong>Аня</strong>
+                                </article>
+                                <article class="participant">
+                                    <span class="participant-avatar avatar-blue">К</span>
+                                    <span class="participant-state" aria-hidden="true">●</span>
+                                    <strong>Костя</strong>
+                                </article>
+                            </div>
+
+                            <div class="call-controls">
+                                <button class="control-button" id="mute-button" type="button" aria-pressed="false">
+                                    <span aria-hidden="true">◉</span>
+                                    <span class="control-label">Микрофон</span>
+                                </button>
+                                <button class="control-button" id="share-button" type="button" aria-pressed="false">
+                                    <span aria-hidden="true">▣</span>
+                                    <span class="control-label">Экран</span>
+                                </button>
+                                <button class="control-button control-primary" id="connect-button" type="button" aria-pressed="false">
+                                    Подключиться
+                                </button>
+                            </div>
+                        </section>
+
+                        <aside class="chat-preview">
+                            <div class="chat-heading">
+                                <div><span>#</span> общий</div>
+                                <span class="chat-presence">6 онлайн</span>
+                            </div>
+                            <div class="chat-messages" id="chat-messages">
+                                <div class="chat-message">
+                                    <span class="chat-avatar avatar-purple">М</span>
+                                    <p><strong>Миша <time>19:42</time></strong>Кто в голос?</p>
+                                </div>
+                                <div class="chat-message">
+                                    <span class="chat-avatar avatar-mint">Е</span>
+                                    <p><strong>Егор <time>19:43</time></strong>Заходи, покажу экран</p>
+                                </div>
+                                <div class="chat-message">
+                                    <span class="chat-avatar avatar-peach">А</span>
+                                    <p><strong>Аня <time>19:44</time></strong><span class="custom-emoji">BORO</span></p>
+                                </div>
+                            </div>
+                            <div class="chat-input">Сообщение <span aria-hidden="true">☺</span></div>
+                        </aside>
+                    </div>
+                </div>
+
+                <p class="demo-caption"><span></span> Это интерактивный макет — можно нажимать</p>
+            </div>
+        </section>
+
+        <section class="steps section-shell" id="how-it-works">
+            <div class="section-heading reveal">
+                <p class="eyebrow">Три действия. И вы вместе.</p>
+                <h2>Не нужно читать инструкцию.</h2>
+                <p>В Borotalk каждый следующий шаг очевиден — от поиска своих до разговора.</p>
+            </div>
+
+            <div class="step-grid">
+                <article class="step-card step-search reveal">
+                    <span class="step-number">01</span>
+                    <div class="search-demo" aria-hidden="true">
+                        <span>ID</span>
+                        <strong>BFU-184</strong>
+                        <i>↗</i>
+                    </div>
+                    <h3>Найди по ID</h3>
+                    <p>Введи ID сервера или человека. Никаких публичных каталогов и случайных комнат.</p>
+                </article>
+
+                <article class="step-card step-voice reveal">
+                    <span class="step-number">02</span>
+                    <div class="voice-demo" aria-hidden="true">
+                        <span class="voice-demo-avatar avatar-purple">М</span>
+                        <span class="voice-demo-avatar avatar-mint">Е</span>
+                        <span class="voice-demo-avatar avatar-blue">К</span>
+                        <i><b></b><b></b><b></b><b></b></i>
+                    </div>
+                    <h3>Войди в голос</h3>
+                    <p>Один клик — и ты в канале. Подключение, уведомления и звуки уже настроены.</p>
+                </article>
+
+                <article class="step-card step-share reveal">
+                    <span class="step-number">03</span>
+                    <div class="share-demo" aria-hidden="true">
+                        <span class="share-window"><i></i><i></i><i></i></span>
+                        <strong>Экран уже виден</strong>
+                    </div>
+                    <h3>Говори или показывай</h3>
+                    <p>Обсуди идею, помоги с задачей или просто побудь рядом — со звуком и экраном.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="features section-shell" id="features">
+            <div class="feature-intro reveal">
+                <p class="eyebrow">Меньше функций. Больше пользы.</p>
+                <h2>Всё вторичное знает своё место.</h2>
+                <p>
+                    Borotalk не пытается стать интернетом внутри интернета.
+                    Он просто помогает быстро найти своих, услышать их и не потерять мысль в чате.
+                </p>
+            </div>
+
+            <div class="feature-board">
+                <article class="feature-card feature-card-wide reveal">
+                    <div class="feature-card-copy">
+                        <span class="feature-tag">Voice first</span>
+                        <h3>Голос — главный экран,<br>а не ещё одна вкладка.</h3>
+                        <p>Участники, статус микрофона и демонстрация экрана всегда перед глазами.</p>
+                    </div>
+                    <div class="voice-rings" aria-hidden="true">
+                        <span class="ring ring-one"></span>
+                        <span class="ring ring-two"></span>
+                        <span class="ring ring-three"></span>
+                        <span class="rings-avatar">Е</span>
+                    </div>
+                </article>
+
+                <article class="feature-card reveal">
+                    <div class="dm-demo" aria-hidden="true">
+                        <span class="dm-avatar avatar-peach">А</span>
+                        <div><b>Аня</b><small>можешь на минуту?</small></div>
+                        <i>2</i>
+                    </div>
+                    <h3>Личка без лабиринтов</h3>
+                    <p>Найди пользователя по ID и продолжи разговор один на один.</p>
+                </article>
+
+                <article class="feature-card reveal">
+                    <div class="emoji-row" aria-hidden="true">
+                        <span>HEH</span><span>WOW</span><span>BORO</span>
+                    </div>
+                    <h3>Свой характер внутри</h3>
+                    <p>Готовые аватары, эмодзи и звуки. Всё знакомое уже на месте.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="final-cta section-shell reveal">
+            <div class="final-copy">
+                <p class="eyebrow"><span class="live-dot"></span> Комната уже ждёт</p>
+                <h2>Позови своих.<br>Остальное мы убрали.</h2>
+            </div>
+            <a class="button button-primary" href="/login.html">
+                Открыть Borotalk
+                <span aria-hidden="true">↗</span>
+            </a>
+        </section>
+    </main>
+
+    <footer class="site-footer section-shell">
+        <a class="brand" href="/" aria-label="Borotalk, на главную">
+            <span class="brand-mark" aria-hidden="true"><span></span></span>
+            <span>Borotalk</span>
+        </a>
+        <p>Голосовая связь для своих.</p>
+        <a href="/login.html">Войти</a>
+    </footer>
+</body>
+</html>

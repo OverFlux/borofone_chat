@@ -28,8 +28,8 @@ class MessageCreate(BaseModel):
         if v is None:
             return ""
         v = v.strip()
-        if len(v) > 4096:
-            raise ValueError("body must be 4096 characters or less")
+        if len(v) > 2000:
+            raise ValueError("body must be 2000 characters or less")
         return v
 
     @model_validator(mode="after")
@@ -69,8 +69,8 @@ class MessageEdit(BaseModel):
         if v is None:
             return ""
         v = v.strip()
-        if len(v) > 4096:
-            raise ValueError("body must be 4096 characters or less")
+        if len(v) > 2000:
+            raise ValueError("body must be 2000 characters or less")
         return v
 
 

@@ -122,8 +122,6 @@ def main():
             limit_concurrency=100,
             limit_max_requests=1000,
             timeout_keep_alive=30,
-            http_max_header_size=65536,
-            max_request_body_size=50 * 1024 * 1024,
         )
     finally:
         for temp_file in temp_files:

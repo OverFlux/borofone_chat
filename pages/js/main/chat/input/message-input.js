@@ -201,6 +201,11 @@ async function sendMessage() {
     if (!checkRateLimit()) {
         return;
     }
+
+    if (currentConversation) {
+        await sendDirectMessage();
+        return;
+    }
     
     const text = messageInput.value.trim();
     const hasAttachments = window.attachments && window.attachments.getAttachmentsToSend().length > 0;

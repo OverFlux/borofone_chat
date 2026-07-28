@@ -23,8 +23,9 @@ from app.schemas.messages import (
     ReactionCreate,
     ReactionResponse,
 )
-from app.schemas.rooms import RoomCreate, RoomResponse
 from app.services.messages import create_message_with_nonce
+from app.services.access import require_room_member
+from app.services.message_rate_limit import enforce_message_rate_limit
 
 router = APIRouter()
 
@@ -89,19 +90,6 @@ def serialize_message(msg: Message, current_user: User) -> MessageResponse:
     )
 
 
-@router.post("/rooms", dependencies=[Depends(require_admin)], response_model=RoomResponse, status_code=201)
-async def create_room(
-    payload: RoomCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    room = Room(title=payload.title, created_by=current_user.id)
-    db.add(room)
-    await db.commit()
-    await db.refresh(room)
-    return {"id": room.id, "title": room.title}
-
-
 @router.get("/rooms/{room_id}/messages", response_model=list[MessageResponse])
 async def list_messages(
     room_id: int,
@@ -117,6 +105,7 @@ async def list_messages(
         limit: Maximum number of messages to return (default 50)
         before_id: Return messages before this ID (for pagination)
     """
+    await require_room_member(db, room_id, current_user)
     stmt = (
         select(Message)
         .where(Message.room_id == room_id)
@@ -147,6 +136,7 @@ async def toggle_reaction(
     current_user: User = Depends(get_current_user),
     redis: Redis = Depends(get_redis),
 ):
+    await require_room_member(db, room_id, current_user)
     emoji = payload.emoji.strip()
     message_stmt = select(Message).where(Message.id == message_id, Message.room_id == room_id)
     message = (await db.execute(message_stmt)).scalar_one_or_none()
@@ -208,6 +198,7 @@ async def delete_message(
     current_user: User = Depends(get_current_user),
     redis: Redis = Depends(get_redis),
 ):
+    await require_room_member(db, room_id, current_user)
     msg_stmt = select(Message).where(Message.id == message_id, Message.room_id == room_id)
     msg = (await db.execute(msg_stmt)).scalar_one_or_none()
     if not msg:
@@ -243,6 +234,7 @@ async def edit_message(
     current_user: User = Depends(get_current_user),
     redis: Redis = Depends(get_redis),
 ):
+    await require_room_member(db, room_id, current_user)
     """Edit a message - only the author can edit their own message."""
     msg_stmt = select(Message).where(Message.id == message_id, Message.room_id == room_id)
     msg = (await db.execute(msg_stmt)).scalar_one_or_none()
@@ -296,6 +288,7 @@ async def hard_delete_message(
     current_user: User = Depends(require_admin),
     redis: Redis = Depends(get_redis),
 ):
+    await require_room_member(db, room_id, current_user)
     """
     Hard delete a message (permanent deletion).
     
@@ -335,6 +328,8 @@ async def post_message(
     current_user: User = Depends(get_current_user),
     redis: Redis = Depends(get_redis),
 ):
+    room = await require_room_member(db, room_id, current_user)
+    await enforce_message_rate_limit(redis, current_user.id)
     msg = await create_message_with_nonce(
         db=db,
         room_id=room_id,
@@ -355,4 +350,32 @@ async def post_message(
             )
         )
     ).scalar_one()
-    return serialize_message(refreshed, current_user)
+    response = serialize_message(refreshed, current_user)
+
+    # Messages created by the Nova client use this REST endpoint. Publish the
+    # same event shape as the WebSocket send path so every connected member
+    # receives the message immediately.
+    delivered = False
+    if redis:
+        event = {"type": "message", **response.model_dump()}
+        try:
+            delivered = bool(
+                await redis.publish(room_events_channel(room_id), json.dumps(event))
+            )
+        except Exception:
+            # Persisting the message must remain available when Redis is down.
+            pass
+
+    # The one-click desktop setup normally runs one app process. Keep realtime
+    # working in that mode even if Redis is briefly unavailable.
+    if not delivered:
+        from app.services.voice import voice_runtime
+
+        event = {"type": "message", **response.model_dump()}
+        for socket in await voice_runtime.sockets_for_server(room.server_id):
+            try:
+                await socket.send_json(event)
+            except Exception:
+                pass
+
+    return response

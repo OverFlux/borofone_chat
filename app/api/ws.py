@@ -1,27 +1,21 @@
-"""
-Global WebSocket: подписывается на ВСЕ комнаты одновременно.
-
-Простое решение без изменения БД:
-- Клиент подключается к /ws
-- Backend подписывается на room:* (все комнаты)
-- Клиент получает события из всех комнат → показывает badge/звук
-"""
+"""Server-scoped WebSocket for chat, voice, and private user events."""
 import asyncio
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.infra.db import SessionLocal
-from app.infra.redis import room_events_channel
-from app.models import User, Room, Message, MessageReaction
+from app.infra.redis import room_events_channel, user_events_channel
+from app.models import User, Room, Message, MessageReaction, ServerMember, VoiceRoom
 from app.schemas.messages import MessageCreate
 from app.security import get_user_id_from_token
 from app.services.messages import create_message_with_nonce
+from app.services.message_rate_limit import enforce_message_rate_limit
 from app.services.voice import voice_runtime
 
 router = APIRouter(tags=["WebSocket"])
@@ -52,6 +46,7 @@ async def get_user_from_websocket(
 async def global_websocket_endpoint(
     websocket: WebSocket,
     token: str = Query(None),
+    server_id: int = Query(..., gt=0),
 ):
     """
     Глобальный WebSocket — получает события из ВСЕХ комнат.
@@ -72,9 +67,38 @@ async def global_websocket_endpoint(
             await websocket.close()
             return
 
+        membership = (
+            await db.execute(
+                select(ServerMember).where(
+                    ServerMember.server_id == server_id,
+                    ServerMember.user_id == user.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if not membership:
+            await websocket.send_json({"type": "error", "code": "forbidden_server"})
+            await websocket.close()
+            return
+
+        room_ids = set(
+            (
+                await db.execute(select(Room.id).where(Room.server_id == server_id))
+            ).scalars().all()
+        )
+        voice_room_ids = set(
+            (
+                await db.execute(
+                    select(VoiceRoom.id).where(
+                        VoiceRoom.server_id == server_id,
+                        VoiceRoom.is_active.is_(True),
+                    )
+                )
+            ).scalars().all()
+        )
+
     username = user.username
     user_id = user.id
-    is_first_connection = await voice_runtime.register_connection(user_id, websocket)
+    is_first_connection = await voice_runtime.register_connection(user_id, websocket, server_id)
 
     # ── Redis: подписываемся на ВСЕ комнаты ──────────────────────
     redis = None
@@ -95,28 +119,20 @@ async def global_websocket_endpoint(
 
     if redis:
         try:
-            # Загружаем все комнаты с отдельной сессией
-            async with SessionLocal() as db:
-                result = await db.execute(select(Room))
-                rooms = result.scalars().all()
-                room_ids = [room.id for room in rooms]
-
             pubsub = redis.pubsub()
             
             # Подписываемся на каждую комнату
             for room_id in room_ids:
                 await pubsub.subscribe(room_events_channel(room_id))
+            await pubsub.subscribe(user_events_channel(user_id))
             
-            # Подписываемся на глобальный канал для звука poshelti
-            await pubsub.subscribe("global:poshelti")
-            
-            print(f"[WS] {username} subscribed to {len(room_ids)} rooms: {room_ids[:5]}...")  # Log first 5 rooms
+            print(f"[WS] {username} subscribed to server {server_id}, rooms: {sorted(room_ids)[:5]}...")
         except Exception as e:
             print(f"[WS] Subscribe failed: {e}")
             pubsub = None
             redis = None
 
-    print(f"[WS] {username} connected globally")
+    print(f"[WS] {username} connected to server {server_id}")
 
     # Устанавливаем статус пользователя как онлайн
     if is_first_connection:
@@ -138,14 +154,21 @@ async def global_websocket_endpoint(
             except Exception:
                 pass
 
-    async def broadcast_voice_presence(room_id: int) -> None:
+    async def broadcast_voice_presence(
+        room_id: int,
+        target_server_id: int | None = None,
+        outside_only: bool = False,
+    ) -> None:
         payload = {
             "type": "voice_room_presence",
             "room_id": room_id,
             "participants": await voice_runtime.participants_snapshot(room_id),
         }
-        sockets = await voice_runtime.sockets_all()
+        sockets = await voice_runtime.sockets_for_server(target_server_id or server_id)
+        room_sockets = set(await voice_runtime.sockets_for_room(room_id)) if outside_only else set()
         for sock in sockets:
+            if sock in room_sockets:
+                continue
             try:
                 await sock.send_json(payload)
             except Exception:
@@ -154,9 +177,9 @@ async def global_websocket_endpoint(
     async def broadcast_online_count(exclude: WebSocket | None = None) -> None:
         payload = {
             "type": "online_count",
-            "total": await voice_runtime.online_users_count(),
+            "total": await voice_runtime.online_users_count(server_id),
         }
-        sockets = await voice_runtime.sockets_all()
+        sockets = await voice_runtime.sockets_for_server(server_id)
         for sock in sockets:
             if exclude and sock is exclude:
                 continue
@@ -167,6 +190,12 @@ async def global_websocket_endpoint(
     await broadcast_online_count()
     if is_first_connection:
         await broadcast_online_count(exclude=websocket)
+    for voice_room_id in voice_room_ids:
+        await websocket.send_json({
+            "type": "voice_room_presence",
+            "room_id": voice_room_id,
+            "participants": await voice_runtime.participants_snapshot(voice_room_id),
+        })
 
     # ── Task 1: receive from client ───────────────────────────────
     async def receive_messages() -> None:
@@ -178,6 +207,36 @@ async def global_websocket_endpoint(
                     continue
 
                 msg_type = data.get("type")
+
+                if msg_type == "ping":
+                    await websocket.send_json({"type": "pong"})
+                    continue
+
+                room_id = data.get("room_id")
+                if msg_type in {
+                    "heartbeat",
+                    "reaction",
+                    "message_delete",
+                    "message_hard_delete",
+                    "typing",
+                    "message",
+                } and room_id not in room_ids:
+                    await websocket.send_json({"type": "error", "code": "forbidden_room"})
+                    continue
+
+                if msg_type in {
+                    "join_room",
+                    "leave_room",
+                    "set_mute",
+                    "set_deafen",
+                    "speaking",
+                    "set_screen_share",
+                    "rtc_offer",
+                    "rtc_answer",
+                    "rtc_ice",
+                } and room_id not in voice_room_ids:
+                    await websocket.send_json({"type": "error", "code": "forbidden_voice_room"})
+                    continue
                 
                 # Heartbeat — обновление присутствия
                 if msg_type == "heartbeat":
@@ -336,6 +395,7 @@ async def global_websocket_endpoint(
                         username=user.username,
                         display_name=user.display_name,
                         avatar_url=user.avatar_url,
+                        server_id=server_id,
                     )
                     if prev_room_id and prev_participant:
                         await broadcast_voice(prev_room_id, {
@@ -348,7 +408,10 @@ async def global_websocket_endpoint(
                                 "avatar_url": prev_participant.avatar_url,
                             },
                         })
-                        await broadcast_voice_presence(prev_room_id)
+                        await broadcast_voice_presence(
+                            prev_room_id,
+                            prev_participant.server_id,
+                        )
                     await websocket.send_json({"type": "room_joined", "room_id": room_id, "participants": snapshot})
                     await broadcast_voice(room_id, {"type": "participant_joined", "room_id": room_id, "participant": voice_runtime._as_dict(participant)})
                     await broadcast_voice_presence(room_id)
@@ -374,6 +437,7 @@ async def global_websocket_endpoint(
                     participant = await voice_runtime.update_state(room_id, user_id, muted=muted, speaking=False if muted else None)
                     if participant:
                         await broadcast_voice(room_id, {"type": "participant_updated", "room_id": room_id, "participant": voice_runtime._as_dict(participant)})
+                        await broadcast_voice_presence(room_id, outside_only=True)
                     continue
 
                 if msg_type == "set_deafen":
@@ -382,6 +446,7 @@ async def global_websocket_endpoint(
                     participant = await voice_runtime.update_state(room_id, user_id, deafened=deafened)
                     if participant:
                         await broadcast_voice(room_id, {"type": "participant_updated", "room_id": room_id, "participant": voice_runtime._as_dict(participant)})
+                        await broadcast_voice_presence(room_id, outside_only=True)
                     continue
 
                 if msg_type == "speaking":
@@ -405,6 +470,7 @@ async def global_websocket_endpoint(
                             "screen_sharing": sharing,
                             "participant": voice_runtime._as_dict(participant),
                         })
+                        await broadcast_voice_presence(room_id, outside_only=True)
                     continue
 
                 # Typing indicator
@@ -435,7 +501,10 @@ async def global_websocket_endpoint(
                     target_user_id = data.get("target_user_id")
                     if not room_id or not target_user_id:
                         continue
-                    target_sockets = await voice_runtime.sockets_for_user(int(target_user_id))
+                    target_sockets = await voice_runtime.sockets_for_user_in_server(
+                        int(target_user_id),
+                        server_id,
+                    )
                     relay = {
                         "type": msg_type,
                         "room_id": room_id,
@@ -475,6 +544,17 @@ async def global_websocket_endpoint(
                             print(f"[WS] Publish poshelti sound failed: {e}")
 
                 try:
+                    try:
+                        await enforce_message_rate_limit(redis, user_id)
+                    except HTTPException as exc:
+                        await websocket.send_json({
+                            "type": "error",
+                            "code": "rate_limited",
+                            "detail": exc.detail,
+                            "retry_after": int(exc.headers.get("Retry-After", "1")),
+                        })
+                        continue
+
                     # Создаём новую сессию для каждого сообщения
                     async with SessionLocal() as db:
                         payload = MessageCreate(
@@ -565,6 +645,7 @@ async def global_websocket_endpoint(
                     "room_id": room_id,
                     "participant": {"user_id": participant.user_id, "username": participant.username, "display_name": participant.display_name},
                 })
+                await broadcast_voice_presence(room_id, participant.server_id)
             if is_last_connection:
                 try:
                     async with SessionLocal() as db:
@@ -591,28 +672,17 @@ async def global_websocket_endpoint(
                     continue
 
                 if message and message["type"] == "message":
-                    # Проверяем, является ли это сообщением из глобального канала poshelti
-                    channel = message.get("channel", "")
-                    if channel == "global:poshelti":
-                        # Это событие звука poshelti - отправляем напрямую
+                    try:
+                        data = message["data"]
                         try:
-                            await websocket.send_text(message["data"])
+                            parsed = json.loads(data)
+                            if parsed.get("type") == "message_edited":
+                                print(f"[WS] Broadcasting message_edited: room={parsed.get('room_id')}, message_id={parsed.get('message_id')}")
                         except Exception:
                             pass
-                    else:
-                        # Обычное сообщение комнаты
-                        try:
-                            data = message["data"]
-                            # Log message_edited events for debugging
-                            try:
-                                parsed = json.loads(data)
-                                if parsed.get("type") == "message_edited":
-                                    print(f"[WS] Broadcasting message_edited: room={parsed.get('room_id')}, message_id={parsed.get('message_id')}")
-                            except:
-                                pass
-                            await websocket.send_text(data)
-                        except Exception:
-                            pass
+                        await websocket.send_text(data)
+                    except Exception:
+                        pass
         except Exception as e:
             if "websocket.send" not in str(e):
                 print(f"[WS] send error: {e}")

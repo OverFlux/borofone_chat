@@ -81,3 +81,29 @@ def test_voice_runtime_moving_between_rooms_and_unregister_connection():
     assert participant is not None
     assert participant.user_id == 1
     assert asyncio.run(runtime.sockets_for_user(1)) == []
+
+
+def test_voice_runtime_scopes_sockets_to_server():
+    runtime = VoiceRuntime()
+    server_one_socket = object()
+    server_two_socket = object()
+
+    asyncio.run(runtime.register_connection(1, server_one_socket, server_id=10))
+    asyncio.run(runtime.register_connection(1, server_two_socket, server_id=20))
+    asyncio.run(
+        runtime.join_room(
+            room_id=100,
+            user_id=1,
+            username="alice",
+            display_name="Alice",
+            server_id=10,
+        )
+    )
+
+    assert asyncio.run(runtime.sockets_for_server(10)) == [server_one_socket]
+    assert asyncio.run(runtime.sockets_for_server(20)) == [server_two_socket]
+    assert asyncio.run(runtime.sockets_for_user_in_server(1, 10)) == [server_one_socket]
+    assert asyncio.run(runtime.sockets_for_user_in_server(1, 20)) == [server_two_socket]
+    assert asyncio.run(runtime.sockets_for_room(100)) == [server_one_socket]
+    assert asyncio.run(runtime.online_users_count(10)) == 1
+    assert asyncio.run(runtime.online_users_count(20)) == 1
