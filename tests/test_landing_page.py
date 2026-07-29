@@ -47,8 +47,8 @@ def test_main_app_uses_standalone_nova_interface_without_legacy_ui():
     assert nova_css.status_code == 200
     assert nova_js.status_code == 200
     assert "Разговор начинается" in main_page.text
-    assert 'href="/styles/nova-app.css?v=21"' in main_page.text
-    assert 'src="/js/nova-main.js?v=21"' in main_page.text
+    assert 'href="/styles/nova-app.css?v=22"' in main_page.text
+    assert 'src="/js/nova-main.js?v=22"' in main_page.text
     assert 'id="messageList"' in main_page.text
     assert 'id="voiceRoomList"' in main_page.text
     assert 'class="server-rail"' in main_page.text
@@ -71,8 +71,11 @@ def test_main_app_uses_standalone_nova_interface_without_legacy_ui():
     assert "state.shareZoom" in nova_js.text
     assert 'id="shareVolumeSlider"' in main_page.text
     assert 'id="shareAudioMuteButton"' in main_page.text
-    assert "audio: true" in nova_js.text
+    assert 'systemAudio: "include"' in nova_js.text
+    assert "screen-share-no-audio" in nova_js.text
     assert "attachScreenAudio" in nova_js.text
+    assert "reconcileRemoteAudio" in nova_js.text
+    assert "joinedParticipantId !== state.user.id" in nova_js.text
     assert 'id="participantVolumePopover"' in main_page.text
     assert '"contextmenu"' in nova_js.text
     assert "borotalk-participant-volumes" in nova_js.text

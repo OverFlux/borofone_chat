@@ -993,8 +993,11 @@ async function handleSocketEvent(data) {
             break;
         case "participant_joined":
             if (data.room_id === state.currentVoiceRoomId) {
-                state.participants.set(data.participant.user_id, data.participant);
-                await ensurePeer(data.participant.user_id, true);
+                const joinedParticipantId = data.participant.user_id;
+                state.participants.set(joinedParticipantId, data.participant);
+                if (joinedParticipantId !== state.user.id) {
+                    await ensurePeer(joinedParticipantId, true);
+                }
                 renderParticipants();
                 playTone("join");
             }
@@ -1313,12 +1316,25 @@ async function toggleScreenShare() {
     try {
         state.screenStream = await navigator.mediaDevices.getDisplayMedia({
             video: { frameRate: { ideal: 30, max: 60 } },
-            audio: true,
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+                suppressLocalAudioPlayback: false,
+            },
+            systemAudio: "include",
         });
         state.shareViewerDismissed = false;
         const videoTrack = state.screenStream.getVideoTracks()[0];
         if (!videoTrack) throw new Error("Screen video track is unavailable");
         videoTrack.addEventListener("ended", () => stopScreenShare());
+        if (!state.screenStream.getAudioTracks().length) {
+            toast(
+                "Экран открыт без звука. При выборе источника включите «Поделиться системным звуком».",
+                "info",
+                "screen-share-no-audio",
+            );
+        }
         renderLocalShare();
         socketSend({ type: "set_screen_share", room_id: state.currentVoiceRoomId, sharing: true });
         for (const [userId, pc] of state.peers) {
@@ -1621,14 +1637,14 @@ async function attemptPeerRecovery(userId) {
     recovery.timer = window.setTimeout(() => attemptPeerRecovery(userId), 3500 * recovery.attempts);
 }
 
-async function ensurePeer(userId, participantJustJoined = false) {
+async function ensurePeer(userId, shouldOffer = false) {
     if (userId === state.user.id || !state.currentVoiceRoomId) return;
     makePeer(userId);
-    if (participantJustJoined && state.user.id < userId) await createOffer(userId);
+    if (shouldOffer) await createOffer(userId);
 }
 
 async function ensurePeerConnections() {
-    await Promise.all([...state.participants.keys()].map((userId) => ensurePeer(userId, state.user.id < userId)));
+    await Promise.all([...state.participants.keys()].map((userId) => ensurePeer(userId)));
 }
 
 async function createOffer(userId, iceRestart = false) {
@@ -1727,14 +1743,42 @@ function attachScreenAudio(media, userId, stream, streamId = stream.id) {
     media.screenAudio.volume = shareVolume(userId);
     syncRemoteAudioMute();
     void media.screenAudio.play().catch(() => {});
-    track.addEventListener("ended", () => {
-        if (media.screenAudioStreamId !== streamId) return;
+    syncShareAudioControls();
+}
+
+function reconcileRemoteAudio(media, userId) {
+    let voiceSource = null;
+    let screenSource = null;
+    for (const [streamId, stream] of media.audioStreams) {
+        const track = stream.getAudioTracks().find((item) => item.readyState !== "ended");
+        if (!track) continue;
+        const isScreenAudio = streamId === media.screenStreamId || stream.getVideoTracks().length > 0;
+        if (isScreenAudio && !screenSource) screenSource = { streamId, stream, track };
+        else if (!isScreenAudio && !voiceSource) voiceSource = { streamId, track };
+    }
+
+    if (voiceSource) {
+        const currentTrack = media.audio.srcObject?.getAudioTracks()[0];
+        if (media.audioStreamId !== voiceSource.streamId || currentTrack?.id !== voiceSource.track.id) {
+            media.audioStreamId = voiceSource.streamId;
+            media.audio.srcObject = new MediaStream([voiceSource.track]);
+        }
+        media.audio.volume = participantVolume(userId);
+        media.audio.muted = state.deafened;
+        void media.audio.play().catch(() => {});
+    } else {
+        media.audio.srcObject = null;
+        media.audioStreamId = null;
+    }
+
+    if (screenSource) {
+        attachScreenAudio(media, userId, screenSource.stream, screenSource.streamId);
+    } else {
         media.screenAudio?.remove();
         media.screenAudio = null;
         media.screenAudioStreamId = null;
         syncShareAudioControls();
-    }, { once: true });
-    syncShareAudioControls();
+    }
 }
 
 function attachRemoteMedia(userId, event) {
@@ -1755,20 +1799,20 @@ function attachRemoteMedia(userId, event) {
             screenAudioStreamId: null,
             video: null,
             screenStreamId: null,
+            audioStreams: new Map(),
         };
         state.remoteMedia.set(userId, media);
     }
     if (event.track.kind === "audio") {
-        const belongsToScreen = media.screenStreamId === stream.id || stream.getVideoTracks().length > 0;
-        if (belongsToScreen) {
-            attachScreenAudio(media, userId, stream);
-        } else {
-            media.audioStreamId = stream.id;
-            media.audio.srcObject = new MediaStream([event.track]);
-            media.audio.volume = participantVolume(userId);
-            media.audio.muted = state.deafened;
-            void media.audio.play().catch(() => {});
-        }
+        media.audioStreams.set(stream.id, stream);
+        event.track.addEventListener("ended", () => {
+            const storedTrack = media.audioStreams.get(stream.id)?.getAudioTracks()[0];
+            if (!storedTrack || storedTrack.id === event.track.id) {
+                media.audioStreams.delete(stream.id);
+            }
+            reconcileRemoteAudio(media, userId);
+        }, { once: true });
+        reconcileRemoteAudio(media, userId);
     } else if (event.track.kind === "video") {
         let video = media.video;
         if (!video) {
@@ -1783,12 +1827,9 @@ function attachRemoteMedia(userId, event) {
         }
         media.screenStreamId = stream.id;
         if (stream.getAudioTracks().length) {
-            attachScreenAudio(media, userId, stream);
-        } else if (media.audioStreamId === stream.id && media.audio.srcObject?.getAudioTracks().length) {
-            attachScreenAudio(media, userId, media.audio.srcObject, stream.id);
-            media.audio.srcObject = null;
-            media.audioStreamId = null;
+            media.audioStreams.set(stream.id, stream);
         }
+        reconcileRemoteAudio(media, userId);
         video.dataset.shareLabel = participantForShare(String(userId))?.display_name
             || participantForShare(String(userId))?.username
             || `Участник ${userId}`;
@@ -1801,11 +1842,8 @@ function attachRemoteMedia(userId, event) {
             video.remove();
             media.video = null;
             media.screenStreamId = null;
-            if (media.screenAudioStreamId === stream.id) {
-                media.screenAudio?.remove();
-                media.screenAudio = null;
-                media.screenAudioStreamId = null;
-            }
+            media.audioStreams.delete(stream.id);
+            reconcileRemoteAudio(media, userId);
             syncShareStage();
         }, { once: true });
         syncShareStage();
