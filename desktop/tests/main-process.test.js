@@ -44,6 +44,19 @@ test("renders screen capture inside the trusted host window instead of a child w
   assert.doesNotMatch(mainSource, /source-picker\.html/);
 });
 
+test("releases the capture slot before Electron reports a cancelled request", () => {
+  const start = mainSource.indexOf("function finishCapture(streams)");
+  const end = mainSource.indexOf("\nasync function openCapturePicker", start);
+  const finishCaptureSource = mainSource.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.ok(
+    finishCaptureSource.indexOf("captureRequest = null")
+      < finishCaptureSource.indexOf("pending.callback(streams)"),
+  );
+  assert.match(finishCaptureSource, /catch \(error\)/);
+  assert.match(finishCaptureSource, /if \(callbackError && streams\?\.video\) throw callbackError/);
+});
+
 test("clears legacy service worker state before loading the host interface", () => {
   assert.match(
     mainSource,
