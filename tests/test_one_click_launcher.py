@@ -27,6 +27,8 @@ def test_radmin_launcher_prepares_complete_local_stack():
         "-m alembic upgrade head",
         "Ensure-Certificate",
         "Ensure-FirewallRule",
+        "Fix-RadminRoute.ps1",
+        "FIX_RADMIN_ROUTE.bat",
         '"26.0.0.0/8"',
         "Ensure-Invite",
         "BOROTALK_SHARE",
@@ -51,6 +53,26 @@ def test_radmin_launcher_prepares_complete_local_stack():
     assert "$Url.TrimEnd" in friend_bundle
     assert "voice.pfx" not in friend_bundle
     assert "key.pem" not in friend_bundle
+    assert "Fix-RadminRoute.ps1" in friend_bundle
+    assert "FIX_RADMIN_ROUTE.bat" in friend_bundle
+    assert "KillSwitch" in friend_bundle
+
+
+def test_radmin_route_repair_is_scoped_to_the_radmin_network():
+    repair = (ROOT / "scripts" / "Fix-RadminRoute.ps1").read_text(encoding="utf-8-sig")
+    wrapper = (ROOT / "FIX_RADMIN_ROUTE.bat").read_text(encoding="utf-8")
+
+    assert '"26.0.0.0/8"' in repair
+    assert '"26.0.0.0/9"' in repair
+    assert '"26.128.0.0/9"' in repair
+    assert "Set-NetIPInterface" in repair
+    assert "New-NetRoute" in repair
+    assert "BorotalkRadminNetworkOutbound" in repair
+    assert "-InterfaceAlias $adapter.Name" in repair
+    assert "0.0.0.0/0" not in repair
+    assert "Remove-NetRoute" not in repair
+    assert "KillSwitch" in repair
+    assert "Fix-RadminRoute.ps1" in wrapper
 
 
 def test_certificate_script_creates_ip_san_and_exportable_server_certificate():

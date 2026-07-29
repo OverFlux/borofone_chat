@@ -1,64 +1,29 @@
-"""
-Pydantic schemes for working with chat rooms.
-"""
-from pydantic import BaseModel, field_validator
+"""Pydantic schemas for Borotalk text rooms."""
 
-# Scheme for creating a room.
+from pydantic import BaseModel, ConfigDict, field_validator
+
+
 class RoomCreate(BaseModel):
-
     server_id: int
     title: str
     description: str | None = None
 
     @field_validator("title")
     @classmethod
-    def validate_title(cls, v: str) -> str:
-        v = v.strip() # Removes spaces from the edges of the title
-
-        # Check: not empty
-        if not v:
+    def validate_title(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
             raise ValueError("title cannot be empty")
-
-        # Check: not too long
-        if len(v) > 100:
+        if len(value) > 100:
             raise ValueError("title must be 100 characters or less")
+        return value
 
-        # Ban only spaces
-        if not v.replace(" ", ""):
-            raise ValueError("title cannot contain only spaces")
 
-        return v
-
-# Response scheme when creating/getting a room.
 class RoomResponse(BaseModel):
-
     id: int
     server_id: int
     title: str
     description: str | None
-    created_at: str # ISO 8601
+    created_at: str
 
-    class Config:
-        from_attributes = True  # For compatibility with SQLAlchemy models
-
-
-class RoomUpdate(BaseModel):
-    """Schema для обновления комнаты."""
-    title: str | None = None
-    description: str | None = None
-
-    @field_validator("title")
-    @classmethod
-    def validate_title(cls, v: str | None) -> str | None:
-        """Валидация title."""
-        if v is None:
-            return None
-
-        v = v.strip()
-
-        if not v:
-            raise ValueError("title cannot be empty")
-        if len(v) > 100:
-            raise ValueError("title must be 100 characters or less")
-
-        return v
+    model_config = ConfigDict(from_attributes=True)

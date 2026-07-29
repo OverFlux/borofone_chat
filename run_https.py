@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HTTPS Server Runner for Borofone Chat.
+HTTPS Server Runner for Borotalk.
 """
 
 import argparse
@@ -57,7 +57,7 @@ def get_public_url(host: str, port: int) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Run Borofone Chat with HTTPS')
+    parser = argparse.ArgumentParser(description='Run Borotalk with HTTPS')
     parser.add_argument('--host', default=settings.ssl_host, help='Host to bind to')
     parser.add_argument('--port', default=settings.ssl_port, type=int, help='Port to bind to')
     parser.add_argument('--cert', default=settings.ssl_cert_path, help='Path to SSL certificate file')
@@ -101,7 +101,7 @@ def main():
     public_url = get_public_url(args.host, args.port)
 
     print('=' * 50)
-    print('Borofone Chat - HTTPS Server')
+    print('Borotalk - HTTPS Server')
     print('=' * 50)
     print(f'Host: {args.host}')
     print(f'Port: {args.port}')

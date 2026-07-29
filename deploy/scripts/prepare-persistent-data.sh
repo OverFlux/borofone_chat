@@ -11,11 +11,9 @@ env_name="$1"
 case "${env_name}" in
   production)
     uploads_volume="borofone-prod_uploads_data"
-    legacy_unit="borofone-prod"
     ;;
   staging)
     uploads_volume="borofone-staging_uploads_data"
-    legacy_unit="borofone-staging"
     ;;
   *)
     echo "unsupported environment: ${env_name}" >&2
@@ -47,9 +45,7 @@ esac
 
 host_root="${HOST_DATA_ROOT%/}"
 uploads_dir="${host_root}/uploads"
-leaderboard_dir="${host_root}/leaderboard"
 marker_file="${host_root}/.persistent-data-migrated"
-legacy_leaderboard_dir="${repo_root}/data/leaderboard"
 
 is_dir_empty() {
   local dir_path="$1"
@@ -67,9 +63,7 @@ copy_volume_to_dir() {
     sh -lc 'cd /source && tar -cf - . | tar -xf - -C /target'
 }
 
-mkdir -p \
-  "${uploads_dir}" \
-  "${leaderboard_dir}"
+mkdir -p "${uploads_dir}"
 
 if [ ! -f "${marker_file}" ]; then
   if is_dir_empty "${uploads_dir}" && docker volume inspect "${uploads_volume}" >/dev/null 2>&1; then
@@ -79,28 +73,13 @@ if [ ! -f "${marker_file}" ]; then
     echo "[storage] uploads migration skipped"
   fi
 
-  if is_dir_empty "${leaderboard_dir}" && [ -d "${legacy_leaderboard_dir}" ]; then
-    echo "[storage] migrating leaderboard files from ${legacy_leaderboard_dir} to ${leaderboard_dir}"
-    cp -a "${legacy_leaderboard_dir}/." "${leaderboard_dir}/"
-  else
-    echo "[storage] leaderboard migration skipped"
-  fi
-
   cat > "${marker_file}" <<EOF
 completed_at=$(date -Is)
 environment=${env_name}
 uploads_volume=${uploads_volume}
-legacy_leaderboard_dir=${legacy_leaderboard_dir}
 EOF
 else
   echo "[storage] marker already present at ${marker_file}"
 fi
 
-mkdir -p "${uploads_dir}/avatars" "${uploads_dir}/attachments"
-
-if command -v systemctl >/dev/null 2>&1 && systemctl cat "${legacy_unit}" >/dev/null 2>&1; then
-  echo "[storage] disabling legacy unit ${legacy_unit}"
-  systemctl stop "${legacy_unit}" || true
-  systemctl disable "${legacy_unit}" || true
-  systemctl mask "${legacy_unit}" || true
-fi
+mkdir -p "${uploads_dir}/avatars"

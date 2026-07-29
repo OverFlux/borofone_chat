@@ -1,16 +1,36 @@
-const runtime = window.__BOROFONE_RUNTIME_CONFIG__ || {};
+import { formatMessageBody } from "./message-format.mjs";
+
+const runtime = window.__BOROTALK_RUNTIME_CONFIG__ || {};
 const API_URL = (runtime.apiUrl || window.location.origin).replace(/\/$/, "");
 const WS_URL = (runtime.wsUrl || window.location.origin.replace(/^http/, "ws")).replace(/\/$/, "");
 const LOGIN_URL = runtime.routes?.login || "/login.html";
 const desktop = window.BorotalkDesktopBridge;
 const MESSAGE_MAX_LENGTH = 2000;
 const AVATAR_PRESETS = {
-    "mint-star": "✦",
-    "violet-orbit": "◖",
-    "peach-wave": "≈",
-    "mint-dot": "●",
-    "violet-arrow": "↟",
-    "peach-b": "B",
+    "duck-ioi": { src: "/images/avatars/ducks/duck-ioi.png", label: "IOI Showcase Duck" },
+    "duck-neon": { src: "/images/avatars/ducks/duck-neon.png", label: "Neon Duck" },
+    "duck-sunset": { src: "/images/avatars/ducks/duck-sunset.png", label: "Sunset Rubber Duck" },
+    "duck-chainsaw": { src: "/images/avatars/ducks/duck-chainsaw.png", label: "Chainsaw Duck" },
+    "duck-proximity": { src: "/images/avatars/ducks/duck-proximity.png", label: "Proximity Explosive Duck" },
+    "duck-pale": { src: "/images/avatars/ducks/duck-pale.png", label: "Pale Duck" },
+    "duck-purple": { src: "/images/avatars/ducks/duck-purple.png", label: "Purple Streak Duck" },
+    "duck-dragon": { src: "/images/avatars/ducks/duck-dragon.png", label: "Dragon Duck" },
+    "duck-concussion-collector": { src: "/images/avatars/ducks/duck-concussion-collector.png", label: "Concussion Collector Duck" },
+    "duck-classic": { src: "/images/avatars/ducks/duck-classic.png", label: "Classic Black Duck" },
+    "duck-remote": { src: "/images/avatars/ducks/duck-remote.png", label: "Remote Explosive Duck" },
+    "duck-british": { src: "/images/avatars/ducks/duck-british.png", label: "British Proximity Duck" },
+    "duck-concussion": { src: "/images/avatars/ducks/duck-concussion.png", label: "Concussion Duck" },
+    "duck-devil": { src: "/images/avatars/ducks/duck-devil.png", label: "Devil Duck" },
+    "duck-remote-mk2": { src: "/images/avatars/ducks/duck-remote-mk2.png", label: "Remote Explosive Duck Mk II" },
+    "duck-proximity-mk2": { src: "/images/avatars/ducks/duck-proximity-mk2.png", label: "Proximity Explosive Duck Mk II" },
+};
+const LEGACY_AVATAR_PRESET_ALIASES = {
+    "mint-star": "duck-proximity",
+    "violet-orbit": "duck-purple",
+    "peach-wave": "duck-sunset",
+    "mint-dot": "duck-neon",
+    "violet-arrow": "duck-dragon",
+    "peach-b": "duck-ioi",
 };
 
 const state = {
@@ -149,13 +169,14 @@ function escapeHtml(value) {
 }
 
 function safeAvatarUrl(url) {
-    return typeof url === "string" && url.startsWith("/uploads/") ? url : null;
+    return typeof url === "string" && url.startsWith("/uploads/avatars/") ? url : null;
 }
 
 function avatarPreset(user) {
     const value = user?.avatar_url;
     if (typeof value !== "string" || !value.startsWith("preset:")) return null;
-    const preset = value.slice("preset:".length);
+    const storedPreset = value.slice("preset:".length);
+    const preset = LEGACY_AVATAR_PRESET_ALIASES[storedPreset] || storedPreset;
     return AVATAR_PRESETS[preset] ? preset : null;
 }
 
@@ -166,10 +187,11 @@ function initialFor(value) {
 function avatarMarkup(user, tone = "") {
     const url = safeAvatarUrl(user?.avatar_url);
     const preset = avatarPreset(user);
+    const presetAsset = preset ? AVATAR_PRESETS[preset] : null;
     const name = user?.display_name || user?.username || "Пользователь";
-    return `<span class="avatar ${tone} ${preset ? `preset-${preset}` : ""}">${
-        preset
-            ? AVATAR_PRESETS[preset]
+    return `<span class="avatar ${tone} ${presetAsset ? "preset-duck" : ""}">${
+        presetAsset
+            ? `<img src="${escapeHtml(presetAsset.src)}" alt="">`
             : url
             ? `<img src="${escapeHtml(url)}" alt="">`
             : escapeHtml(initialFor(name))
@@ -186,21 +208,6 @@ function formatTime(value) {
     return Number.isNaN(date.getTime())
         ? ""
         : date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatMessageBody(body) {
-    const source = String(body || "");
-    const pattern = /!\[([^\]]*)\]\(\/emoji\/([A-Za-z0-9_.-]+)\)/g;
-    let html = "";
-    let cursor = 0;
-    let match;
-    while ((match = pattern.exec(source)) !== null) {
-        html += escapeHtml(source.slice(cursor, match.index));
-        const filename = match[2];
-        html += `<img class="custom-emoji" src="/emoji/${encodeURIComponent(filename)}" alt="${escapeHtml(match[1] || filename)}" loading="lazy">`;
-        cursor = match.index + match[0].length;
-    }
-    return html + escapeHtml(source.slice(cursor));
 }
 
 function toast(message, type = "info", key = message) {
@@ -691,11 +698,15 @@ async function changeAudioOutput() {
 function setAvatarElement(element, user) {
     const url = safeAvatarUrl(user?.avatar_url);
     const preset = avatarPreset(user);
-    Object.keys(AVATAR_PRESETS).forEach((name) => element.classList.remove(`preset-${name}`));
+    const presetAsset = preset ? AVATAR_PRESETS[preset] : null;
+    element.classList.remove("preset-duck");
     element.replaceChildren();
-    if (preset) {
-        element.classList.add(`preset-${preset}`);
-        element.textContent = AVATAR_PRESETS[preset];
+    if (presetAsset) {
+        element.classList.add("preset-duck");
+        const image = document.createElement("img");
+        image.src = presetAsset.src;
+        image.alt = "";
+        element.appendChild(image);
     } else if (url) {
         const image = document.createElement("img");
         image.src = url;
@@ -1595,6 +1606,7 @@ async function toggleScreenShare() {
                 echoCancellation: false,
                 noiseSuppression: false,
                 autoGainControl: false,
+                restrictOwnAudio: true,
                 suppressLocalAudioPlayback: false,
             },
             systemAudio: "include",
@@ -2391,6 +2403,14 @@ function bindEvents() {
         if (button) selectDirect(Number(button.dataset.directId));
     });
     els.messageForm.addEventListener("submit", sendMessage);
+    els.messageList.addEventListener("click", (event) => {
+        const link = event.target.closest("a.message-link");
+        if (!link || !desktop?.openExternal) return;
+        event.preventDefault();
+        desktop.openExternal(link.href).catch(() => {
+            toast("Не удалось открыть ссылку во внешнем браузере.", "error", "external-link-error");
+        });
+    });
     els.messageInput.addEventListener("input", () => {
         resizeComposer();
         updateMessageLimit();

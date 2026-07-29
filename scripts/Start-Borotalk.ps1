@@ -28,6 +28,7 @@ $CertificateHostFile = Join-Path $StateDir "certificate-host.txt"
 $InviteFile = Join-Path $StateDir "invite.txt"
 $LauncherErrorFile = Join-Path $StateDir "launcher-error.log"
 $FirewallRuleName = "BorotalkRadminHTTPS"
+$RadminRouteScript = Join-Path $PSScriptRoot "Fix-RadminRoute.ps1"
 
 function Write-Stage {
     param([string]$Message)
@@ -466,6 +467,14 @@ function Write-FriendBundle {
         -LiteralPath (Join-Path $ProjectRoot "ssl\cert.crt") `
         -Destination (Join-Path $ShareDir "Borotalk-cert.crt") `
         -Force
+    Copy-Item `
+        -LiteralPath $RadminRouteScript `
+        -Destination (Join-Path $ShareDir "Fix-RadminRoute.ps1") `
+        -Force
+    Copy-Item `
+        -LiteralPath (Join-Path $ProjectRoot "FIX_RADMIN_ROUTE.bat") `
+        -Destination (Join-Path $ShareDir "FIX_RADMIN_ROUTE.bat") `
+        -Force
 
     $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
         (Join-Path $ProjectRoot "ssl\cert.crt")
@@ -518,6 +527,14 @@ BOROTALK DESKTOP (рекомендуется)
 8. Получите у хоста ID сервера, нажмите 🔎 и войдите по этому ID.
 
 Каждому человеку нужен отдельный аккаунт. Не используйте один Demo User на всех.
+
+AMNEZIAVPN
+Если при включённой AmneziaVPN хост не открывается:
+1. Запустите FIX_RADMIN_ROUTE.bat от имени администратора.
+2. В AmneziaVPN откройте Split tunneling для Sites/IP addresses.
+3. Выберите режим «адреса из списка НЕ через VPN».
+4. Добавьте 26.0.0.0/8 и переподключите AmneziaVPN.
+5. Если соединение всё ещё блокируется, отключите KillSwitch.
 "@
     Set-Content `
         -LiteralPath (Join-Path $ShareDir "КАК ЗАЙТИ.txt") `
@@ -725,6 +742,11 @@ try {
     Write-Stage "HTTPS и Firewall"
     Ensure-Certificate $RadminIp $pfxPassword
     Ensure-FirewallRule $RadminIp $Port
+    & $RadminRouteScript -NoElevate
+    if ($LASTEXITCODE -ne 0) {
+        throw "Не удалось закрепить сеть Radmin. Запустите FIX_RADMIN_ROUTE.bat и повторите."
+    }
+    Write-Ok "Маршруты Radmin защищены от перехвата другим VPN"
 
     Write-Stage "Доступ для друзей"
     $invite = Ensure-Invite $compose

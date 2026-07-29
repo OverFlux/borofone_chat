@@ -6,7 +6,7 @@ from app.settings import settings
 
 
 def test_redis_keys_are_namespaced():
-    prefix = f"borofone:{settings.runtime_namespace}"
+    prefix = f"borotalk:{settings.runtime_namespace}"
 
     assert redis_key('nonce', 7, 'abc').startswith(prefix + ':')
     assert room_events_channel(3) == f"{prefix}:room:3:events"

@@ -1,14 +1,8 @@
-# Введение
+# Документация Borotalk
 
-## borofone\_chat
+- [Архитектура](architecture.md)
+- [API и realtime](api.md)
+- [Развёртывание](deployment.md)
 
-Чат-сервис на FastAPI с HTTP и WebSocket интерфейсами, Postgres для хранения и Redis для быстрых операций.
-
-### Быстрые ссылки
-
-* Обзор
-* Локальный запуск
-* Тесты
-* Idempotency: nonce + enforce\_nonce
-* HTTP API
-* WebSocket API
+Инструкция быстрого запуска и команды тестирования находятся в корневом
+`README.md`. Desktop-клиент отдельно описан в `desktop/README.md`.

@@ -18,6 +18,9 @@
     --quiet: #858585;
     --field: #363636;
     --shadow: #111111;
+    --link: #a8ddc2;
+    --avatar-preset-bg: #626866;
+    --avatar-preset-spot: #929b97;
     --radius-xl: 28px;
     --radius-lg: 20px;
     --radius-md: 14px;
@@ -41,6 +44,9 @@
     --quiet: #858b84;
     --field: #e5e8e2;
     --shadow: #b8bbb6;
+    --link: #256b4d;
+    --avatar-preset-bg: #dbe6e0;
+    --avatar-preset-spot: #ffffff;
 }
 
 * {
@@ -478,22 +484,17 @@ svg.ui-icon {
     color: #122633;
 }
 
-.preset-mint-star,
-.preset-mint-dot {
-    background: var(--accent) !important;
-    color: var(--accent-ink) !important;
+.preset-duck {
+    overflow: hidden;
+    background: var(--avatar-preset-bg) !important;
+    color: var(--text) !important;
 }
 
-.preset-violet-orbit,
-.preset-violet-arrow {
-    background: var(--violet) !important;
-    color: #211b35 !important;
-}
-
-.preset-peach-wave,
-.preset-peach-b {
-    background: var(--peach) !important;
-    color: #3a2118 !important;
+.preset-duck img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
 }
 
 .self-copy {
@@ -1334,6 +1335,23 @@ svg.ui-icon {
     white-space: pre-wrap;
 }
 
+.message-link {
+    border-radius: 4px;
+    color: var(--link);
+    font-weight: 600;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+
+.message-link:hover {
+    text-decoration-thickness: 2px;
+}
+
+.message-link:focus-visible {
+    outline: 2px solid var(--accent-strong);
+    outline-offset: 2px;
+}
+
 .message-body .custom-emoji {
     width: auto;
     height: 32px;
@@ -1800,18 +1818,29 @@ svg.ui-icon {
 
 .avatar-preset-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
 }
 
-.avatar-choice {
+.avatar-choice.preset-duck {
     display: grid;
-    min-height: 48px;
+    aspect-ratio: 1;
+    min-width: 0;
     place-items: center;
     border: 2px solid var(--panel);
     border-radius: 14px;
+    background:
+        radial-gradient(circle at 50% 44%, var(--avatar-preset-spot) 0 28%, transparent 70%),
+        var(--avatar-preset-bg) !important;
     font-size: 18px;
     font-weight: 800;
+}
+
+.avatar-choice img {
+    width: 94%;
+    height: 94%;
+    object-fit: contain;
+    pointer-events: none;
 }
 
 .avatar-choice.active {

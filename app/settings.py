@@ -41,11 +41,7 @@ class Settings(BaseSettings):
     login_page_path: str = 'login.html'
     register_page_path: str = 'register.html'
     emoji_subdir: str = 'emoji'
-    stickers_subdir: str = 'stickers'
-    gifs_subdir: str = 'gifs'
-    leaderboard_subdir: str = 'web_backend/data'
     avatars_subdir: str = 'avatars'
-    attachments_subdir: str = 'attachments'
 
     access_token_expire_days: int = 30
     refresh_token_expire_days: int = 30
@@ -53,7 +49,6 @@ class Settings(BaseSettings):
     cookie_samesite: str = 'lax'
 
     max_avatar_bytes: int = 3 * 1024 * 1024
-    max_upload_file_size: int = 10 * 1024 * 1024
 
     ssl_host: str = '0.0.0.0'
     ssl_port: int = 443
@@ -99,24 +94,8 @@ class Settings(BaseSettings):
         return self.uploads_path / self.avatars_subdir
 
     @cached_property
-    def attachments_path(self) -> Path:
-        return self.uploads_path / self.attachments_subdir
-
-    @cached_property
     def emoji_path(self) -> Path:
         return self.pages_path / self.emoji_subdir
-
-    @cached_property
-    def stickers_path(self) -> Path:
-        return self.pages_path / self.stickers_subdir
-
-    @cached_property
-    def gifs_path(self) -> Path:
-        return self.pages_path / self.gifs_subdir
-
-    @cached_property
-    def leaderboard_file(self) -> Path:
-        return self.pages_path / self.leaderboard_subdir / 'leaderboard.json'
 
     @property
     def main_page_route(self) -> str:
@@ -133,10 +112,6 @@ class Settings(BaseSettings):
     @property
     def avatar_public_path(self) -> str:
         return f'/uploads/{self.avatars_subdir}'
-
-    @property
-    def attachments_public_path(self) -> str:
-        return f'/uploads/{self.attachments_subdir}'
 
     @property
     def resolved_public_api_base_url(self) -> str:

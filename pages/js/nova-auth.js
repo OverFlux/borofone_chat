@@ -1,4 +1,4 @@
-const runtime = window.__BOROFONE_RUNTIME_CONFIG__ || {};
+const runtime = window.__BOROTALK_RUNTIME_CONFIG__ || {};
 const API_URL = (runtime.apiUrl || window.location.origin).replace(/\/$/, "");
 const MAIN_URL = runtime.routes?.main || "/main.html";
 const storedTheme = localStorage.getItem("borotalk-theme");

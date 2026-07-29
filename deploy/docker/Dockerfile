@@ -9,9 +9,8 @@ COPY app ./app
 COPY pages ./pages
 COPY alembic ./alembic
 COPY alembic.ini .
-COPY fix_sequences.sql .
 
-RUN mkdir -p /code/pages/web_backend/data /code/uploads /code/uploads/avatars /code/uploads/attachments
+RUN mkdir -p /code/uploads/avatars
 
 ENV APP_PORT=8000
 

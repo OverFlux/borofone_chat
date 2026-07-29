@@ -56,11 +56,6 @@ def test_rest_room_message_is_published_for_realtime_clients(monkeypatch):
         created_at=datetime.now(timezone.utc),
     )
     message.user = user
-    message.attachments = []
-    message.reactions = []
-    message.reply_to = None
-    message.edited_at = None
-    message.deleted_at = None
 
     async def allow_member(_db, _room_id, _user):
         return type("RoomAccess", (), {"server_id": 4})()

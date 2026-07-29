@@ -1,39 +1,54 @@
-﻿# Borofone_chat | Here readme lol ( ͡° ͜ʖ ͡°)
+# Borotalk
 
-*A simple chat implemented within: FastApi, Redis, Postgres, Docker and SQLAlchemy.*
+Voice-first приложение для небольших комнат до восьми участников. Borotalk
+сосредоточен на голосовой связи, демонстрации экрана, простом текстовом чате и
+личных диалогах.
 
-## One-click запуск через Radmin VPN
+## Что входит
 
-Для обычного запуска на Windows дважды нажми:
+- серверы с текстовыми и голосовыми каналами;
+- поиск серверов и пользователей по ID;
+- P2P-голос и демонстрация экрана через WebRTC;
+- realtime-чат каналов и личных диалогов;
+- светлая и тёмная Nova-темы;
+- встроенные эмодзи и набор аватаров;
+- Windows Desktop с `.borotalk`-инвайтом, certificate pinning, треем,
+  системными уведомлениями и push-to-talk;
+- одно-кнопочный Windows-хост через Radmin VPN.
 
-```text
-START_BOROTALK.bat
-```
+В проекте нет MongoDB, вложений, игр, GIF/sticker-каталогов и старого интерфейса.
 
-Лаунчер автоматически:
+## Запуск хоста на Windows
 
-- найдёт IP адаптера Radmin VPN;
-- запустит PostgreSQL и Redis через Docker Desktop;
-- создаст локальное Python-окружение и применит миграции;
-- подготовит и установит HTTPS-сертификат;
-- откроет только нужный порт Windows Firewall для сети Radmin;
-- создаст многоразовый инвайт;
-- соберёт папку `BOROTALK_SHARE`, которую можно отправить друзьям;
-- откроет Borotalk в браузере.
+1. Установите Docker Desktop и Radmin VPN.
+2. Запустите `START_BOROTALK.bat`.
+3. Дождитесь строки с адресом `https://26.x.x.x:8443`.
+4. Передайте друзьям папку `BOROTALK_SHARE` или файл
+   `Borotalk-connect.borotalk`.
 
-Первый запуск запросит права администратора и может занять несколько минут.
-Для остановки используется `STOP_BOROTALK.bat`.
+Локальные страницы:
 
-### Borotalk Desktop (Windows 10/11 x64)
+- `/` — лендинг;
+- `/login.html` и `/register.html` — авторизация;
+- `/main.html` — приложение.
 
-Участникам не нужны Python, Docker или ручная установка сертификата:
+Для полной остановки используйте `STOP_BOROTALK.bat`.
 
-1. Хост запускает `START_BOROTALK.bat`.
-2. Из папки `BOROTALK_SHARE` он отправляет файл `Borotalk-connect.borotalk`.
-3. Участник устанавливает Borotalk Desktop, запускает его и выбирает этот файл.
-4. Desktop проверяет точный HTTPS-адрес и SHA-256 fingerprint сертификата, затем открывает Borotalk.
+### Radmin одновременно с AmneziaVPN
 
-Установщик и portable ZIP собираются из изолированного проекта `desktop/`:
+Лаунчер закрепляет сеть `26.0.0.0/8` за адаптером Radmin и создаёт отдельное
+исходящее firewall-правило. Та же коррекция доступна вручную через
+`FIX_RADMIN_ROUTE.bat`; файл автоматически попадает в `BOROTALK_SHARE`.
+
+Если AmneziaVPN продолжает блокировать соединение, добавьте `26.0.0.0/8` в
+IP split tunneling в режиме «адреса из списка не через VPN», затем
+переподключите AmneziaVPN. При включённом KillSwitch его также потребуется
+отключить: это фильтр самого VPN-клиента, который не обходится обычным
+маршрутом Windows.
+
+## Desktop
+
+Исходники клиента находятся в `desktop/`.
 
 ```powershell
 cd desktop
@@ -42,349 +57,44 @@ npm test
 npm run make
 ```
 
-Готовые файлы появляются в `desktop/out/make/`. MVP-сборка не подписана,
-поэтому Windows SmartScreen может показать предупреждение. Сервер, PostgreSQL и
-Redis по-прежнему запускаются только на компьютере-хосте.
+Установщик и portable ZIP создаются в `desktop/out/make/`. Сборка пока не
+подписана, поэтому Windows SmartScreen может показать предупреждение.
 
-## !! Setup
-
-### 1. Установить зависимости
-
-```bash
-pip install -r requirements.txt
-```
-### 2. Поднять бд и редис
-
-```bash
-docker compose -f deploy/docker/docker-compose.infra.yml up -d
-```
-
-### 3. Применить миграции
-```bash
-alembic upgrade head
-```
-!! **Ожидается** `001_baseline (head)` !! | 10.02 snapshot
-```bash
-alembic current
-```
-### 4. Запустить приложение
-
-```bash
-uvicorn app.main:app --reload
-```
-
-### run with venv!
-
-```bash
-.\scripts\start_https.bat
-```
-
-### 5. Подготовка данные
-
-- Зарегистрировать инвайт-код в БД
-
-- Создать комнату
-
-- При необходимости выдать пользователю права: role -> admin
-
-- При проблемах с uploads - создать директорию /uploads/avatars
-
-
-## Project structure
-
-```text
-borofone_chat/
-├── app/                        
-│   ├── api/                   
-│   │   ├── http.py             # REST API handlers (Request processing).
-│   │   └── ws.py               # WebSocket and connection management logic
-│   ├── infra/                  
-│   │   ├── db.py               # SQLAlchemy database configuration (Async)
-│   │   └── redis.py            # Redis configuration and client
-│   ├── schemas/
-│   │   └── *.py                # Pydantic scheme for validating a specific section
-│   ├── services/
-│   │   └── messages.py         # Logic for sending messages and CRUD operations
-│   ├── __init__.py    
-│   ├── main.py                 # Entry Point: Initializing FastAPI and Routing
-│   ├── models.py               # SQLAlchemy models (database schema)
-│   ├── settings.py             # Managing settings via Pydantic Settings
-├── deploy/
-│   ├── docker/
-│   │   ├── Dockerfile
-│   │   ├── docker-compose.infra.yml    # Local infrastructure (Postgres + Redis)
-│   │   ├── docker-compose.staging.yml  # Isolated staging environment
-│   │   └── docker-compose.prod.yml     # Isolated production environment
-│   ├── env/
-│   │   ├── .env.production.example
-│   │   └── .env.staging.example
-│   ├── nginx/
-│   └── systemd/
-├── requirements.txt            
-└── README.md                  
-```
-
-### // Main components
-
-`api/` - contains the logic of interaction with the client. 
-
-**ws.py** implements `ConnectionManager`, which isolates the message sending logic from the WebSocket protocol.
-
-`infra/` - is responsible for the technical details of connecting to external resources.
-
-This is where you configure the asynchronous database engine and connection pool settings.
-
-`services/messages.py` - functions for working with data. This is where the message processing logic is implemented (for example, checking for duplicates and saving to the database).
-
-`deploy/docker/docker-compose.infra.yml` — development config that allows you to run only the infrastructure in containers, leaving the API itself on the host machine for easy debugging.
-
-## Usefull commands
-
-*You'll definitely find this useful, I'd think about it. :3*
-
-### // Docker & Infrastructure
-
-**Check docker health:**
-  
-```bash
-docker compose -f deploy/docker/docker-compose.infra.yml ps
-```
-
-**UP infra:**
-
-```bash
-docker compose -f deploy/docker/docker-compose.infra.yml up -d
-```
-
-Leaderboard for `tears-of-bfu` is persisted outside the container in `data/leaderboard/leaderboard.json` for local development.
-For staging/production compose stacks, uploads and leaderboard data are stored under `HOST_DATA_ROOT` on the VPS and bind-mounted into the API container.
-The deploy scripts support both `docker compose` and legacy `docker-compose`.
-
-**DOWN infra:**
-
-```bash
-docker compose -f deploy/docker/docker-compose.infra.yml down
-```
-
-**Enter in psql:**
-
-```bash
-docker compose -f deploy/docker/docker-compose.infra.yml exec postgres psql -U app -d app
-```
-
-### // Application
-
-**Start api:**
-
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-### // SQL Debug Queries
-
-**Select Rooms:**
-
-```sql
-SELECT id, title FROM rooms ORDER BY id DESC LIMIT 150;
-```
-
-**Select Messages:**
-
-```sql
-SELECT id, room_id, author, body, nonce, created_at FROM messages ORDER BY id DESC LIMIT 50;
-```
-
-**Clear all DB (safety):**
-
-```sql
-TRUNCATE TABLE messages, rooms RESTART IDENTITY CASCADE;
-```
-
-### // Alembic migration
-
-**Current migration version:**
-
-```bash
-alembic current
-```
-
-**Create new version migration:**
-
-```bash
-alembic revision --autogenerate -m "sample_text"
-```
-
-**Upgrade to new migration version:**
-
-```bash
-alembic upgrade head
-```
-
-**Downgrade to 1 step down migration version:**
-
-```bash
-alembic downgrade -1
-```
-
-**View migration history:**
-
-```bash
-alembic history --verbose
-```
-
-**View the following migrations to apply:**
-
-```bash
-alembic heads
-```
-
-## TODO
-
-- [x] Logout in settings
-- [ ] User was connected to room
-- [x] Голосовой чат
-- [x] ctrl+v вложения
-- [x] Кастомные уведомления
-- [x] Реакции
-- [x] Реплай
-- [x] Маркдаун в сообщениях
-- [x] Кастомные темы
-- [x] Фавикон
-- [ ] Пофиксить отображение аватарок в чате
-- [x] Закругление углов у картинок
-- [x] Исправить отображение онлайн пользователей
-- [x] Исправить дизайн панель войсчата
-- [x] Статус оффлайн
-- [x] Глобальное удаление сообщений
-- [ ] Нормальный шумодав для войсчата
-- [ ] Нью смайлы
-- [x] Amoled тема
-- [x] Демонстрация экрана
-- [ ] Лимиты на сообщения
-- [x] Исправить баг с отправлением вложений, спам много-за-раз
-- [ ] Верстка для телефона
-- [ ] Интеграция с гиффи для гифок, дискорд ah
-- [x] Добавить Wordle
-- [x] Отображение аватарок в войсчате
-- [ ] Бинд для мута
-- [x] Пофиксить разлогин при долгой сессии на сайте
-- [x] Исправить отображение онлайн пользователей 
-
-## 🔐 HTTPS для Radmin VPN (Voice Chat)
-
-Для работы голосового чата через Radmin VPN требуется HTTPS, так как `getUserMedia()` работает только в защищённом контексте.
-
-### Шаг 1: Генерация SSL сертификата
-
-Открой PowerShell **от имени администратора**:
+## Локальная разработка
 
 ```powershell
-.\scripts\generate_ssl.ps1
+docker compose -f deploy/docker/docker-compose.infra.yml up -d
+python -m alembic upgrade head
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Скрипт создаст:
-- `ssl/voice.pfx` - PFX сертификат
-- `ssl/cert.pem` - Сертификат в PEM формате
-- `ssl/key.pem` - Приватный ключ (требуется OpenSSL)
-- `ssl/cert.crt` - Публичный сертификат для друзей
+После запуска откройте `http://127.0.0.1:8000/`.
 
-### Шаг 2: Запуск HTTPS сервера
+## Проверки
 
-```bash
-# Требуется запуск от имени администратора (порт 443)
-python run_https.py
+```powershell
+python -m pytest
+node --check pages/js/nova-main.js
+node --check pages/js/message-format.mjs
+cd desktop
+npm test
+npm run make
 ```
 
-Или с кастомными параметрами:
+## Архитектура
 
-```bash
-python run_https.py --host 0.0.0.0 --port 443 --cert ssl/cert.pem --key ssl/key.pem
-```
+- FastAPI — REST, WebSocket и раздача web-интерфейса;
+- PostgreSQL — пользователи, серверы, каналы и сообщения;
+- Redis — realtime pub/sub, presence, rate limits и nonce-дедупликация;
+- WebRTC — P2P voice и screen share;
+- Electron — Windows Desktop, системный звук, PTT и интеграция с ОС.
 
-### Шаг 3: Настройка для друзей
+WebSocket подключается как `/ws?server_id=<id>` и изолирует события выбранным
+сервером. Сообщения создаются через REST; WebSocket доставляет realtime-события
+и обслуживает voice/WebRTC signaling.
 
-Друзьям нужно добавить сертификат в доверенные:
+## Данные
 
-**Windows:**
-1. Открыть `ssl/cert.crt`
-2. Нажать "Установить сертификат"
-3. Выбрать "Локальный компьютер" → "Поместить в следующее хранилище"
-4. Выбрать "Доверенные корневые центры сертификации"
-
-**Chrome/Edge:**
-1. На браузере: `chrome://settings/certificates`
-2. Import → выбрать `cert.crt`
-3. Выбрать "Trusted Root Certification Authorities"
-
-### Шаг 4: Подключение
-
-Друзья заходят по адресу:
-```
-https://<RADMIN_IP>/
-```
-
-⚠️ **Важно:** IP-адрес Radmin VPN может меняться. Обнови `.env`:
-```
-RADMIN_IP=твой_новый_ip
-```
-
-### Альтернатива: mkcert (рекомендуется)
-
-Если установлен [mkcert](https://github.com/FiloSottile/mkcert):
-
-```bash
-mkcert -install
-mkcert "yourip" localhost
-```
-
-Это создаст сертификаты, которые будут автоматически доверяться браузером.
-
-maybe next time
-
-## for vps
-
-```bash
-cd /opt/borofone-chat-prod
-bash deploy/scripts/deploy-stack.sh production
-```
-
-## Sources
-
-Gitbook: <https://qqracha.gitbook.io/qqracha-docs/vKWuRLooKQWdYTCfU3pv>
-
-## CI/CD
-
-Проект настроен под раздельные `staging` и `production` окружения:
-
-```text
-main -> production
-dev  -> staging
-```
-
-Основные артефакты:
-
-- `.github/workflows/deploy.yml` - автодеплой по `push` в `dev` и `main`
-- `deploy/env/.env.production.example` и `deploy/env/.env.staging.example` - шаблоны окружений
-- `deploy/scripts/deploy-stack.sh` - единая точка входа для staging/production deploy
-- `deploy/scripts/prepare-persistent-data.sh` - one-time migration of uploads and leaderboard into host storage
-- `deploy/scripts/backup-compose-data.sh` - backup of database, uploads, leaderboard and `.env`
-- `deploy/nginx/borofone.conf` - reverse proxy для production и staging
-- `scripts/setup_vps.sh` - первичная подготовка VPS
-- `docs/deployment/cicd.md` - пошаговые инструкции по setup и security
-
-Быстрый сценарий:
-
-```text
-push dev       -> GitHub Actions -> staging deploy
-merge dev main -> GitHub Actions -> production deploy
-```
-
-Перед включением схемы:
-
-1. Добавь GitHub Secrets для `PROD_*` и `STAGING_*`.
-2. Используй `deploy/env/.env.production.example` и `deploy/env/.env.staging.example`, затем скопируй их в `/opt/borofone-chat-prod/.env` и `/opt/borofone-chat-staging/.env`.
-3. Заполни `HOST_DATA_ROOT` и `BACKUP_ROOT` абсолютными путями на VPS.
-4. Установи `deploy/nginx/borofone.conf` на VPS.
-5. Включи branch protection для `main`, запрети прямой push и оставь deploy только через PR.
-
-Подробная инструкция: `docs/deployment/cicd.md`.
+Не удаляйте вручную `.env`, `uploads`, Docker volumes, PostgreSQL или файлы из
+`ssl`. В них находятся аккаунты, аватары, сообщения, сертификат хоста и
+локальные настройки подключения.

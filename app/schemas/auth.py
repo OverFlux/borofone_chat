@@ -3,7 +3,7 @@ Pydantic схемы для аутентификации.
 
 Используются для валидации request/response в auth endpoints.
 """
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 
 # === REGISTRATION ===
@@ -80,24 +80,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-# class TokenResponse(BaseModel):
-#     """
-#     Схема ответа с JWT токенами.
-#
-#     Возвращается при успешной регистрации или логине.
-#     """
-#     access_token: str
-#     refresh_token: str
-#     token_type: str = "bearer"
-
-
-# === REFRESH ===
-
-class RefreshRequest(BaseModel):
-    """Схема для обновления access токена через refresh токен."""
-    refresh_token: str
-
-
 # === USER INFO ===
 
 class UserResponse(BaseModel):
@@ -115,8 +97,7 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: str  # ISO 8601
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserProfileResponse(BaseModel):
@@ -133,8 +114,7 @@ class UserProfileResponse(BaseModel):
     is_active: bool
     created_at: str  # ISO 8601
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # === INVITE MANAGEMENT ===
@@ -178,8 +158,7 @@ class InviteResponse(BaseModel):
     revoked: bool
     created_at: str  # ISO 8601
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class MessageResponse(BaseModel):
     message: str

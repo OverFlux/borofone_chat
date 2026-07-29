@@ -27,7 +27,7 @@ if [ ! -f .env ]; then
   cp deploy/env/.env.production.example .env
   BOOTSTRAP_PENDING=1
 fi
-mkdir -p "${PROD_DATA_ROOT}/uploads/avatars" "${PROD_DATA_ROOT}/uploads/attachments" "${PROD_DATA_ROOT}/leaderboard"
+mkdir -p "${PROD_DATA_ROOT}/uploads/avatars"
 
 cd "${STAGING_PATH}"
 git fetch --prune origin
@@ -36,7 +36,7 @@ if [ ! -f .env ]; then
   cp deploy/env/.env.staging.example .env
   BOOTSTRAP_PENDING=1
 fi
-mkdir -p "${STAGING_DATA_ROOT}/uploads/avatars" "${STAGING_DATA_ROOT}/uploads/attachments" "${STAGING_DATA_ROOT}/leaderboard"
+mkdir -p "${STAGING_DATA_ROOT}/uploads/avatars"
 
 install -m 644 "${SCRIPT_ROOT}/deploy/nginx/borofone.conf" /etc/nginx/sites-available/borofone.conf
 ln -sfn /etc/nginx/sites-available/borofone.conf /etc/nginx/sites-enabled/borofone.conf
