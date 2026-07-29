@@ -2,6 +2,7 @@ const runtime = window.__BOROFONE_RUNTIME_CONFIG__ || {};
 const API_URL = (runtime.apiUrl || window.location.origin).replace(/\/$/, "");
 const WS_URL = (runtime.wsUrl || window.location.origin.replace(/^http/, "ws")).replace(/\/$/, "");
 const LOGIN_URL = runtime.routes?.login || "/login.html";
+const desktop = window.BorotalkDesktopBridge;
 const MESSAGE_MAX_LENGTH = 2000;
 const AVATAR_PRESETS = {
     "mint-star": "✦",
@@ -61,6 +62,10 @@ const state = {
     typingSentAt: 0,
     messageCooldownTimer: null,
     messageCooldownUntil: 0,
+    desktopSettings: null,
+    desktopCaptureSources: [],
+    desktopCaptureTab: "screen",
+    desktopCaptureSourceId: "",
 };
 
 const els = Object.fromEntries(
@@ -87,6 +92,12 @@ const els = Object.fromEntries(
         "transferOwnerSelect", "transferOwnerButton", "leaveServerButton", "deleteServerButton",
         "settingsDialog", "profileDisplayName", "profileUsername", "avatarPresetGrid", "saveProfileButton",
         "audioInputSelect", "audioOutputSelect", "audioDeviceHint", "soundToggle",
+        "desktopSettingsSection", "desktopVersion", "desktopAutoStartToggle",
+        "desktopCloseToTrayToggle", "desktopNotificationsToggle", "desktopPttToggle",
+        "desktopPttBinding", "desktopPttBindingButton", "desktopPttStatus", "desktopChangeHostButton",
+        "desktopCaptureDialog", "desktopCaptureCloseButton", "desktopCaptureScreenTab",
+        "desktopCaptureApplicationTab", "desktopCaptureGrid", "desktopCaptureEmpty",
+        "desktopCaptureAudioToggle", "desktopCaptureCancelButton", "desktopCaptureConfirmButton",
         "logoutButton", "membersDialog", "memberList",
         "toastRegion", "participantVolumePopover", "participantVolumeName",
         "participantVolumeSlider", "participantVolumeLabel", "remoteAudio",
@@ -209,6 +220,255 @@ function toast(message, type = "info", key = message) {
     els.toastRegion.appendChild(item);
     item.dismissTimer = window.setTimeout(() => item.remove(), 3600);
     return item;
+}
+
+function desktopMessageTitle(data, direct = false) {
+    const directPeer = direct
+        ? state.conversations.find((item) => item.id === data.conversation_id)
+        : null;
+    const sender = direct
+        ? (directPeer?.peer_display_name || directPeer?.peer_username)
+        : (data.user?.display_name || data.user?.username);
+    return sender ? `${sender} · ${direct ? "личное сообщение" : state.chat?.name || "Borotalk"}` : "Borotalk";
+}
+
+function notifyDesktopMessage(data, direct = false) {
+    if (!desktop?.isDesktop) return;
+    const senderId = direct ? data.sender_id : data.user?.id;
+    if (senderId === state.user?.id) return;
+    void desktop.notifyMessage({
+        title: desktopMessageTitle(data, direct),
+        body: data.content || data.body || "Новое сообщение",
+    }).catch(() => {});
+}
+
+function syncDesktopSettingsUi() {
+    const settings = state.desktopSettings;
+    if (!settings || !els.desktopSettingsSection) return;
+    els.desktopAutoStartToggle.checked = settings.autoStart;
+    els.desktopCloseToTrayToggle.checked = settings.closeToTray;
+    els.desktopNotificationsToggle.checked = settings.notifications;
+    els.desktopPttToggle.checked = settings.pushToTalk.enabled;
+    els.desktopPttBinding.hidden = !settings.pushToTalk.enabled;
+    els.desktopPttBindingButton.textContent = settings.pushToTalk.input.label;
+    els.desktopPttStatus.textContent = settings.pushToTalk.enabled
+        ? "Микрофон включён только пока клавиша зажата."
+        : "Push-to-talk выключен.";
+}
+
+async function patchDesktopSettings(patch) {
+    if (!desktop?.isDesktop) return;
+    const wasPushToTalkEnabled = Boolean(state.desktopSettings?.pushToTalk.enabled);
+    try {
+        state.desktopSettings = await desktop.updateSettings(patch);
+        syncDesktopSettingsUi();
+        if (state.desktopSettings.pushToTalk.enabled) setMuteState(true);
+        else if (wasPushToTalkEnabled && patch.pushToTalk?.enabled === false) setMuteState(false);
+    } catch (error) {
+        toast(error.message || "Не удалось сохранить настройку Desktop", "error");
+        syncDesktopSettingsUi();
+    }
+}
+
+function capturePushToTalkBinding() {
+    const allowedKey = /^(Key[A-Z]|Digit[0-9]|F(?:[1-9]|1[0-2])|Space|Tab|CapsLock|Backquote|Shift(?:Left|Right)|Control(?:Left|Right)|Alt(?:Left|Right))$/;
+    els.desktopPttBindingButton.textContent = "Нажмите…";
+    els.desktopPttStatus.textContent = "Нажмите одну клавишу или боковую кнопку мыши.";
+
+    const cleanup = () => {
+        window.removeEventListener("keydown", onKeyDown, true);
+        window.removeEventListener("mousedown", onMouseDown, true);
+    };
+    const save = (input) => {
+        cleanup();
+        void patchDesktopSettings({
+            pushToTalk: {
+                enabled: true,
+                input,
+            },
+        });
+    };
+    const onKeyDown = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.code === "Escape") {
+            cleanup();
+            syncDesktopSettingsUi();
+            return;
+        }
+        if (!allowedKey.test(event.code)) {
+            els.desktopPttStatus.textContent = "Эта клавиша не поддерживается. Выберите букву, цифру, F-клавишу или модификатор.";
+            return;
+        }
+        const label = event.code === "Space" ? "Пробел" : (event.key.length === 1 ? event.key.toUpperCase() : event.key);
+        save({ type: "keyboard", code: event.code, label });
+    };
+    const onMouseDown = (event) => {
+        if (![3, 4].includes(event.button)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const number = event.button === 3 ? 4 : 5;
+        save({ type: "mouse", code: `Mouse${number}`, label: `Mouse ${number}` });
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("mousedown", onMouseDown, true);
+}
+
+function syncDesktopCaptureTabs() {
+    for (const button of [els.desktopCaptureScreenTab, els.desktopCaptureApplicationTab]) {
+        const active = button.dataset.captureTab === state.desktopCaptureTab;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-selected", String(active));
+        button.tabIndex = active ? 0 : -1;
+    }
+}
+
+function renderDesktopCaptureSources() {
+    const sources = state.desktopCaptureSources.filter((source) => source.kind === state.desktopCaptureTab);
+    els.desktopCaptureGrid.replaceChildren();
+    els.desktopCaptureEmpty.hidden = sources.length > 0;
+    for (const source of sources) {
+        const card = document.createElement("button");
+        card.className = "desktop-capture-source";
+        card.type = "button";
+        card.dataset.captureSourceId = source.id;
+        card.setAttribute("aria-pressed", String(source.id === state.desktopCaptureSourceId));
+        card.classList.toggle("active", source.id === state.desktopCaptureSourceId);
+
+        const preview = document.createElement("img");
+        preview.className = "desktop-capture-preview";
+        preview.src = source.thumbnail;
+        preview.alt = "";
+
+        const title = document.createElement("span");
+        title.className = "desktop-capture-source-name";
+        if (source.appIcon) {
+            const appIcon = document.createElement("img");
+            appIcon.src = source.appIcon;
+            appIcon.alt = "";
+            title.append(appIcon);
+        }
+        const name = document.createElement("span");
+        name.textContent = source.name;
+        name.title = source.name;
+        title.append(name);
+        card.append(preview, title);
+        card.addEventListener("click", () => {
+            state.desktopCaptureSourceId = source.id;
+            renderDesktopCaptureSources();
+            els.desktopCaptureConfirmButton.disabled = false;
+        });
+        els.desktopCaptureGrid.append(card);
+    }
+}
+
+function setDesktopCaptureTab(tab) {
+    if (!["screen", "application"].includes(tab)) return;
+    state.desktopCaptureTab = tab;
+    state.desktopCaptureSourceId = "";
+    els.desktopCaptureConfirmButton.disabled = true;
+    syncDesktopCaptureTabs();
+    renderDesktopCaptureSources();
+}
+
+function openDesktopCapturePicker(payload) {
+    state.desktopCaptureSources = Array.isArray(payload?.sources) ? payload.sources : [];
+    state.desktopCaptureSourceId = "";
+    state.desktopCaptureTab = state.desktopCaptureSources.some((source) => source.kind === "screen")
+        ? "screen"
+        : "application";
+    els.desktopCaptureAudioToggle.disabled = !payload?.audioRequested;
+    els.desktopCaptureAudioToggle.checked = Boolean(payload?.audioRequested);
+    els.desktopCaptureConfirmButton.disabled = true;
+    syncDesktopCaptureTabs();
+    renderDesktopCaptureSources();
+    if (!els.desktopCaptureDialog.open) els.desktopCaptureDialog.showModal();
+}
+
+async function cancelDesktopCapture() {
+    if (!desktop?.isDesktop) return;
+    try {
+        await desktop.cancelCapture();
+    } catch {
+        // The capture request may already have ended.
+    }
+    if (els.desktopCaptureDialog.open) els.desktopCaptureDialog.close();
+}
+
+async function confirmDesktopCapture() {
+    if (!desktop?.isDesktop || !state.desktopCaptureSourceId) return;
+    els.desktopCaptureConfirmButton.disabled = true;
+    try {
+        await desktop.selectCaptureSource({
+            sourceId: state.desktopCaptureSourceId,
+            withAudio: els.desktopCaptureAudioToggle.checked,
+        });
+        if (els.desktopCaptureDialog.open) els.desktopCaptureDialog.close();
+    } catch (error) {
+        els.desktopCaptureConfirmButton.disabled = false;
+        toast(error.message || "Источник больше недоступен. Откройте выбор экрана заново.", "error");
+    }
+}
+
+async function initDesktopIntegration() {
+    if (!desktop?.isDesktop || !els.desktopSettingsSection) return;
+    els.desktopSettingsSection.hidden = false;
+    try {
+        const [settings, version] = await Promise.all([
+            desktop.getSettings(),
+            desktop.getVersion(),
+        ]);
+        state.desktopSettings = settings;
+        els.desktopVersion.textContent = version;
+        syncDesktopSettingsUi();
+    } catch (error) {
+        toast(error.message || "Desktop-интеграция недоступна", "error");
+        return;
+    }
+
+    els.desktopAutoStartToggle.addEventListener("change", () => {
+        void patchDesktopSettings({ autoStart: els.desktopAutoStartToggle.checked });
+    });
+    els.desktopCloseToTrayToggle.addEventListener("change", () => {
+        void patchDesktopSettings({ closeToTray: els.desktopCloseToTrayToggle.checked });
+    });
+    els.desktopNotificationsToggle.addEventListener("change", () => {
+        void patchDesktopSettings({ notifications: els.desktopNotificationsToggle.checked });
+    });
+    els.desktopPttToggle.addEventListener("change", () => {
+        void patchDesktopSettings({
+            pushToTalk: {
+                ...state.desktopSettings.pushToTalk,
+                enabled: els.desktopPttToggle.checked,
+            },
+        });
+    });
+    els.desktopPttBindingButton.addEventListener("click", capturePushToTalkBinding);
+    els.desktopChangeHostButton.addEventListener("click", () => {
+        void desktop.changeHost();
+    });
+    desktop.onPushToTalk(({ pressed }) => {
+        if (!state.desktopSettings?.pushToTalk.enabled) return;
+        setMuteState(!pressed);
+    });
+    desktop.onPushToTalkError(({ message }) => {
+        setMuteState(true);
+        toast(message || "Глобальный push-to-talk остановлен", "error", "desktop-ptt-error");
+    });
+    desktop.onCaptureRequest(openDesktopCapturePicker);
+    desktop.onCaptureFinished(() => {
+        if (els.desktopCaptureDialog.open) els.desktopCaptureDialog.close();
+    });
+    for (const tab of [els.desktopCaptureScreenTab, els.desktopCaptureApplicationTab]) {
+        tab.addEventListener("click", () => setDesktopCaptureTab(tab.dataset.captureTab));
+    }
+    els.desktopCaptureCloseButton.addEventListener("click", () => void cancelDesktopCapture());
+    els.desktopCaptureCancelButton.addEventListener("click", () => void cancelDesktopCapture());
+    els.desktopCaptureConfirmButton.addEventListener("click", () => void confirmDesktopCapture());
+    els.desktopCaptureDialog.addEventListener("cancel", (event) => {
+        event.preventDefault();
+        void cancelDesktopCapture();
+    });
 }
 
 function errorDetail(payload, fallback) {
@@ -966,10 +1226,12 @@ async function handleSocketEvent(data) {
             state.lastPongAt = Date.now();
             break;
         case "message":
+            notifyDesktopMessage(data);
             if (state.chat?.type === "room" && data.room_id === state.chat.id) appendMessage(data);
             else if (data.user?.id !== state.user.id) playTone("message");
             break;
         case "direct_message":
+            notifyDesktopMessage(data, true);
             await loadConversations();
             if (state.chat?.type === "direct" && data.conversation_id === state.chat.id) appendMessage(data);
             else if (data.sender_id !== state.user.id) playTone("message");
@@ -988,6 +1250,7 @@ async function handleSocketEvent(data) {
             setSocketRecovery(false);
             replaceParticipants(data.participants || []);
             await ensurePeerConnections();
+            if (state.desktopSettings?.pushToTalk.enabled) setMuteState(true);
             updateVoiceUi();
             playTone("join");
             break;
@@ -1255,7 +1518,10 @@ async function joinVoiceRoom(roomId = state.selectedVoice?.id) {
             await refreshAudioDevices();
         }
         state.currentVoiceRoomId = roomId;
-        state.muted = false;
+        state.muted = Boolean(state.desktopSettings?.pushToTalk.enabled);
+        state.localStream.getAudioTracks().forEach((track) => {
+            track.enabled = !state.muted;
+        });
         socketSend({ type: "join_room", room_id: roomId });
         updateVoiceUi();
     } catch (error) {
@@ -1288,14 +1554,23 @@ async function leaveVoiceRoom(notify = true) {
     updateVoiceUi();
 }
 
-function toggleMute() {
+function setMuteState(nextMuted) {
     if (!state.localStream || !state.currentVoiceRoomId) return;
-    state.muted = !state.muted;
+    state.muted = Boolean(nextMuted);
     state.localStream.getAudioTracks().forEach((track) => {
         track.enabled = !state.muted;
     });
     socketSend({ type: "set_mute", room_id: state.currentVoiceRoomId, muted: state.muted });
     updateVoiceUi();
+}
+
+function toggleMute() {
+    if (state.desktopSettings?.pushToTalk.enabled) {
+        setMuteState(true);
+        toast("Микрофон управляется push-to-talk. Изменить режим можно в настройках.", "info", "desktop-ptt-active");
+        return;
+    }
+    setMuteState(!state.muted);
 }
 
 function toggleDeafen() {
@@ -2379,6 +2654,7 @@ async function init() {
     state.shareVolumes = loadVolumeMap("borotalk-share-volumes");
     hydrateIcons();
     bindEvents();
+    await initDesktopIntegration();
     try {
         state.user = await jsonRequest("/auth/me");
         renderCurrentUser();
@@ -2387,7 +2663,7 @@ async function init() {
         els.app.hidden = false;
         els.loadingScreen.hidden = true;
         scrollMessagesToBottom();
-        if ("serviceWorker" in navigator) {
+        if (!desktop?.isDesktop && "serviceWorker" in navigator) {
             navigator.serviceWorker.register("/sw.js").catch(() => {});
         }
     } catch (error) {

@@ -24,6 +24,28 @@ START_BOROTALK.bat
 Первый запуск запросит права администратора и может занять несколько минут.
 Для остановки используется `STOP_BOROTALK.bat`.
 
+### Borotalk Desktop (Windows 10/11 x64)
+
+Участникам не нужны Python, Docker или ручная установка сертификата:
+
+1. Хост запускает `START_BOROTALK.bat`.
+2. Из папки `BOROTALK_SHARE` он отправляет файл `Borotalk-connect.borotalk`.
+3. Участник устанавливает Borotalk Desktop, запускает его и выбирает этот файл.
+4. Desktop проверяет точный HTTPS-адрес и SHA-256 fingerprint сертификата, затем открывает Borotalk.
+
+Установщик и portable ZIP собираются из изолированного проекта `desktop/`:
+
+```powershell
+cd desktop
+npm ci
+npm test
+npm run make
+```
+
+Готовые файлы появляются в `desktop/out/make/`. MVP-сборка не подписана,
+поэтому Windows SmartScreen может показать предупреждение. Сервер, PostgreSQL и
+Redis по-прежнему запускаются только на компьютере-хосте.
+
 ## !! Setup
 
 ### 1. Установить зависимости

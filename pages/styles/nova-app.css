@@ -1498,6 +1498,187 @@ svg.ui-icon {
     background: var(--rail);
 }
 
+.desktop-capture-dialog {
+    width: min(920px, calc(100% - 32px));
+    height: min(720px, calc(100dvh - 32px));
+    max-height: none;
+    overflow: hidden;
+}
+
+.desktop-capture-shell {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    height: 100%;
+    min-height: 0;
+}
+
+.desktop-capture-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 24px 24px 16px;
+}
+
+.desktop-capture-header h2 {
+    margin: 2px 0 0;
+    font-size: 25px;
+}
+
+.desktop-capture-header p {
+    margin: 7px 0 0;
+    color: var(--quiet);
+    font-size: 13px;
+}
+
+.desktop-capture-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 0 24px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.desktop-capture-tab {
+    min-height: 40px;
+    padding: 0 16px;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.desktop-capture-tab:hover {
+    background: var(--panel-2);
+    color: var(--text);
+}
+
+.desktop-capture-tab.active {
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+.desktop-capture-source-scroll {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px 24px 24px;
+    scrollbar-gutter: stable;
+}
+
+.desktop-capture-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 14px;
+}
+
+.desktop-capture-source {
+    min-width: 0;
+    padding: 8px;
+    border: 2px solid transparent;
+    border-radius: 18px;
+    background: var(--panel-2);
+    color: var(--text);
+    text-align: left;
+}
+
+.desktop-capture-source:hover {
+    border-color: var(--line);
+    background: var(--panel-3);
+}
+
+.desktop-capture-source.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.desktop-capture-preview {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+    background: var(--rail);
+    object-fit: contain;
+}
+
+.desktop-capture-source-name {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 8px;
+    padding: 10px 5px 4px;
+}
+
+.desktop-capture-source-name img {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    object-fit: contain;
+}
+
+.desktop-capture-source-name span {
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 680;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.desktop-capture-empty {
+    margin: 48px auto;
+    color: var(--quiet);
+    text-align: center;
+}
+
+.desktop-capture-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    box-shadow: 0 -12px 28px color-mix(in srgb, var(--shadow) 30%, transparent);
+}
+
+.desktop-capture-audio {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    cursor: pointer;
+}
+
+.desktop-capture-audio input {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+}
+
+.desktop-capture-audio span {
+    display: grid;
+    gap: 2px;
+}
+
+.desktop-capture-audio strong {
+    font-size: 12px;
+}
+
+.desktop-capture-audio small {
+    color: var(--quiet);
+    font-size: 10px;
+}
+
+.desktop-capture-actions {
+    display: flex;
+    gap: 9px;
+}
+
+.desktop-capture-actions button {
+    min-width: 108px;
+}
+
 .dialog-shell {
     display: grid;
     gap: 20px;
@@ -1682,6 +1863,51 @@ svg.ui-icon {
     width: 20px;
     height: 20px;
     accent-color: var(--accent);
+}
+
+.desktop-settings {
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+}
+
+.desktop-settings-heading,
+.desktop-ptt-binding {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.desktop-settings-heading h3,
+.desktop-ptt-binding strong,
+.desktop-ptt-binding small {
+    display: block;
+}
+
+.desktop-ptt-binding {
+    min-height: 56px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    background: var(--panel-2);
+}
+
+.desktop-ptt-binding strong {
+    color: var(--text);
+    font-size: 12px;
+}
+
+.desktop-ptt-binding small {
+    margin-top: 3px;
+    color: var(--quiet);
+    font-size: 10px;
+}
+
+.compact-button {
+    min-height: 38px;
+    padding-inline: 13px;
+    white-space: nowrap;
 }
 
 .logout-button {
@@ -1980,6 +2206,37 @@ svg.ui-icon {
 
     .dialog-actions {
         flex-direction: column;
+    }
+
+    .desktop-capture-dialog {
+        width: calc(100% - 20px);
+        height: calc(100dvh - 20px);
+    }
+
+    .desktop-capture-header {
+        padding: 18px 18px 13px;
+    }
+
+    .desktop-capture-tabs {
+        padding-inline: 18px;
+    }
+
+    .desktop-capture-source-scroll {
+        padding: 14px 18px 18px;
+    }
+
+    .desktop-capture-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .desktop-capture-footer {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 13px 18px 16px;
+    }
+
+    .desktop-capture-actions > * {
+        flex: 1;
     }
 }
 

@@ -47,8 +47,9 @@ def test_main_app_uses_standalone_nova_interface_without_legacy_ui():
     assert nova_css.status_code == 200
     assert nova_js.status_code == 200
     assert "Разговор начинается" in main_page.text
-    assert 'href="/styles/nova-app.css?v=22"' in main_page.text
-    assert 'src="/js/nova-main.js?v=22"' in main_page.text
+    assert 'href="/styles/nova-app.css?v=24"' in main_page.text
+    assert 'src="/js/desktop-bridge.js?v=2"' in main_page.text
+    assert 'src="/js/nova-main.js?v=24"' in main_page.text
     assert 'id="messageList"' in main_page.text
     assert 'id="voiceRoomList"' in main_page.text
     assert 'class="server-rail"' in main_page.text
@@ -108,7 +109,8 @@ def test_auth_pages_use_nova_auth_surface_without_legacy_scripts():
     assert auth_js.status_code == 200
     for page in (login_page, register_page):
         assert "/styles/nova-auth.css?v=7" in page
-        assert "/js/nova-auth.js?v=5" in page
+        assert "/js/desktop-bridge.js?v=2" in page
+        assert "/js/nova-auth.js?v=6" in page
         assert "styles/login.css" not in page
         assert "styles/register.css" not in page
         assert "js/config.js" not in page

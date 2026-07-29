@@ -12,6 +12,7 @@ const mode = document.body.dataset.authMode;
 const form = document.getElementById("authForm");
 const errorText = document.getElementById("errorText");
 const demoButton = document.getElementById("demoButton");
+const desktop = window.BorotalkDesktopBridge;
 
 function detailFrom(payload, fallback) {
     if (typeof payload?.detail === "string") return payload.detail;
@@ -71,3 +72,12 @@ async function openDemo() {
 
 form.addEventListener("submit", submitAuth);
 demoButton?.addEventListener("click", openDemo);
+
+if (desktop?.isDesktop && mode === "register") {
+    void desktop.getConnection().then((connection) => {
+        const inviteCode = document.getElementById("inviteCode");
+        if (inviteCode && !inviteCode.value && connection?.inviteCode) {
+            inviteCode.value = connection.inviteCode;
+        }
+    }).catch(() => {});
+}

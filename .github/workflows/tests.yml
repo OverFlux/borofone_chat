@@ -31,3 +31,39 @@ jobs:
 
       - name: Run tests
         run: python -m pytest -q
+
+  desktop:
+    runs-on: windows-2022
+    defaults:
+      run:
+        working-directory: desktop
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Desktop dependencies
+        run: npm ci
+
+      - name: Run Desktop tests
+        run: npm test
+
+      - name: Build unsigned Windows artifacts
+        run: npm run make
+
+      - name: Upload installer and portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: borotalk-desktop-windows-x64
+          path: |
+            desktop/out/make/squirrel.windows/x64/*.exe
+            desktop/out/make/squirrel.windows/x64/*.nupkg
+            desktop/out/make/zip/win32/x64/*.zip
+          if-no-files-found: error

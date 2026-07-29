@@ -32,3 +32,6 @@
 /.venv/
 /tmp/
 /pages/web_backend/data/
+/desktop/node_modules/
+/desktop/out/
+/desktop/.cache/
