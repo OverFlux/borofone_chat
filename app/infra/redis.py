@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def redis_namespace_prefix() -> str:
-    return f'borofone:{settings.runtime_namespace}'
+    return f'borotalk:{settings.runtime_namespace}'
 
 
 def redis_key(*parts: object) -> str:
@@ -163,7 +163,7 @@ async def close_redis():
     global redis_client, _pool
     
     if redis_client:
-        await redis_client.close()
+        await redis_client.aclose()
         redis_client = None
     
     if _pool:

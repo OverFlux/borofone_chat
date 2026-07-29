@@ -20,7 +20,6 @@ from app.models import Invite, Room, Server, ServerMember, User, VoiceRoom
 from app.settings import settings
 from app.schemas.auth import (
     LoginRequest,
-    RefreshRequest,
     RegisterRequest,
     MessageResponse,
     UserResponse,
@@ -40,6 +39,32 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 AVATAR_UPLOAD_DIR = settings.avatars_path
 ALLOWED_AVATAR_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 MAX_AVATAR_BYTES = settings.max_avatar_bytes
+BUILT_IN_AVATAR_PRESETS = {
+    "duck-ioi",
+    "duck-neon",
+    "duck-sunset",
+    "duck-chainsaw",
+    "duck-proximity",
+    "duck-pale",
+    "duck-purple",
+    "duck-dragon",
+    "duck-concussion-collector",
+    "duck-classic",
+    "duck-remote",
+    "duck-british",
+    "duck-concussion",
+    "duck-devil",
+    "duck-remote-mk2",
+    "duck-proximity-mk2",
+}
+LEGACY_AVATAR_PRESETS = {
+    "mint-star",
+    "violet-orbit",
+    "peach-wave",
+    "mint-dot",
+    "violet-arrow",
+    "peach-b",
+}
 
 # Cookie settings
 ACCESS_TOKEN_EXPIRE_DAYS = settings.access_token_expire_days
@@ -486,7 +511,7 @@ async def update_profile(
         avatar_url = None
 
     if avatar_preset:
-        allowed_presets = {"mint-star", "violet-orbit", "peach-wave", "mint-dot", "violet-arrow", "peach-b"}
+        allowed_presets = BUILT_IN_AVATAR_PRESETS | LEGACY_AVATAR_PRESETS
         if avatar_preset not in allowed_presets:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown avatar preset")
         avatar_url = f"preset:{avatar_preset}"

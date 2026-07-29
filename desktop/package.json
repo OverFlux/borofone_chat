@@ -1,7 +1,7 @@
 {
   "name": "borotalk-desktop",
   "productName": "Borotalk Desktop",
-  "version": "0.1.6",
+  "version": "0.1.9",
   "description": "Windows desktop client for a Borotalk host",
   "main": "src/main.js",
   "author": "Borotalk",

@@ -37,7 +37,6 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - ${HOST_DATA_ROOT:?HOST_DATA_ROOT is required}/uploads:/code/uploads
-      - ${HOST_DATA_ROOT:?HOST_DATA_ROOT is required}/leaderboard:/code/pages/web_backend/data
     healthcheck:
       test:
         - CMD-SHELL

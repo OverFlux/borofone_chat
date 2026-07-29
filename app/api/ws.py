@@ -1,21 +1,15 @@
 """Server-scoped WebSocket for chat, voice, and private user events."""
 import asyncio
 import json
-from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
 
 from app.infra.db import SessionLocal
 from app.infra.redis import room_events_channel, user_events_channel
-from app.models import User, Room, Message, MessageReaction, ServerMember, VoiceRoom
-from app.schemas.messages import MessageCreate
+from app.models import User, Room, ServerMember, VoiceRoom
 from app.security import get_user_id_from_token
-from app.services.messages import create_message_with_nonce
-from app.services.message_rate_limit import enforce_message_rate_limit
 from app.services.voice import voice_runtime
 
 router = APIRouter(tags=["WebSocket"])
@@ -49,11 +43,10 @@ async def global_websocket_endpoint(
     server_id: int = Query(..., gt=0),
 ):
     """
-    Глобальный WebSocket — получает события из ВСЕХ комнат.
-    
-    Клиент:
-    - Отправляет: {"type": "message", "room_id": 1, "body": "hi", "nonce": "x"}
-    - Получает: {"type": "message", "room_id": 1, "id": 42, ...}
+    Один WebSocket на выбранный сервер.
+
+    Через него клиент получает события текстовых комнат и передаёт presence,
+    typing, voice и WebRTC signaling только внутри server_id.
     """
     await websocket.accept()
 
@@ -213,14 +206,7 @@ async def global_websocket_endpoint(
                     continue
 
                 room_id = data.get("room_id")
-                if msg_type in {
-                    "heartbeat",
-                    "reaction",
-                    "message_delete",
-                    "message_hard_delete",
-                    "typing",
-                    "message",
-                } and room_id not in room_ids:
+                if msg_type == "typing" and room_id not in room_ids:
                     await websocket.send_json({"type": "error", "code": "forbidden_room"})
                     continue
 
@@ -238,153 +224,6 @@ async def global_websocket_endpoint(
                     await websocket.send_json({"type": "error", "code": "forbidden_voice_room"})
                     continue
                 
-                # Heartbeat — обновление присутствия
-                if msg_type == "heartbeat":
-                    room_id = data.get("room_id")
-                    if room_id:
-                        from app.services.presence import user_joined_room
-                        await user_joined_room(redis, room_id, user_id)
-                    continue
-                
-                if msg_type == "reaction":
-                    room_id = data.get("room_id")
-                    message_id = data.get("message_id")
-                    emoji = (data.get("emoji") or "").strip()
-                    if not room_id or not message_id or not emoji or len(emoji) > 16:
-                        continue
-
-                    try:
-                        async with SessionLocal() as db:
-                            message_stmt = select(Message).where(Message.id == message_id, Message.room_id == room_id)
-                            message = (await db.execute(message_stmt)).scalar_one_or_none()
-                            if not message or message.deleted_at is not None:
-                                continue
-
-                            existing_stmt = select(MessageReaction).where(
-                                MessageReaction.message_id == message_id,
-                                MessageReaction.user_id == user_id,
-                                MessageReaction.emoji == emoji,
-                            )
-                            existing = (await db.execute(existing_stmt)).scalar_one_or_none()
-                            action = "added"
-                            if existing:
-                                await db.delete(existing)
-                                action = "removed"
-                            else:
-                                db.add(MessageReaction(message_id=message_id, user_id=user_id, emoji=emoji))
-
-                            try:
-                                await db.commit()
-                            except IntegrityError:
-                                await db.rollback()
-                                final_stmt = select(MessageReaction).where(
-                                    MessageReaction.message_id == message_id,
-                                    MessageReaction.user_id == user_id,
-                                    MessageReaction.emoji == emoji,
-                                )
-                                final_reaction = (await db.execute(final_stmt)).scalar_one_or_none()
-                                action = "added" if final_reaction else "removed"
-
-                            reactions_stmt = select(MessageReaction).where(MessageReaction.message_id == message_id)
-                            reactions = (await db.execute(reactions_stmt)).scalars().all()
-
-                        grouped = {}
-                        for reaction in reactions:
-                            grouped.setdefault(reaction.emoji, set()).add(reaction.user_id)
-
-                        payload = {
-                            "type": "reaction",
-                            "room_id": room_id,
-                            "message_id": message_id,
-                            "emoji": emoji,
-                            "action": action,
-                            "actor_user_id": user_id,
-                            "reactions": [
-                                {
-                                    "emoji": value,
-                                    "count": len(user_ids),
-                                    "reacted_by_me": False,
-                                }
-                                for value, user_ids in sorted(grouped.items(), key=lambda item: item[0])
-                            ],
-                        }
-
-                        if redis:
-                            await redis.publish(room_events_channel(room_id), json.dumps(payload))
-                        else:
-                            await websocket.send_json(payload)
-                    except Exception as e:
-                        print(f"[WS] Reaction error: {e}")
-                    continue
-
-                if msg_type == "message_delete":
-                    room_id = data.get("room_id")
-                    message_id = data.get("message_id")
-                    if not room_id or not message_id:
-                        continue
-
-                    try:
-                        async with SessionLocal() as db:
-                            msg_stmt = select(Message).where(Message.id == message_id, Message.room_id == room_id)
-                            msg = (await db.execute(msg_stmt)).scalar_one_or_none()
-                            if not msg or msg.user_id != user_id:
-                                continue
-
-                            msg.body = "Сообщение удалено"
-                            msg.deleted_at = datetime.now(timezone.utc)
-                            await db.commit()
-
-                        payload = {
-                            "type": "message_deleted",
-                            "room_id": room_id,
-                            "message_id": message_id,
-                            "body": "Сообщение удалено",
-                            "deleted_at": msg.deleted_at.isoformat() if msg.deleted_at else None,
-                        }
-                        if redis:
-                            await redis.publish(room_events_channel(room_id), json.dumps(payload))
-                        else:
-                            await websocket.send_json(payload)
-                    except Exception as e:
-                        print(f"[WS] Delete error: {e}")
-                    continue
-
-                if msg_type == "message_hard_delete":
-                    room_id = data.get("room_id")
-                    message_id = data.get("message_id")
-                    if not room_id or not message_id:
-                        continue
-
-                    # Only admins can hard delete
-                    if user.role != "admin":
-                        continue
-
-                    try:
-                        async with SessionLocal() as db:
-                            msg_stmt = select(Message).where(Message.id == message_id, Message.room_id == room_id)
-                            msg = (await db.execute(msg_stmt)).scalar_one_or_none()
-                            if not msg:
-                                continue
-
-                            # Store data before deletion
-                            payload = {
-                                "type": "message_hard_deleted",
-                                "room_id": room_id,
-                                "message_id": message_id,
-                            }
-
-                            # Permanently delete the message
-                            await db.delete(msg)
-                            await db.commit()
-
-                        if redis:
-                            await redis.publish(room_events_channel(room_id), json.dumps(payload))
-                        else:
-                            await websocket.send_json(payload)
-                    except Exception as e:
-                        print(f"[WS] Hard delete error: {e}")
-                    continue
-
                 if msg_type == "join_room":
                     room_id = data.get("room_id")
                     if not room_id:
@@ -519,122 +358,6 @@ async def global_websocket_endpoint(
                             pass
                     continue
 
-                if msg_type != "message":
-                    continue
-
-                room_id = data.get("room_id")
-                if not room_id:
-                    continue
-
-                # Проверяем, содержит ли сообщение эмодзи 🖕🏻 и отправлен ли он админом
-                message_body = data.get("body", "")
-                if "🖕🏻" in message_body and user.role == "admin":
-                    # Отправляем событие воспроизведения звука всем пользователям
-                    # Публикуем в ОДИН глобальный канал, чтобы избежать дубликатов
-                    poshelti_event = {
-                        "type": "poshelti_sound",
-                        "user_id": user_id,
-                        "username": username,
-                    }
-                    if redis:
-                        try:
-                            # Публикуем в глобальный канал для всех пользователей
-                            await redis.publish("global:poshelti", json.dumps(poshelti_event))
-                        except Exception as e:
-                            print(f"[WS] Publish poshelti sound failed: {e}")
-
-                try:
-                    try:
-                        await enforce_message_rate_limit(redis, user_id)
-                    except HTTPException as exc:
-                        await websocket.send_json({
-                            "type": "error",
-                            "code": "rate_limited",
-                            "detail": exc.detail,
-                            "retry_after": int(exc.headers.get("Retry-After", "1")),
-                        })
-                        continue
-
-                    # Создаём новую сессию для каждого сообщения
-                    async with SessionLocal() as db:
-                        payload = MessageCreate(
-                            body=data.get("body", ""), 
-                            nonce=data.get("nonce"),
-                            attachments=data.get("attachments"),
-                            reply_to_id=data.get("reply_to_id")
-                        )
-                        msg = await create_message_with_nonce(
-                            db, room_id, user_id, payload, redis,
-                            attachments_data=payload.attachments
-                        )
-                        msg = (
-                            await db.execute(
-                                select(Message)
-                                .where(Message.id == msg.id)
-                                .options(joinedload(Message.user), selectinload(Message.attachments), joinedload(Message.reply_to).joinedload(Message.user), joinedload(Message.room))
-                            )
-                        ).scalar_one()
-
-                        reply_to = None
-                        if msg.reply_to:
-                            reply_to = {
-                                "id": msg.reply_to.id,
-                                "body": msg.reply_to.body,
-                                "user": {
-                                    "id": msg.reply_to.user.id if msg.reply_to.user else 0,
-                                    "username": msg.reply_to.user.username if msg.reply_to.user else "Unknown",
-                                    "display_name": msg.reply_to.user.display_name if msg.reply_to.user else "Unknown User",
-                                    "avatar_url": msg.reply_to.user.avatar_url if msg.reply_to.user else None,
-                                    "role": msg.reply_to.user.role if msg.reply_to.user else "member",
-                                },
-                            }
-
-                        message_data = {
-                            "type": "message",
-                            "id": msg.id,
-                            "room_id": msg.room_id,
-                            "room": {
-                                "title": msg.room.title if msg.room else None
-                            },
-                            "nonce": msg.nonce,
-                            "body": msg.body,
-                            "created_at": msg.created_at.isoformat(),
-                            "edited_at": msg.edited_at.isoformat() if msg.edited_at else None,
-                            "user": {
-                                "id": user_id,
-                                "username": username,
-                                "display_name": user.display_name,
-                                "avatar_url": user.avatar_url,
-                                "role": user.role,
-                            },
-                            "attachments": [
-                                {
-                                    "id": att.id,
-                                    "message_id": att.message_id,
-                                    "filename": att.filename,
-                                    "file_path": att.file_path,
-                                    "file_size": att.file_size,
-                                    "mime_type": att.mime_type,
-                                    "created_at": att.created_at.isoformat(),
-                                }
-                                for att in (msg.attachments or [])
-                            ],
-                            "reactions": [],
-                            "reply_to": reply_to,
-                            "is_deleted": msg.deleted_at is not None,
-                        }
-
-                    if redis:
-                        try:
-                            await redis.publish(room_events_channel(room_id), json.dumps(message_data))
-                        except Exception as e:
-                            print(f"[WS] Publish failed: {e}")
-                    else:
-                        await websocket.send_json(message_data)
-
-                except Exception as e:
-                    print(f"[WS] Message error: {e}")
-
         except WebSocketDisconnect:
             pass
         finally:
@@ -673,14 +396,7 @@ async def global_websocket_endpoint(
 
                 if message and message["type"] == "message":
                     try:
-                        data = message["data"]
-                        try:
-                            parsed = json.loads(data)
-                            if parsed.get("type") == "message_edited":
-                                print(f"[WS] Broadcasting message_edited: room={parsed.get('room_id')}, message_id={parsed.get('message_id')}")
-                        except Exception:
-                            pass
-                        await websocket.send_text(data)
+                        await websocket.send_text(message["data"])
                     except Exception:
                         pass
         except Exception as e:
@@ -698,13 +414,4 @@ async def global_websocket_endpoint(
             await pubsub.aclose()
         except Exception as e:
             print(f"[WS] Cleanup error: {e}")
-
-
     print(f"[WS] {username} disconnected")
-
-
-# Старый endpoint оставляем для совместимости
-@router.websocket("/ws/rooms/{room_id}")
-async def room_websocket(websocket: WebSocket, room_id: int, token: str = Query(None)):
-    """Legacy endpoint. Use /ws instead."""
-    await websocket.close(reason="Use /ws")

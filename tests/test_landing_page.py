@@ -29,6 +29,30 @@ def test_landing_assets_and_existing_pages_remain_available():
     assert register_page.status_code == 200
 
 
+def test_removed_legacy_frontend_and_media_routes_stay_absent():
+    with TestClient(app) as client:
+        removed_assets = (
+            "/main_old.html",
+            "/js/main.js",
+            "/js/app/bootstrap.js",
+            "/styles/main.css",
+            "/games/index.html",
+            "/sounds/notification.mp3",
+        )
+        responses = [client.get(path) for path in removed_assets]
+
+    registered_paths = {route.path for route in app.routes}
+    assert all(response.status_code == 404 for response in responses)
+    assert "/api/stickers" not in registered_paths
+    assert "/api/gifs" not in registered_paths
+    assert "/api/media" not in registered_paths
+    assert "/attachments/upload" not in registered_paths
+    assert "/games/api/leaderboard.php" not in registered_paths
+    assert "/ws/rooms/{room_id}" not in registered_paths
+    assert "/uploads" not in registered_paths
+    assert "/uploads/avatars" in registered_paths
+
+
 def test_landing_demo_script_has_no_network_or_media_calls():
     with TestClient(app) as client:
         script = client.get("/js/landing.js").text
@@ -42,14 +66,16 @@ def test_main_app_uses_standalone_nova_interface_without_legacy_ui():
         main_page = client.get("/main.html")
         nova_css = client.get("/styles/nova-app.css")
         nova_js = client.get("/js/nova-main.js")
+        app_config = client.get("/app-config.js")
 
     assert main_page.status_code == 200
     assert nova_css.status_code == 200
     assert nova_js.status_code == 200
     assert "Разговор начинается" in main_page.text
-    assert 'href="/styles/nova-app.css?v=24"' in main_page.text
-    assert 'src="/js/desktop-bridge.js?v=2"' in main_page.text
-    assert 'src="/js/nova-main.js?v=24"' in main_page.text
+    assert "__BOROTALK_RUNTIME_CONFIG__" in app_config.text
+    assert 'href="/styles/nova-app.css?v=28"' in main_page.text
+    assert 'src="/js/desktop-bridge.js?v=3"' in main_page.text
+    assert 'src="/js/nova-main.js?v=31"' in main_page.text
     assert 'id="messageList"' in main_page.text
     assert 'id="voiceRoomList"' in main_page.text
     assert 'class="server-rail"' in main_page.text
@@ -73,6 +99,7 @@ def test_main_app_uses_standalone_nova_interface_without_legacy_ui():
     assert 'id="shareVolumeSlider"' in main_page.text
     assert 'id="shareAudioMuteButton"' in main_page.text
     assert 'systemAudio: "include"' in nova_js.text
+    assert "restrictOwnAudio: true" in nova_js.text
     assert "screen-share-no-audio" in nova_js.text
     assert "attachScreenAudio" in nova_js.text
     assert "reconcileRemoteAudio" in nova_js.text
@@ -96,6 +123,41 @@ def test_main_app_uses_standalone_nova_interface_without_legacy_ui():
     assert "🖥️" not in main_page.text
     assert 'window.addEventListener("online"' in nova_js.text
     assert 'socket.send(JSON.stringify({ type: "ping" }))' in nova_js.text
+    assert main_page.text.count('data-avatar-preset="duck-') == 16
+    assert 'data-avatar-preset="mint-star"' not in main_page.text
+    assert 'data-avatar-preset="duck-dragon"' in main_page.text
+    assert '"/images/avatars/ducks/duck-dragon.png"' in nova_js.text
+    assert 'from "./message-format.mjs"' in nova_js.text
+
+
+def test_duck_avatar_assets_are_available_as_transparent_pngs():
+    avatar_names = (
+        "duck-ioi",
+        "duck-neon",
+        "duck-sunset",
+        "duck-chainsaw",
+        "duck-proximity",
+        "duck-pale",
+        "duck-purple",
+        "duck-dragon",
+        "duck-concussion-collector",
+        "duck-classic",
+        "duck-remote",
+        "duck-british",
+        "duck-concussion",
+        "duck-devil",
+        "duck-remote-mk2",
+        "duck-proximity-mk2",
+    )
+
+    with TestClient(app) as client:
+        responses = [
+            client.get(f"/images/avatars/ducks/{name}.png")
+            for name in avatar_names
+        ]
+
+    assert all(response.status_code == 200 for response in responses)
+    assert all(response.headers["content-type"] == "image/png" for response in responses)
 
 
 def test_auth_pages_use_nova_auth_surface_without_legacy_scripts():
@@ -109,8 +171,8 @@ def test_auth_pages_use_nova_auth_surface_without_legacy_scripts():
     assert auth_js.status_code == 200
     for page in (login_page, register_page):
         assert "/styles/nova-auth.css?v=7" in page
-        assert "/js/desktop-bridge.js?v=2" in page
-        assert "/js/nova-auth.js?v=6" in page
+        assert "/js/desktop-bridge.js?v=3" in page
+        assert "/js/nova-auth.js?v=7" in page
         assert "styles/login.css" not in page
         assert "styles/register.css" not in page
         assert "js/config.js" not in page

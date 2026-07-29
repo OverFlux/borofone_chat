@@ -4,6 +4,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const mainSource = fs.readFileSync(path.join(__dirname, "..", "src", "main.js"), "utf8");
+const preloadSource = fs.readFileSync(path.join(__dirname, "..", "src", "preload.js"), "utf8");
+const bridgeSource = fs.readFileSync(
+  path.join(__dirname, "..", "..", "pages", "js", "desktop-bridge.js"),
+  "utf8",
+);
 
 test("registers the local onboarding protocol in the persistent renderer session", () => {
   assert.match(mainSource, /registerLocalProtocol\(clientSession\.protocol\)/);
@@ -16,6 +21,16 @@ test("normalizes the custom onboarding scheme before checking IPC senders", () =
   assert.match(mainSource, /return originFromUrl\(event\.senderFrame/);
 });
 
+test("opens only web chat links in the system browser", () => {
+  assert.match(mainSource, /shell\.openExternal\(externalWebUrl\(value\)\)/);
+  assert.match(mainSource, /\["http:", "https:"\]\.includes\(target\.protocol\)/);
+  assert.match(mainSource, /ipcMain\.handle\("desktop:open-external"/);
+  assert.match(mainSource, /assertSender\(event, \{ remote: true \}\)/);
+  assert.match(mainSource, /return \{ action: "deny" \}/);
+  assert.match(preloadSource, /ipcRenderer\.invoke\("desktop:open-external", url\)/);
+  assert.match(bridgeSource, /openExternal: \(url\) => nativeBridge\.openExternal/);
+});
+
 test("reports startup failures instead of leaving a silent black window", () => {
   assert.match(mainSource, /desktop\.log/);
   assert.match(mainSource, /showErrorBox/);
@@ -26,6 +41,9 @@ test("uses one connection fallback path with an explicit host timeout", () => {
   assert.match(mainSource, /let connectScreenPromise = null/);
   assert.match(mainSource, /Promise\.race\(\[window\.loadURL\(target\), timeout\]\)/);
   assert.match(mainSource, /Хост не ответил за 12 секунд/);
+  assert.match(mainSource, /FIX_RADMIN_ROUTE\.bat/);
+  assert.match(mainSource, /26\.0\.0\.0\/8/);
+  assert.match(mainSource, /KillSwitch/);
   assert.match(mainSource, /writeDesktopLog\(`Host navigation failed/);
 });
 
@@ -55,6 +73,14 @@ test("releases the capture slot before Electron reports a cancelled request", ()
   );
   assert.match(finishCaptureSource, /catch \(error\)/);
   assert.match(finishCaptureSource, /if \(callbackError && streams\?\.video\) throw callbackError/);
+});
+
+test("excludes Borotalk playback from captured Windows system audio", () => {
+  assert.match(mainSource, /id: "loopbackWithoutChrome"/);
+  assert.doesNotMatch(
+    mainSource,
+    /selection\?\.withAudio[\s\S]{0,120}streams\.audio = "loopback"/,
+  );
 });
 
 test("clears legacy service worker state before loading the host interface", () => {

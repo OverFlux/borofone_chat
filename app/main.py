@@ -1,15 +1,13 @@
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Callable
-
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import attachments, direct_messages, games, rooms, servers, voice_rooms, wordle
+from app.api import direct_messages, rooms, servers, voice_rooms
 from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.http import router as http_router
@@ -19,7 +17,7 @@ from app.settings import settings
 from app.version import VERSION
 
 
-def _list_media_files(directory, suffixes: tuple[str, ...], *, exclude_readme: bool = False) -> list[str]:
+def _list_media_files(directory, suffixes: tuple[str, ...]) -> list[str]:
     if not directory.is_dir():
         return []
 
@@ -28,8 +26,6 @@ def _list_media_files(directory, suffixes: tuple[str, ...], *, exclude_readme: b
         if not entry.is_file():
             continue
         if not entry.name.lower().endswith(suffixes):
-            continue
-        if exclude_readme and entry.name.lower().startswith('readme'):
             continue
         items.append(entry.name)
     return items
@@ -64,20 +60,6 @@ class CachedStaticFiles(StaticFiles):
         return response
 
 
-class SelectiveGZipMiddleware:
-    def __init__(self, app, *, excluded_prefixes: tuple[str, ...], **gzip_options):
-        self.app = app
-        self.excluded_prefixes = excluded_prefixes
-        self.gzip_app = GZipMiddleware(app, **gzip_options)
-
-    async def __call__(self, scope, receive, send):
-        if scope['type'] == 'http':
-            path = scope.get('path', '')
-            if any(path.startswith(prefix) for prefix in self.excluded_prefixes):
-                await self.app(scope, receive, send)
-                return
-        await self.gzip_app(scope, receive, send)
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
@@ -89,7 +71,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title='Borofone Chat API',
+    title='Borotalk API',
     version='1.0.0',
     lifespan=lifespan,
 )
@@ -103,21 +85,10 @@ app.add_middleware(
     expose_headers=['Set-Cookie'],
 )
 app.add_middleware(
-    SelectiveGZipMiddleware,
-    excluded_prefixes=('/games/api/',),
+    GZipMiddleware,
     minimum_size=1024,
     compresslevel=5,
 )
-
-
-@app.middleware('http')
-async def add_cross_origin_headers(request: Request, call_next: Callable):
-    response: Response = await call_next(request)
-    if request.url.path.startswith('/games/'):
-        response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
-        response.headers['Cross-Origin-Embedder-Policy'] = 'require-corp'
-    return response
-
 
 @app.get('/app-config.js', include_in_schema=False)
 async def app_config_js() -> Response:
@@ -132,13 +103,12 @@ async def app_config_js() -> Response:
         },
         'uploads': {
             'avatarsBasePath': settings.avatar_public_path,
-            'attachmentsBasePath': settings.attachments_public_path,
         },
         'appEnv': settings.app_env,
         'storageNamespace': settings.runtime_namespace,
     }
     response = Response(
-        content=f'window.__BOROFONE_RUNTIME_CONFIG__ = {json.dumps(payload, ensure_ascii=False)};\n',
+        content=f'window.__BOROTALK_RUNTIME_CONFIG__ = {json.dumps(payload, ensure_ascii=False)};\n',
         media_type='application/javascript',
     )
     response.headers['Cache-Control'] = 'no-cache'
@@ -163,45 +133,6 @@ async def list_custom_emojis():
     return {'emojis': _list_media_files(settings.emoji_path, ('.gif', '.png', '.jpg', '.jpeg', '.webp'))}
 
 
-@app.get('/api/stickers')
-async def list_stickers():
-    return {
-        'stickers': _list_media_files(
-            settings.stickers_path,
-            ('.png', '.jpg', '.jpeg', '.gif', '.webp'),
-            exclude_readme=True,
-        )
-    }
-
-
-@app.get('/api/gifs')
-async def list_gifs():
-    return {
-        'gifs': _list_media_files(
-            settings.gifs_path,
-            ('.gif', '.webp'),
-            exclude_readme=True,
-        )
-    }
-
-
-@app.get('/api/media')
-async def list_all_media():
-    return {
-        'emojis': _list_media_files(settings.emoji_path, ('.gif', '.png', '.jpg', '.jpeg', '.webp')),
-        'stickers': _list_media_files(
-            settings.stickers_path,
-            ('.png', '.jpg', '.jpeg', '.gif', '.webp'),
-            exclude_readme=True,
-        ),
-        'gifs': _list_media_files(
-            settings.gifs_path,
-            ('.gif', '.webp'),
-            exclude_readme=True,
-        ),
-    }
-
-
 app.include_router(http_router, tags=['HTTP'])
 app.include_router(ws_router, tags=['Websocket'])
 app.include_router(auth_router)
@@ -209,12 +140,13 @@ app.include_router(admin_router)
 app.include_router(servers.router)
 app.include_router(direct_messages.router)
 app.include_router(rooms.router)
-app.include_router(attachments.router)
 app.include_router(voice_rooms.router)
-app.include_router(wordle.router)
-app.include_router(games.router)
 
-settings.uploads_path.mkdir(parents=True, exist_ok=True)
+settings.avatars_path.mkdir(parents=True, exist_ok=True)
 
-app.mount('/uploads', CachedStaticFiles(directory=settings.uploads_path), name='uploads')
+app.mount(
+    settings.avatar_public_path,
+    CachedStaticFiles(directory=settings.avatars_path),
+    name='avatars',
+)
 app.mount('/', CachedStaticFiles(directory=settings.pages_path, html=True), name='pages')

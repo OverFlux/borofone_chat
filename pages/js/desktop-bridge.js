@@ -12,6 +12,7 @@
         getConnection: () => nativeBridge.getConnection(),
         updateSettings: (patch) => nativeBridge.updateSettings(patch),
         changeHost: () => nativeBridge.changeHost(),
+        openExternal: (url) => nativeBridge.openExternal(String(url || "").slice(0, 4096)),
         selectCaptureSource: (selection) => nativeBridge.selectCaptureSource(selection),
         cancelCapture: () => nativeBridge.cancelCapture(),
         notifyMessage: ({ title, body }) => nativeBridge.notify({

@@ -50,8 +50,6 @@ mkdir -p "${target_dir}"
 resolve_compose_cmd
 compose_cmd=("${COMPOSE_BIN[@]}" -p "${compose_project}" -f "${compose_file}")
 host_uploads_dir="${HOST_DATA_ROOT%/}/uploads"
-host_leaderboard_dir="${HOST_DATA_ROOT%/}/leaderboard"
-legacy_leaderboard_dir="${repo_root}/data/leaderboard"
 
 tar_directory() {
   local source_dir="$1"
@@ -83,10 +81,6 @@ elif docker volume inspect "${uploads_volume}" >/dev/null 2>&1; then
     -v "${target_dir}:/backup" \
     alpine:3.20 \
     sh -lc 'cd /source && tar -czf /backup/uploads.tar.gz .'
-fi
-
-if ! tar_directory "${host_leaderboard_dir}" "${target_dir}/leaderboard.tar.gz"; then
-  tar_directory "${legacy_leaderboard_dir}" "${target_dir}/leaderboard.tar.gz" || true
 fi
 
 cp "${repo_root}/.env" "${target_dir}/.env"

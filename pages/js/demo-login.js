@@ -1,7 +1,7 @@
 (() => {
     'use strict';
 
-    const runtime = window.__BOROFONE_RUNTIME_CONFIG__ || {};
+    const runtime = window.__BOROTALK_RUNTIME_CONFIG__ || {};
     const demoButton = document.getElementById('demo-login-button');
     const errorText = document.getElementById('demo-login-error');
 

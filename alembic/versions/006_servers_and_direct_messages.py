@@ -46,7 +46,7 @@ def upgrade() -> None:
     # rooms to every future account.
     connection = op.get_bind()
     legacy_server_id = connection.execute(
-        sa.text("INSERT INTO servers (name, is_joinable) VALUES ('Borofone legacy', true) RETURNING id")
+        sa.text("INSERT INTO servers (name, is_joinable) VALUES ('Borotalk', true) RETURNING id")
     ).scalar_one()
     connection.execute(
         sa.text("INSERT INTO server_members (server_id, user_id, role) SELECT :server_id, id, 'member' FROM users"),

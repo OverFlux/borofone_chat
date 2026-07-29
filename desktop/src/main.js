@@ -12,6 +12,7 @@ const {
   nativeImage,
   protocol,
   session,
+  shell,
 } = require("electron");
 const isSquirrelStartup = require("electron-squirrel-startup");
 const {
@@ -73,6 +74,19 @@ function originFromUrl(value) {
   } catch {
     return "";
   }
+}
+
+function externalWebUrl(value) {
+  const target = new URL(String(value || "").slice(0, 4096));
+  if (!["http:", "https:"].includes(target.protocol)) {
+    throw new Error("Разрешены только HTTP- и HTTPS-ссылки.");
+  }
+  return target.href;
+}
+
+async function openExternalWebUrl(value) {
+  await shell.openExternal(externalWebUrl(value));
+  return true;
 }
 
 function senderOrigin(event) {
@@ -185,7 +199,16 @@ function registerLocalProtocol(sessionProtocol) {
 }
 
 function configureNavigation(window) {
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      void openExternalWebUrl(url).catch((error) => {
+        writeDesktopLog(`External link failed: ${error?.stack || error}`);
+      });
+    } catch {
+      // Invalid and non-web targets stay blocked.
+    }
+    return { action: "deny" };
+  });
   window.webContents.on("will-navigate", (event, targetUrl) => {
     const targetOrigin = originFromUrl(targetUrl);
     if (![LOCAL_ORIGIN, activeOrigin()].includes(targetOrigin)) {
@@ -304,8 +327,8 @@ async function connectToHost(connection, { persist = true } = {}) {
     }
     const message = connectError || (
       error?.code === "HOST_TIMEOUT"
-        ? "Хост не ответил за 12 секунд. Проверьте Radmin VPN и убедитесь, что START_BOROTALK.bat завершил запуск."
-        : `Хост недоступен: ${error?.message || "ошибка соединения"}. Проверьте Radmin VPN и запуск Borotalk на хосте.`
+        ? "Хост не ответил за 12 секунд. Проверьте Radmin VPN. При включённой AmneziaVPN запустите FIX_RADMIN_ROUTE.bat, добавьте 26.0.0.0/8 в исключения IP split tunneling и отключите KillSwitch."
+        : `Хост недоступен: ${error?.message || "ошибка соединения"}. Проверьте Radmin VPN и запуск Borotalk. При включённой AmneziaVPN исключите 26.0.0.0/8 из VPN и отключите KillSwitch.`
     );
     writeDesktopLog(`${message} Target: ${target}`);
     await showConnectScreen(message);
@@ -596,12 +619,24 @@ function registerIpcHandlers() {
     notification.show();
     return true;
   });
+  ipcMain.handle("desktop:open-external", async (event, url) => {
+    assertSender(event, { remote: true });
+    return openExternalWebUrl(url);
+  });
   ipcMain.handle("desktop:select-capture-source", (event, selection) => {
     assertSender(event, { remote: true });
     const source = captureRequest?.sources.find((item) => item.id === selection?.sourceId);
     if (!source) throw new Error("Источник экрана больше недоступен.");
     const streams = { video: source };
-    if (selection?.withAudio && captureRequest.request.audioRequested) streams.audio = "loopback";
+    if (selection?.withAudio && captureRequest.request.audioRequested) {
+      // Chromium's Windows loopbackWithoutChrome device captures system audio
+      // while excluding audio rendered by this Electron instance. This keeps
+      // remote Borotalk voices out of the outgoing screen-share audio.
+      streams.audio = {
+        id: "loopbackWithoutChrome",
+        name: "System audio without Borotalk",
+      };
+    }
     finishCapture(streams);
     return true;
   });

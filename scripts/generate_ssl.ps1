@@ -9,14 +9,14 @@ param(
 )
 
 if (-not $IpAddress) {
-    $IpAddress = if ($env:BOROFONE_PUBLIC_HOST) { $env:BOROFONE_PUBLIC_HOST } else { "localhost" }
+    $IpAddress = if ($env:BOROTALK_PUBLIC_HOST) { $env:BOROTALK_PUBLIC_HOST } else { "localhost" }
 }
 
 if (-not $Password) {
-    $Password = if ($env:BOROFONE_SSL_PFX_PASSWORD) { $env:BOROFONE_SSL_PFX_PASSWORD } else { "1234" }
+    $Password = if ($env:BOROTALK_SSL_PFX_PASSWORD) { $env:BOROTALK_SSL_PFX_PASSWORD } else { "1234" }
 }
 
-Write-Host "=== SSL Certificate Generation for Borofone Chat ===" -ForegroundColor Cyan
+Write-Host "=== SSL Certificate Generation for Borotalk ===" -ForegroundColor Cyan
 Write-Host "IP Address: $IpAddress" -ForegroundColor Yellow
 Write-Host "Output Directory: $OutputDir" -ForegroundColor Yellow
 Write-Host ""
@@ -38,7 +38,7 @@ $cert = New-SelfSignedCertificate `
     -Type Custom `
     -Subject "CN=$IpAddress" `
     -CertStoreLocation "cert:\LocalMachine\My" `
-    -FriendlyName "Borofone Chat SSL" `
+    -FriendlyName "Borotalk SSL" `
     -KeyAlgorithm RSA `
     -KeyLength 2048 `
     -HashAlgorithm SHA256 `

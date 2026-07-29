@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld("borotalkDesktop", Object.freeze({
   connectSaved: () => ipcRenderer.invoke("desktop:connect-saved"),
   changeHost: () => ipcRenderer.invoke("desktop:change-host"),
   notify: (payload) => ipcRenderer.invoke("desktop:notify", payload),
+  openExternal: (url) => ipcRenderer.invoke("desktop:open-external", url),
   selectCaptureSource: (selection) => ipcRenderer.invoke("desktop:select-capture-source", selection),
   cancelCapture: () => ipcRenderer.invoke("desktop:cancel-capture"),
   onCaptureRequest: (callback) => subscribe("desktop:capture-requested", callback),

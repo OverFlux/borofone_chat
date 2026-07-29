@@ -1,205 +1,109 @@
-"""
-Message service with nonce deduplication using Redis + attachments support.
-
-Changes:
-- Redis client через dependency вместо global import
-- Fallback если Redis недоступен
-- Proper error handling
-- Attachments support
-"""
+"""Creation of text-channel messages with short-lived nonce deduplication."""
 from __future__ import annotations
 
 from fastapi import HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import TYPE_CHECKING
 from redis.asyncio import Redis
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.redis import get_redis_client, redis_key
-from app.models import Message, Attachment
+from app.models import Message
 from app.schemas.messages import MessageCreate
-
-if TYPE_CHECKING:
-    from redis.asyncio import Redis
 
 NONCE_TTL_SECONDS = 300
 PENDING = "PENDING"
 
 
 def _nonce_key(user_id: int, nonce: str) -> str:
-    """Generate Redis key for nonce."""
     return redis_key("nonce", user_id, nonce)
 
 
-# Discord-like deduplication message by nonce, docs for more info.
 async def create_message_with_nonce(
-        db: AsyncSession,
-        room_id: int,
-        user_id: int,
-        payload: MessageCreate,
-        redis: Redis | None = None,
-        attachments_data: list[dict] | None = None,  # ← НОВОЕ: поддержка вложений
+    db: AsyncSession,
+    room_id: int,
+    user_id: int,
+    payload: MessageCreate,
+    redis: Redis | None = None,
 ) -> Message:
-    """
-    Создать сообщение с nonce deduplication + вложениями.
-    
-    Args:
-        db: Database session
-        room_id: ID комнаты
-        user_id: ID пользователя
-        payload: MessageCreate (body, nonce, enforce_nonce)
-        redis: Redis client для deduplication
-        attachments_data: Список вложений из /attachments/upload
-            [{"filename": "...", "file_path": "...", "file_size": ..., "mime_type": "..."}]
-    
-    Returns:
-        Message с загруженными attachments
-    """
+    """Create one plain-text message and deduplicate retries by nonce."""
 
-    # Получаем Redis клиент если не передан
-    if redis is None:
-        redis = get_redis_client()
-
-    # Helper для создания сообщения с вложениями
-    async def _create_message_with_attachments() -> Message:
-        if payload.reply_to_id is not None:
-            reply_stmt = select(Message).where(
-                Message.id == payload.reply_to_id,
-                Message.room_id == room_id,
-            )
-            reply_message = (await db.execute(reply_stmt)).scalar_one_or_none()
-            if not reply_message:
-                raise HTTPException(status_code=400, detail="reply target not found")
-            if reply_message.deleted_at is not None:
-                raise HTTPException(status_code=400, detail="reply target was deleted")
-
-        msg = Message(
+    async def create_message() -> Message:
+        message = Message(
             room_id=room_id,
             user_id=user_id,
             body=payload.body,
             nonce=payload.nonce,
-            reply_to_id=payload.reply_to_id,
         )
-        db.add(msg)
-        await db.flush()  # Получаем msg.id
-        
-        # Создаём вложения если есть
-        if attachments_data:
-            for att_data in attachments_data:
-                attachment = Attachment(
-                    message_id=msg.id,
-                    filename=att_data["filename"],
-                    file_path=att_data["file_path"],
-                    file_size=att_data["file_size"],
-                    mime_type=att_data.get("mime_type"),
-                )
-                db.add(attachment)
-        
+        db.add(message)
         await db.commit()
-        
-        # Загружаем сообщение с вложениями
-        stmt = (
-            select(Message)
-            .where(Message.id == msg.id)
-            .options(selectinload(Message.attachments), selectinload(Message.reactions), joinedload(Message.reply_to).joinedload(Message.user))
+        await db.refresh(message)
+        return message
+
+    async def find_existing() -> Message | None:
+        result = await db.execute(
+            select(Message).where(
+                Message.user_id == user_id,
+                Message.nonce == payload.nonce,
+            )
         )
-        result = await db.execute(stmt)
-        return result.scalar_one()
+        return result.scalar_one_or_none()
 
-    # No nonce - no deduplication
     if payload.nonce is None:
-        return await _create_message_with_attachments()
+        return await create_message()
 
-    # With nonce — check deduplication
-    key = _nonce_key(user_id, payload.nonce)
-
-    # === CASE 1: Redis unavailable - fallback to DB-only deduplication ===
-    if redis is None:
-        # Проверка дубликата в БД
-        stmt = select(Message).where(
-            Message.user_id == user_id,
-            Message.nonce == payload.nonce
-        ).options(selectinload(Message.attachments), selectinload(Message.reactions), joinedload(Message.reply_to).joinedload(Message.user))
-        
-        result = await db.execute(stmt)
-        existing = result.scalar_one_or_none()
-
+    redis_client = redis if redis is not None else get_redis_client()
+    if redis_client is None:
+        existing = await find_existing()
         if existing:
             if payload.enforce_nonce:
                 raise HTTPException(status_code=409, detail="nonce conflict")
             return existing
+        return await create_message()
 
-        # Создание нового сообщения с вложениями
-        return await _create_message_with_attachments()
-
-    # === CASE 2: Redis available - full deduplication ===
-    if redis is None:
-        redis = get_redis_client()
-    
+    key = _nonce_key(user_id, payload.nonce)
     try:
-        # Trying to atomically capture nonce
-        acquired = await redis.set(key, PENDING, nx=True, ex=NONCE_TTL_SECONDS)
-
+        acquired = await redis_client.set(
+            key,
+            PENDING,
+            nx=True,
+            ex=NONCE_TTL_SECONDS,
+        )
         if not acquired:
-            val = await redis.get(key)
-
-            if val and val != PENDING:
-                # Message already created (msg_id in Redis)
+            value = await redis_client.get(key)
+            if value and value != PENDING:
                 try:
-                    msg_id = int(val)
-                    
-                    # Загружаем существующее сообщение с attachments
-                    stmt = (
-                        select(Message)
-                        .where(Message.id == msg_id)
-                        .options(selectinload(Message.attachments), selectinload(Message.reactions), joinedload(Message.reply_to).joinedload(Message.user))
+                    result = await db.execute(
+                        select(Message).where(Message.id == int(value))
                     )
-                    result = await db.execute(stmt)
                     existing = result.scalar_one_or_none()
-
-                    if existing:
-                        if payload.enforce_nonce:
-                            # Strict mode: Duplicate = Error 409
-                            raise HTTPException(status_code=409, detail="nonce conflict")
-                        else:
-                            return existing
-                except (ValueError, TypeError):
-                    pass
-
+                except (TypeError, ValueError):
+                    existing = None
+                if existing and not payload.enforce_nonce:
+                    return existing
             if payload.enforce_nonce:
                 raise HTTPException(status_code=409, detail="nonce conflict")
 
-            # Soft mode: couldn't find it, we'll create a new one (the risk of a duplicate is minimal)
-
-        # Create a new message with attachments
         try:
-            msg = await _create_message_with_attachments()
+            message = await create_message()
         except Exception:
-            await redis.delete(key)
+            await redis_client.delete(key)
             raise
 
-        # Publish msg_id to Redis (for future duplicates)
-        # XX checks that the key exists (protects against TTL expiration)
-        ok = await redis.set(key, str(msg.id), xx=True, ex=NONCE_TTL_SECONDS)
-        if not ok:
-            # TTL expired - delete key for cleanup
-            await redis.delete(key)
-
-        return msg
-
-    except Exception as e:
-        # Если Redis упал - fallback на DB-only логику
-        if "Redis" in str(type(e).__name__):
-            print(f"⚠️ Redis unavailable, falling back to DB-only: {e}")
-            # Recursive call без Redis
-            return await create_message_with_nonce(
-                db, room_id, user_id, payload, 
-                redis=None, 
-                attachments_data=attachments_data  # ← Передаём attachments
-            )
+        stored = await redis_client.set(
+            key,
+            str(message.id),
+            xx=True,
+            ex=NONCE_TTL_SECONDS,
+        )
+        if not stored:
+            await redis_client.delete(key)
+        return message
+    except HTTPException:
         raise
-
-
-# Compatibility alias (для старого кода)
-create_message_with_attachments = create_message_with_nonce
+    except Exception:
+        existing = await find_existing()
+        if existing:
+            if payload.enforce_nonce:
+                raise HTTPException(status_code=409, detail="nonce conflict")
+            return existing
+        return await create_message()
