@@ -33,7 +33,7 @@ jobs:
         run: python -m pytest -q
 
   desktop:
-    runs-on: windows-latest
+    runs-on: windows-2022
     defaults:
       run:
         working-directory: desktop
