@@ -20,6 +20,9 @@ def test_radmin_launcher_prepares_complete_local_stack():
 
     required_fragments = (
         "Get-RadminIPv4",
+        "Test-NativeCommand",
+        "PauseOnError",
+        "launcher-error.log",
         '"up", "-d"',
         "-m alembic upgrade head",
         "Ensure-Certificate",
@@ -28,6 +31,9 @@ def test_radmin_launcher_prepares_complete_local_stack():
         "Ensure-Invite",
         "BOROTALK_SHARE",
         "Borotalk-cert.crt",
+        "Borotalk-connect.borotalk",
+        "certificate_sha256",
+        "schema_version = 1",
         "run_https.py",
         "0.0.0.0",
         "server.pid",
@@ -40,6 +46,9 @@ def test_radmin_launcher_prepares_complete_local_stack():
 
     friend_bundle = launcher[launcher.index("function Write-FriendBundle"):launcher.index("function Start-BorotalkServer")]
     assert "cert.crt" in friend_bundle
+    assert "certificate.RawData" in friend_bundle
+    assert "SHA256" in friend_bundle
+    assert "$Url.TrimEnd" in friend_bundle
     assert "voice.pfx" not in friend_bundle
     assert "key.pem" not in friend_bundle
 

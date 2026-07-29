@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/nova-app.css?v=22">
+    <link rel="stylesheet" href="/styles/nova-app.css?v=24">
     <script src="/app-config.js"></script>
 </head>
 <body>
@@ -313,6 +313,26 @@
                 <h3>Звуки</h3>
                 <label class="switch-row"><span>Звуки подключения</span><input id="soundToggle" type="checkbox" checked></label>
             </section>
+            <section class="settings-section desktop-settings" id="desktopSettingsSection" hidden>
+                <div class="desktop-settings-heading">
+                    <div>
+                        <h3>Borotalk Desktop</h3>
+                        <p class="settings-note">Версия <span id="desktopVersion">—</span></p>
+                    </div>
+                    <button class="soft-button compact-button" id="desktopChangeHostButton" type="button">Сменить хост</button>
+                </div>
+                <label class="switch-row"><span>Запускать вместе с Windows</span><input id="desktopAutoStartToggle" type="checkbox"></label>
+                <label class="switch-row"><span>Сворачивать в трей при закрытии</span><input id="desktopCloseToTrayToggle" type="checkbox"></label>
+                <label class="switch-row"><span>Нативные уведомления</span><input id="desktopNotificationsToggle" type="checkbox" checked></label>
+                <label class="switch-row"><span>Глобальный push-to-talk</span><input id="desktopPttToggle" type="checkbox"></label>
+                <div class="desktop-ptt-binding" id="desktopPttBinding" hidden>
+                    <div>
+                        <strong>Клавиша разговора</strong>
+                        <small id="desktopPttStatus">Микрофон включён только пока клавиша зажата.</small>
+                    </div>
+                    <button class="soft-button compact-button" id="desktopPttBindingButton" type="button">V</button>
+                </div>
+            </section>
             <button class="soft-button logout-button" id="logoutButton" type="button">Выйти из аккаунта</button>
         </form>
     </dialog>
@@ -327,6 +347,45 @@
         </form>
     </dialog>
 
+    <dialog class="nova-dialog desktop-capture-dialog" id="desktopCaptureDialog">
+        <div class="desktop-capture-shell">
+            <header class="desktop-capture-header">
+                <div>
+                    <span class="eyebrow">Демонстрация экрана</span>
+                    <h2>Что показать участникам?</h2>
+                    <p>Выберите весь экран или отдельное приложение.</p>
+                </div>
+                <button class="icon-button" id="desktopCaptureCloseButton" type="button" aria-label="Отмена">
+                    <span class="ui-icon icon-close" aria-hidden="true"></span>
+                </button>
+            </header>
+
+            <div class="desktop-capture-tabs" role="tablist" aria-label="Тип источника">
+                <button class="desktop-capture-tab active" id="desktopCaptureScreenTab" type="button" role="tab" aria-selected="true" data-capture-tab="screen">Экраны</button>
+                <button class="desktop-capture-tab" id="desktopCaptureApplicationTab" type="button" role="tab" aria-selected="false" data-capture-tab="application">Приложения</button>
+            </div>
+
+            <div class="desktop-capture-source-scroll">
+                <div class="desktop-capture-grid" id="desktopCaptureGrid" role="group" aria-label="Доступные источники"></div>
+                <p class="desktop-capture-empty" id="desktopCaptureEmpty" hidden>В этой вкладке пока нет доступных источников.</p>
+            </div>
+
+            <footer class="desktop-capture-footer">
+                <label class="desktop-capture-audio">
+                    <input id="desktopCaptureAudioToggle" type="checkbox" checked>
+                    <span>
+                        <strong>Передавать системный звук</strong>
+                        <small>Звук компьютера будет слышен участникам.</small>
+                    </span>
+                </label>
+                <div class="desktop-capture-actions">
+                    <button class="soft-button" id="desktopCaptureCancelButton" type="button">Отмена</button>
+                    <button class="primary-button" id="desktopCaptureConfirmButton" type="button" disabled>Показать</button>
+                </div>
+            </footer>
+        </div>
+    </dialog>
+
     <div class="toast-region" id="toastRegion" aria-live="polite"></div>
     <div class="participant-volume-popover" id="participantVolumePopover" role="dialog" aria-label="Громкость участника" hidden>
         <strong id="participantVolumeName">Участник</strong>
@@ -339,6 +398,7 @@
     </div>
     <div id="remoteAudio" hidden></div>
 
-    <script type="module" src="/js/nova-main.js?v=22"></script>
+    <script src="/js/desktop-bridge.js?v=2"></script>
+    <script type="module" src="/js/nova-main.js?v=24"></script>
 </body>
 </html>

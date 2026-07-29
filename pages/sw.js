@@ -1,4 +1,4 @@
-const CACHE = "borotalk-nova-v22";
+const CACHE = "borotalk-nova-v24";
 const APP_SHELL = [
     "/",
     "/index.html",
@@ -7,12 +7,13 @@ const APP_SHELL = [
     "/register.html",
     "/manifest.json",
     "/styles/landing.css?v=6",
-    "/styles/nova-app.css?v=22",
+    "/styles/nova-app.css?v=24",
     "/styles/nova-auth.css?v=7",
     "/js/landing.js?v=4",
     "/js/demo-login.js?v=1",
-    "/js/nova-main.js?v=22",
-    "/js/nova-auth.js?v=5",
+    "/js/desktop-bridge.js?v=2",
+    "/js/nova-main.js?v=24",
+    "/js/nova-auth.js?v=6",
     "/favicon.ico?v=3",
     "/icons/borotalk-64.png?v=2",
     "/icons/borotalk-192.png?v=2",

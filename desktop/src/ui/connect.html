@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Подключение — Borotalk Desktop</title>
+    <link rel="stylesheet" href="connect.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="intro" aria-labelledby="pageTitle">
+        <div class="brand" aria-label="Borotalk">
+          <span class="brand-mark" aria-hidden="true">B</span>
+          <span>Borotalk</span>
+        </div>
+        <p class="eyebrow">Desktop для Windows</p>
+        <h1 id="pageTitle">Зашёл.<br>Услышал своих.</h1>
+        <p class="lead">
+          Выберите файл, который прислал владелец комнаты. Голос, чат и трансляции
+          останутся на его Borotalk-хосте.
+        </p>
+        <div class="privacy-note">
+          <span aria-hidden="true">✓</span>
+          <p>Desktop доверяет только адресу и сертификату из файла подключения.</p>
+        </div>
+      </section>
+
+      <section class="connect-card" aria-labelledby="connectTitle">
+        <div>
+          <p class="eyebrow">Подключение к хосту</p>
+          <h2 id="connectTitle">Откройте инвайт</h2>
+          <p class="muted">Файл имеет расширение <strong>.borotalk</strong>.</p>
+        </div>
+
+        <button class="drop-zone" id="inviteButton" type="button">
+          <span class="drop-icon" aria-hidden="true">↓</span>
+          <span class="drop-copy">
+            <strong>Выбрать Borotalk-connect.borotalk</strong>
+            <small>или перетащить файл сюда</small>
+          </span>
+        </button>
+
+        <div class="saved-host" id="savedHost" hidden>
+          <div>
+            <span class="status-dot" aria-hidden="true"></span>
+            <div>
+              <strong>Сохранённый хост</strong>
+              <small id="savedHostUrl"></small>
+            </div>
+          </div>
+          <button class="secondary-button" id="savedHostButton" type="button">Подключиться</button>
+        </div>
+
+        <div class="separator"><span>или вручную</span></div>
+
+        <form id="manualForm">
+          <label for="hostUrl">HTTPS-адрес хоста</label>
+          <div class="url-row">
+            <input
+              id="hostUrl"
+              name="hostUrl"
+              type="url"
+              inputmode="url"
+              autocomplete="url"
+              placeholder="https://26.100.20.30:8443"
+              spellcheck="false"
+              required
+            >
+            <button class="primary-button" type="submit">Войти</button>
+          </div>
+          <p class="field-help">
+            При первом входе Desktop покажет fingerprint сертификата. Сверьте его с владельцем хоста.
+          </p>
+        </form>
+
+        <div class="status" id="status" role="status" aria-live="polite" hidden></div>
+      </section>
+    </main>
+    <script src="connect.js"></script>
+  </body>
+</html>

@@ -5,7 +5,8 @@
     [switch]$Stop,
     [switch]$CheckOnly,
     [switch]$NoBrowser,
-    [switch]$NoElevate
+    [switch]$NoElevate,
+    [switch]$PauseOnError
 )
 
 Set-StrictMode -Version Latest
@@ -25,6 +26,7 @@ $VenvPython = Join-Path $VenvDir "Scripts\python.exe"
 $DependencyMarker = Join-Path $VenvDir ".borotalk-requirements"
 $CertificateHostFile = Join-Path $StateDir "certificate-host.txt"
 $InviteFile = Join-Path $StateDir "invite.txt"
+$LauncherErrorFile = Join-Path $StateDir "launcher-error.log"
 $FirewallRuleName = "BorotalkRadminHTTPS"
 
 function Write-Stage {
@@ -54,7 +56,8 @@ function Start-ElevatedCopy {
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-File", "`"$PSCommandPath`"",
-        "-Port", $Port
+        "-Port", $Port,
+        "-PauseOnError"
     )
     if ($RadminIp) {
         $arguments += @("-RadminIp", $RadminIp)
@@ -71,6 +74,24 @@ function Start-ElevatedCopy {
         -Verb RunAs `
         -WorkingDirectory $ProjectRoot `
         -ArgumentList ($arguments -join " ")
+}
+
+function Test-NativeCommand {
+    param(
+        [string]$Executable,
+        [string[]]$CommandArguments = @()
+    )
+    # Windows PowerShell 5 turns native stderr into a terminating
+    # NativeCommandError when ErrorActionPreference is Stop. Probes are
+    # expected to fail while Docker Desktop is still starting.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & $Executable @CommandArguments *> $null
+        return $LASTEXITCODE -eq 0
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
 }
 
 function Get-RadminIPv4 {
@@ -213,8 +234,7 @@ function Stop-ManagedServer {
 
 function Resolve-Compose {
     if (Get-Command docker -ErrorAction SilentlyContinue) {
-        & docker compose version *> $null
-        if ($LASTEXITCODE -eq 0) {
+        if (Test-NativeCommand "docker" @("compose", "version")) {
             return @{
                 Exe = "docker"
                 Prefix = @("compose")
@@ -248,8 +268,7 @@ function Wait-ForDocker {
     param([int]$Seconds = 120)
     $deadline = (Get-Date).AddSeconds($Seconds)
     while ((Get-Date) -lt $deadline) {
-        & docker info *> $null
-        if ($LASTEXITCODE -eq 0) {
+        if (Test-NativeCommand "docker" @("info")) {
             return $true
         }
         Start-Sleep -Seconds 2
@@ -259,9 +278,11 @@ function Wait-ForDocker {
 
 function Start-DockerDesktopIfAvailable {
     $candidates = @(
-        (Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe"),
-        (Join-Path ${env:ProgramFiles(x86)} "Docker\Docker\Docker Desktop.exe")
-    ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+        @(
+            (Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe"),
+            (Join-Path ${env:ProgramFiles(x86)} "Docker\Docker\Docker Desktop.exe")
+        ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+    )
     if ($candidates.Count -gt 0) {
         Start-Process -FilePath $candidates[0] -WindowStyle Hidden
         return $true
@@ -446,10 +467,43 @@ function Write-FriendBundle {
         -Destination (Join-Path $ShareDir "Borotalk-cert.crt") `
         -Force
 
+    $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+        (Join-Path $ProjectRoot "ssl\cert.crt")
+    )
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $fingerprintBytes = $sha256.ComputeHash($certificate.RawData)
+        $certificateFingerprint = (
+            [System.BitConverter]::ToString($fingerprintBytes)
+        ).Replace("-", "")
+    } finally {
+        $sha256.Dispose()
+        $certificate.Dispose()
+    }
+
+    $desktopConnection = [ordered]@{
+        schema_version = 1
+        base_url = $Url.TrimEnd("/")
+        invite_code = $Invite
+        certificate_sha256 = $certificateFingerprint
+    }
+    $desktopConnection |
+        ConvertTo-Json |
+        Set-Content `
+            -LiteralPath (Join-Path $ShareDir "Borotalk-connect.borotalk") `
+            -Encoding UTF8
+
     $instructions = @"
 BOROTALK — КАК ЗАЙТИ
 ====================
 
+BOROTALK DESKTOP (рекомендуется)
+1. Установите Radmin VPN и войдите в сеть хоста.
+2. Установите Borotalk Desktop.
+3. Откройте в нём файл Borotalk-connect.borotalk.
+4. Войдите или зарегистрируйте отдельный аккаунт. Инвайт уже заполнен.
+
+БРАУЗЕР (старый способ)
 1. Установите Radmin VPN и войдите в сеть хоста.
 2. Откройте Borotalk-cert.crt.
 3. Установите сертификат для «Локального компьютера» в хранилище
@@ -583,6 +637,7 @@ try {
     }
 
     New-Item -ItemType Directory -Path $StateDir -Force *> $null
+    Remove-Item -LiteralPath $LauncherErrorFile -Force -ErrorAction SilentlyContinue
 
     if ($Stop) {
         Write-Stage "Остановка"
@@ -639,8 +694,7 @@ try {
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         throw "Docker не найден. Установите Docker Desktop и повторите запуск."
     }
-    & docker info *> $null
-    if ($LASTEXITCODE -ne 0) {
+    if (-not (Test-NativeCommand "docker" @("info"))) {
         Write-Host "  Запускаю Docker Desktop..."
         if (-not (Start-DockerDesktopIfAvailable)) {
             throw "Docker Desktop не запущен и не найден в стандартной папке."
@@ -707,9 +761,28 @@ try {
     Read-Host "Нажмите Enter, чтобы закрыть окно запуска (сервер продолжит работать)"
     exit 0
 } catch {
+    $errorMessage = $_.Exception.Message
+    $errorLog = $LauncherErrorFile
+    try {
+        New-Item -ItemType Directory -Path $StateDir -Force *> $null
+        @(
+            "Time: $([DateTime]::Now.ToString('s'))"
+            "Error: $errorMessage"
+            "Stack: $($_.ScriptStackTrace)"
+        ) | Set-Content -LiteralPath $errorLog -Encoding UTF8
+    } catch {
+        $errorLog = ""
+    }
     Write-Host ""
-    Write-Host "ОШИБКА: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "ОШИБКА: $errorMessage" -ForegroundColor Red
+    if ($errorLog) {
+        Write-Host "Лог: $errorLog" -ForegroundColor DarkGray
+    }
     Write-Host ""
     Write-Host "Исправьте указанную проблему и снова запустите START_BOROTALK.bat." -ForegroundColor Yellow
+    if ($PauseOnError) {
+        Write-Host ""
+        Read-Host "Нажмите Enter, чтобы закрыть окно"
+    }
     exit 1
 }
