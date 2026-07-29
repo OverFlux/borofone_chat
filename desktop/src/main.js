@@ -464,16 +464,34 @@ function configurePermissions(clientSession) {
 }
 
 function finishCapture(streams) {
-  if (!captureRequest || captureRequest.completed) return;
-  captureRequest.completed = true;
-  captureRequest.callback(streams);
+  const pending = captureRequest;
+  if (!pending || pending.completed) return false;
+
+  // Electron may synchronously throw when an empty stream cancels
+  // getDisplayMedia. Release the slot first so the next request can open.
   captureRequest = null;
-  sendToRemote("desktop:capture-finished", {});
+  pending.completed = true;
+  let callbackError = null;
+  try {
+    pending.callback(streams);
+  } catch (error) {
+    callbackError = error;
+    writeDesktopLog(`Display capture callback ended: ${error?.message || error}`);
+  } finally {
+    sendToRemote("desktop:capture-finished", {});
+  }
+
+  if (callbackError && streams?.video) throw callbackError;
+  return callbackError === null;
 }
 
 async function openCapturePicker(request, callback) {
   if (captureRequest) {
-    callback({});
+    try {
+      callback({});
+    } catch (error) {
+      writeDesktopLog(`Rejected overlapping display capture request: ${error?.message || error}`);
+    }
     return;
   }
   const requestOrigin = originFromUrl(
