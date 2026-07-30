@@ -35,10 +35,10 @@ async def ice_config(current_user: User = Depends(get_current_user)):
     # coturn's REST API requires HMAC-SHA1 for temporary credentials. The
     # signed identity contains only an expiry and a random nonce: no user ID,
     # email, password, session token, or other sensitive application data.
-    username = f"{expires}:{secrets.token_urlsafe(12)}"
+    turn_nonce_label = f"{expires}:{secrets.token_urlsafe(12)}"
     digest = hmac.new(
         settings.turn_shared_secret.encode("utf-8"),
-        username.encode("utf-8"),
+        turn_nonce_label.encode("utf-8"),
         hashlib.sha1,
     ).digest()
     credential = base64.b64encode(digest).decode("ascii")
@@ -52,7 +52,7 @@ async def ice_config(current_user: User = Depends(get_current_user)):
                     f"turn:{host}:{settings.turn_port}?transport=tcp",
                     f"turns:{host}:{settings.turn_tls_port}?transport=tcp",
                 ],
-                "username": username,
+                "username": turn_nonce_label,
                 "credential": credential,
             },
         ],
