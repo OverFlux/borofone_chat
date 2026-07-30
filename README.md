@@ -7,14 +7,15 @@ Voice-first приложение для небольших комнат до в�
 ## Что входит
 
 - серверы с текстовыми и голосовыми каналами;
-- поиск серверов и пользователей по ID;
-- P2P-голос и демонстрация экрана через WebRTC;
+- приватные серверы, публичные непрогнозируемые ID, инвайты и заявки;
+- P2P-голос и демонстрация экрана через WebRTC с TURN fallback;
 - realtime-чат каналов и личных диалогов;
 - светлая и тёмная Nova-темы;
 - встроенные эмодзи и набор аватаров;
 - Windows Desktop с `.borotalk`-инвайтом, certificate pinning, треем,
   системными уведомлениями и push-to-talk;
 - одно-кнопочный Windows-хост через Radmin VPN.
+- VPS-режим с доменом, email-подтверждением и одобрением через Telegram.
 
 В проекте нет MongoDB, вложений, игр, GIF/sticker-каталогов и старого интерфейса.
 
@@ -33,6 +34,61 @@ Voice-first приложение для небольших комнат до в�
 - `/main.html` — приложение.
 
 Для полной остановки используйте `STOP_BOROTALK.bat`.
+
+## VPS с собственным доменом
+
+Подробная инструкция для установки с нуля:
+[docs/VPS_INSTALL_RU.md](docs/VPS_INSTALL_RU.md).
+
+Для Ubuntu/Debian с публичным IPv4 сначала направьте A-записи основного домена
+и `turn.<домен>` на VPS, затем выполните:
+
+```bash
+sudo bash INSTALL_VPS.sh
+```
+
+Интерактивный установщик спросит домен, email владельца, реквизиты внешнего
+SMTP и Telegram-бота, после чего выполнит остальную установку. Проверить или
+обновить уже установленный сервер можно тем же файлом:
+
+```bash
+sudo bash /opt/borotalk/INSTALL_VPS.sh --check
+sudo bash /opt/borotalk/INSTALL_VPS.sh --update
+```
+
+Ручной вариант остаётся доступен:
+
+```bash
+sudo bash deploy/scripts/prepare-vps.sh talk.example.com owner@example.com
+```
+
+### Локальная симуляция VPS на Windows
+
+Запустите `TEST_VPS_LOCAL.bat`. Он поднимет изолированные PostgreSQL, Redis,
+API, outbox worker и Mailpit, затем откроет:
+
+- `http://127.0.0.1:8080` — локальный Borotalk;
+- `http://127.0.0.1:8025` — почтовый ящик для подтверждений и reset-ссылок.
+
+Первый администратор регистрируется с `owner@example.com` без инвайта.
+Остановка — `STOP_VPS_LOCAL.bat`; база сохраняется и не пересекается с обычным
+Radmin-запуском. `RESET_VPS_LOCAL.bat` удаляет только данные локального стенда
+после явного ввода `RESET`.
+
+Скрипт подготавливает Docker, Nginx, Certbot, firewall, TLS и `.env`. Перед
+первым deploy заполните в `.env` внешний SMTP, Telegram bot token/username и
+`BOOTSTRAP_ADMIN_EMAIL`, затем:
+
+```bash
+bash deploy/scripts/deploy-stack.sh production
+```
+
+Первый аккаунт с `BOOTSTRAP_ADMIN_EMAIL` становится администратором только
+после подтверждения email. После входа Telegram привязывается в настройках
+одноразовой ссылкой. Для внешней копии backup укажите `BACKUP_RCLONE_REMOTE`.
+Подготовка VPS также включает systemd timers: health-check каждые пять минут,
+ежедневный backup и еженедельную пробную загрузку последней копии в
+изолированную временную PostgreSQL.
 
 ### Radmin одновременно с AmneziaVPN
 
@@ -86,7 +142,8 @@ npm run make
 - FastAPI — REST, WebSocket и раздача web-интерфейса;
 - PostgreSQL — пользователи, серверы, каналы и сообщения;
 - Redis — realtime pub/sub, presence, rate limits и nonce-дедупликация;
-- WebRTC — P2P voice и screen share;
+- PostgreSQL outbox worker — надёжная доставка SMTP и Telegram;
+- WebRTC — P2P voice и screen share, coturn — резерв для сложного NAT;
 - Electron — Windows Desktop, системный звук, PTT и интеграция с ОС.
 
 WebSocket подключается как `/ws?server_id=<id>` и изолирует события выбранным

@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY pages ./pages
+COPY favicon.ico ./favicon.ico
 COPY alembic ./alembic
 COPY alembic.ini .
 

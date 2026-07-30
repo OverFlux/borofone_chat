@@ -1,4 +1,5 @@
-const INVITE_SCHEMA_VERSION = 1;
+const INVITE_SCHEMA_VERSION = 2;
+const LEGACY_INVITE_SCHEMA_VERSION = 1;
 const INVITE_CODE_PATTERN = /^boro-[a-f0-9]{16}$/i;
 
 function normalizeFingerprint(value) {
@@ -35,18 +36,39 @@ function parseInviteDocument(source) {
   } catch {
     throw new Error("Файл подключения повреждён или имеет неверный формат.");
   }
-  if (!payload || Number(payload.schema_version) !== INVITE_SCHEMA_VERSION) {
+  const version = Number(payload?.schema_version);
+  if (![LEGACY_INVITE_SCHEMA_VERSION, INVITE_SCHEMA_VERSION].includes(version)) {
     throw new Error("Версия файла подключения не поддерживается.");
   }
   const inviteCode = String(payload.invite_code || "").trim();
-  if (!INVITE_CODE_PATTERN.test(inviteCode)) {
+  if (inviteCode && !INVITE_CODE_PATTERN.test(inviteCode)) {
     throw new Error("В файле подключения указан некорректный инвайт-код.");
+  }
+  if (version === LEGACY_INVITE_SCHEMA_VERSION) {
+    if (!inviteCode) {
+      throw new Error("В файле подключения отсутствует инвайт-код.");
+    }
+    return {
+      schemaVersion: LEGACY_INVITE_SCHEMA_VERSION,
+      baseUrl: normalizeBaseUrl(payload.base_url),
+      inviteCode,
+      certificatePolicy: "pinned",
+      certificateFingerprint: normalizeFingerprint(payload.certificate_sha256),
+      trustedManually: false,
+    };
+  }
+  const certificatePolicy = String(payload.certificate_policy || "system").trim().toLowerCase();
+  if (!["system", "pinned"].includes(certificatePolicy)) {
+    throw new Error("Политика сертификата в файле подключения не поддерживается.");
   }
   return {
     schemaVersion: INVITE_SCHEMA_VERSION,
     baseUrl: normalizeBaseUrl(payload.base_url),
     inviteCode,
-    certificateFingerprint: normalizeFingerprint(payload.certificate_sha256),
+    certificatePolicy,
+    certificateFingerprint: certificatePolicy === "pinned"
+      ? normalizeFingerprint(payload.certificate_sha256)
+      : "",
     trustedManually: false,
   };
 }
@@ -65,6 +87,7 @@ function connectionForManualUrl(value) {
     schemaVersion: INVITE_SCHEMA_VERSION,
     baseUrl: normalizeBaseUrl(value),
     inviteCode: "",
+    certificatePolicy: "manual",
     certificateFingerprint: "",
     trustedManually: false,
   };
@@ -72,6 +95,7 @@ function connectionForManualUrl(value) {
 
 module.exports = {
   INVITE_SCHEMA_VERSION,
+  LEGACY_INVITE_SCHEMA_VERSION,
   connectionForManualUrl,
   fingerprintsEqual,
   normalizeBaseUrl,

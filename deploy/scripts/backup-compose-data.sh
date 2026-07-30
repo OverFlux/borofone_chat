@@ -48,6 +48,7 @@ target_dir="${backup_root}/${timestamp}"
 mkdir -p "${target_dir}"
 
 resolve_compose_cmd
+cd "${repo_root}"
 compose_cmd=("${COMPOSE_BIN[@]}" -p "${compose_project}" -f "${compose_file}")
 host_uploads_dir="${HOST_DATA_ROOT%/}/uploads"
 
@@ -83,7 +84,20 @@ elif docker volume inspect "${uploads_volume}" >/dev/null 2>&1; then
     sh -lc 'cd /source && tar -czf /backup/uploads.tar.gz .'
 fi
 
-cp "${repo_root}/.env" "${target_dir}/.env"
+{
+  echo "environment=${env_name}"
+  echo "created_at=$(date -Is)"
+  echo "database=${db_name}"
+} > "${target_dir}/manifest.txt"
 
 find "${backup_root}" -mindepth 1 -maxdepth 1 -type d | sort | head -n -10 | xargs -r rm -rf
+if [ -n "${BACKUP_RCLONE_REMOTE:-}" ]; then
+  if ! command -v rclone >/dev/null 2>&1; then
+    echo "BACKUP_RCLONE_REMOTE is configured but rclone is not installed" >&2
+    exit 1
+  fi
+  rclone copy "${target_dir}" "${BACKUP_RCLONE_REMOTE%/}/${env_name}/${timestamp}"
+else
+  echo "[backup] warning: BACKUP_RCLONE_REMOTE is empty; backup remains on this VPS" >&2
+fi
 echo "[backup] ${env_name} saved to ${target_dir}"

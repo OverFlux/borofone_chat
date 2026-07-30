@@ -41,9 +41,8 @@ test("uses one connection fallback path with an explicit host timeout", () => {
   assert.match(mainSource, /let connectScreenPromise = null/);
   assert.match(mainSource, /Promise\.race\(\[window\.loadURL\(target\), timeout\]\)/);
   assert.match(mainSource, /Хост не ответил за 12 секунд/);
-  assert.match(mainSource, /FIX_RADMIN_ROUTE\.bat/);
-  assert.match(mainSource, /26\.0\.0\.0\/8/);
-  assert.match(mainSource, /KillSwitch/);
+  assert.match(mainSource, /Проверьте интернет-соединение/);
+  assert.match(mainSource, /OFFICIAL_HOST/);
   assert.match(mainSource, /writeDesktopLog\(`Host navigation failed/);
 });
 

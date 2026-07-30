@@ -43,10 +43,34 @@ class Settings(BaseSettings):
     emoji_subdir: str = 'emoji'
     avatars_subdir: str = 'avatars'
 
-    access_token_expire_days: int = 30
+    access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
     cookie_secure: bool = False
     cookie_samesite: str = 'lax'
+
+    official_desktop_host: str = ''
+
+    smtp_host: str = ''
+    smtp_port: int = 587
+    smtp_username: str = ''
+    smtp_password: str = ''
+    smtp_from_email: str = ''
+    smtp_from_name: str = 'Borotalk'
+    smtp_starttls: bool = True
+
+    telegram_bot_token: str = ''
+    telegram_bot_username: str = ''
+    telegram_webhook_secret: str = ''
+
+    turn_host: str = ''
+    turn_port: int = 3478
+    turn_tls_port: int = 5349
+    turn_shared_secret: str = ''
+    turn_credential_ttl_seconds: int = 3600
+
+    server_owner_limit: int = 5
+    bootstrap_admin_email: str = ''
+    registration_retention_days: int = 90
 
     max_avatar_bytes: int = 3 * 1024 * 1024
 
@@ -132,9 +156,10 @@ class Settings(BaseSettings):
     @property
     def allowed_origins_list(self) -> list[str]:
         origins: list[str] = []
-        for value in self._split_csv(self.local_dev_origins):
-            if value not in origins:
-                origins.append(value)
+        if self.app_env.lower() in {'development', 'dev', 'local', 'test'}:
+            for value in self._split_csv(self.local_dev_origins):
+                if value not in origins:
+                    origins.append(value)
         for value in self._split_csv(self.allowed_origins):
             if value not in origins:
                 origins.append(value)

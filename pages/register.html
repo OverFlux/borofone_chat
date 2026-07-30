@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/nova-auth.css?v=7">
+    <link rel="stylesheet" href="/styles/nova-auth.css?v=9">
     <script src="/app-config.js"></script>
 </head>
 <body data-auth-mode="register">
@@ -35,21 +35,23 @@
                 <div class="mobile-brand"><span>B</span>Borotalk</div>
                 <span class="eyebrow">новый профиль</span>
                 <h2>Создать аккаунт</h2>
-                <p class="form-lead">Только необходимое для входа и общения.</p>
+                <p class="form-lead">Подтвердите email. Инвайт пропустит ручное одобрение, без него заявка уйдёт владельцу.</p>
                 <div class="field-pair">
                     <label><span>Email</span><input id="email" name="email" type="email" autocomplete="username" required placeholder="you@example.com"></label>
                     <label><span>Никнейм</span><input id="username" name="profile_nickname" type="text" autocomplete="off" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_]+" placeholder="your_name"></label>
                 </div>
                 <label><span>Отображаемое имя</span><input id="displayName" maxlength="50" required autocomplete="name" placeholder="Как вас называть"></label>
                 <label><span>Пароль</span><input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Минимум 8 символов"></label>
-                <label><span>Инвайт-код</span><input id="inviteCode" required autocomplete="off" placeholder="Код приглашения"></label>
+                <label><span>Инвайт-код <small>(необязательно)</small></span><input id="inviteCode" autocomplete="off" placeholder="Есть приглашение? Вставьте код"></label>
+                <label class="honeypot" aria-hidden="true"><span>Website</span><input id="website" tabindex="-1" autocomplete="off"></label>
                 <p class="form-error" id="errorText" aria-live="polite"></p>
-                <button class="primary-button" type="submit">Создать аккаунт</button>
+                <p class="form-success" id="successText" aria-live="polite"></p>
+                <button class="primary-button" type="submit">Продолжить по email</button>
                 <p class="auth-link">Уже зарегистрированы? <a href="/login.html">Войти</a></p>
             </form>
         </section>
     </main>
     <script src="/js/desktop-bridge.js?v=3"></script>
-    <script type="module" src="/js/nova-auth.js?v=7"></script>
+    <script type="module" src="/js/nova-auth.js?v=9"></script>
 </body>
 </html>

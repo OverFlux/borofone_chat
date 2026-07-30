@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/nova-app.css?v=28">
+    <link rel="stylesheet" href="/styles/nova-app.css?v=32">
     <script src="/app-config.js"></script>
 </head>
 <body>
@@ -107,7 +107,7 @@
                     <button class="mobile-button" id="openChannelsButton" type="button" aria-label="Открыть каналы"><span class="ui-icon icon-menu" aria-hidden="true"></span></button>
                     <span class="channel-symbol" aria-hidden="true"><span class="ui-icon icon-volume"></span></span>
                     <div>
-                        <span class="eyebrow">голосовая комната</span>
+                        <span class="eyebrow" id="stageKicker">голосовая комната</span>
                         <h2 id="voiceTitle">Выберите канал</h2>
                     </div>
                 </div>
@@ -121,7 +121,22 @@
                 </div>
             </header>
 
-            <section class="stage-content">
+            <section class="server-empty-state" id="serverEmptyState" hidden>
+                <div class="server-empty-visual" aria-hidden="true">
+                    <span>B</span>
+                    <i></i><i></i><i></i>
+                </div>
+                <span class="eyebrow">ваше пространство</span>
+                <h2>Похоже, у вас ещё нет серверов.<br>Найдём?</h2>
+                <p>Вступите по уникальному ID или создайте своё место для голосовых разговоров.</p>
+                <div class="server-empty-actions">
+                    <button class="primary-button" id="emptyFindServerButton" type="button">Найти сервер</button>
+                    <button class="soft-button" id="emptyCreateServerButton" type="button">Создать свой</button>
+                </div>
+                <button class="server-empty-profile" id="emptyProfileButton" type="button">Сначала настроить профиль</button>
+            </section>
+
+            <section class="stage-content" id="stageContent">
                 <div class="stage-intro" id="stageIntro">
                     <span class="voice-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
                     <span class="eyebrow">voice first</span>
@@ -161,7 +176,7 @@
                 </div>
             </section>
 
-            <footer class="voice-dock" aria-label="Управление голосом">
+            <footer class="voice-dock" id="voiceDock" aria-label="Управление голосом">
                 <div class="now-connected">
                     <i id="voiceStatusDot"></i>
                     <span><small>сейчас</small><strong id="voiceStatus" role="status" aria-live="polite">Не подключены</strong></span>
@@ -203,6 +218,60 @@
 
     <div class="scrim" id="scrim" hidden></div>
 
+    <dialog class="onboarding-dialog" id="onboardingDialog">
+        <div class="onboarding-shell">
+            <header class="onboarding-header">
+                <a class="onboarding-brand" href="/" aria-label="Borotalk"><span>B</span>Borotalk</a>
+                <button class="onboarding-skip" id="onboardingSkipButton" type="button">Пропустить знакомство</button>
+            </header>
+            <div class="onboarding-hero">
+                <span class="eyebrow">добро пожаловать</span>
+                <h2>Куда здесь нажимать?</h2>
+                <p>Серверы находятся слева, каналы — рядом, а чат всегда остаётся справа. Выберите, с чего хотите начать.</p>
+            </div>
+            <div class="onboarding-map" aria-label="Навигация Borotalk">
+                <span><i>1</i><strong>Серверы</strong><small>Ваши компании и комнаты</small></span>
+                <span><i>2</i><strong>Каналы</strong><small>Голос, текст и личка</small></span>
+                <span><i>3</i><strong>Разговор</strong><small>Голос и показ экрана</small></span>
+                <span><i>4</i><strong>Чат</strong><small>Сообщения всегда рядом</small></span>
+            </div>
+            <div class="onboarding-actions">
+                <button class="onboarding-action featured" type="button" data-onboarding-action="join">
+                    <span class="onboarding-action-icon">→</span>
+                    <span><strong>Вступить на сервер</strong><small>Введите ID вида srv_… или серверный инвайт</small></span>
+                </button>
+                <button class="onboarding-action" type="button" data-onboarding-action="create">
+                    <span class="onboarding-action-icon">+</span>
+                    <span><strong>Создать свой сервер</strong><small>Для друзей, команды или одной комнаты</small></span>
+                </button>
+                <button class="onboarding-action" type="button" data-onboarding-action="profile">
+                    <span class="onboarding-duck"><img src="/images/avatars/ducks/duck-neon.png" alt=""></span>
+                    <span><strong>Настроить профиль</strong><small>Имя, утка, тема и аудиоустройства</small></span>
+                </button>
+            </div>
+            <section class="onboarding-inline" id="onboardingJoinPanel" hidden>
+                <label class="field">
+                    <span>ID сервера или инвайт</span>
+                    <input id="onboardingServerId" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="srv_6d98702146c284dd">
+                </label>
+                <button class="primary-button" id="onboardingJoinButton" type="button">Продолжить</button>
+                <p id="onboardingJoinResult" aria-live="polite"></p>
+            </section>
+            <section class="onboarding-inline" id="onboardingCreatePanel" hidden>
+                <label class="field">
+                    <span>Название сервера</span>
+                    <input id="onboardingServerName" maxlength="100" autocomplete="off" placeholder="Например, Своя компания">
+                </label>
+                <button class="primary-button" id="onboardingCreateButton" type="button">Создать сервер</button>
+                <p id="onboardingCreateResult" aria-live="polite"></p>
+            </section>
+            <footer class="onboarding-footer">
+                <span>Микрофон включится только после вашего действия.</span>
+                <button class="soft-button" id="onboardingDoneButton" type="button">Понятно, начать</button>
+            </footer>
+        </div>
+    </dialog>
+
     <dialog class="nova-dialog" id="discoverDialog">
         <form method="dialog" class="dialog-shell">
             <header>
@@ -211,7 +280,7 @@
             </header>
             <label class="field">
                 <span>Уникальный ID</span>
-                <input id="discoveryId" type="number" min="1" inputmode="numeric" placeholder="Например, 184">
+                <input id="discoveryId" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Например, srv_6d98702146c284dd">
             </label>
             <div class="dialog-actions">
                 <button class="primary-button" id="findServerButton" type="button">Найти сервер</button>
@@ -248,8 +317,14 @@
             <section class="settings-section" id="serverOwnerSettings">
                 <h3>Основное</h3>
                 <label class="field"><span>Название сервера</span><input id="serverManageName" maxlength="100"></label>
-                <label class="switch-row"><span>Разрешить вход по ID</span><input id="serverJoinableToggle" type="checkbox"></label>
                 <button class="primary-button" id="saveServerButton" type="button">Сохранить сервер</button>
+            </section>
+            <section class="settings-section" id="serverAccessSettings">
+                <h3>Доступ</h3>
+                <p class="settings-note">ID создаёт заявку владельцу. Инвайт добавляет участника сразу.</p>
+                <button class="soft-button" id="createServerInviteButton" type="button">Создать одноразовый инвайт</button>
+                <div class="server-access-code" id="serverInviteResult" hidden></div>
+                <div class="request-list" id="serverJoinRequestList"></div>
             </section>
             <section class="settings-section" id="transferOwnerSection">
                 <h3>Передать владельца</h3>
@@ -269,6 +344,10 @@
             </header>
             <section class="settings-section">
                 <h3>Профиль</h3>
+                <div class="email-verification-notice" id="emailVerificationNotice" hidden>
+                    <span>Email ещё не подтверждён. Доступ сохранён, но восстановление пароля ненадёжно.</span>
+                    <button class="soft-button compact-button" id="verifyExistingEmailButton" type="button">Подтвердить</button>
+                </div>
                 <label class="field"><span>Отображаемое имя</span><input id="profileDisplayName" maxlength="50" autocomplete="name"></label>
                 <label class="field"><span>Никнейм на английском</span><input id="profileUsername" maxlength="32" autocomplete="off"></label>
                 <div class="field">
@@ -343,6 +422,18 @@
                     <button class="soft-button compact-button" id="desktopPttBindingButton" type="button">V</button>
                 </div>
             </section>
+            <section class="settings-section" id="platformAdminSection" hidden>
+                <div class="desktop-settings-heading">
+                    <div>
+                        <h3>Заявки в Borotalk</h3>
+                        <p class="settings-note" id="telegramPairStatus">Очередь работает даже при недоступном Telegram.</p>
+                    </div>
+                    <button class="soft-button compact-button" id="pairTelegramButton" type="button">Подключить Telegram</button>
+                </div>
+                <button class="soft-button" id="createGlobalInviteButton" type="button">Создать инвайт на 72 часа</button>
+                <div class="server-access-code" id="globalInviteResult" hidden></div>
+                <div class="request-list" id="registrationRequestList"></div>
+            </section>
             <button class="soft-button logout-button" id="logoutButton" type="button">Выйти из аккаунта</button>
         </form>
     </dialog>
@@ -409,6 +500,6 @@
     <div id="remoteAudio" hidden></div>
 
     <script src="/js/desktop-bridge.js?v=3"></script>
-    <script type="module" src="/js/nova-main.js?v=31"></script>
+    <script type="module" src="/js/nova-main.js?v=36"></script>
 </body>
 </html>

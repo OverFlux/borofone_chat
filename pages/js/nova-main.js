@@ -86,6 +86,8 @@ const state = {
     desktopCaptureSources: [],
     desktopCaptureTab: "screen",
     desktopCaptureSourceId: "",
+    iceConfig: {iceServers: [], iceTransportPolicy: "all"},
+    iceConfigExpiresAt: 0,
 };
 
 const els = Object.fromEntries(
@@ -95,7 +97,9 @@ const els = Object.fromEntries(
         "channelPanel", "serverName", "onlineCount", "voiceRoomList", "textRoomList", "directList",
         "serverSettingsButton", "createVoiceButton", "createTextButton", "newDirectButton",
         "selfAvatar", "selfName",
-        "selfUsername", "settingsButton", "voiceTitle", "connectionDot", "memberCount", "membersButton",
+        "selfUsername", "settingsButton", "stageKicker", "voiceTitle", "connectionDot", "memberCount", "membersButton",
+        "serverEmptyState", "emptyFindServerButton", "emptyCreateServerButton", "emptyProfileButton",
+        "stageContent", "voiceDock",
         "stageIntro", "stagePresence", "joinSelectedButton", "participantGrid", "shareStage", "shareViewport",
         "shareVideos", "shareSwitcher", "shareTitle", "shareZoomOutButton", "shareZoomLabel",
         "shareZoomInButton", "shareFitButton", "sharePipButton", "shareFullscreenButton",
@@ -106,15 +110,22 @@ const els = Object.fromEntries(
         "typingLine", "messageForm", "messageInput", "messageLimit", "sendButton", "emojiButton", "emojiPopover",
         "openChannelsButton", "openChatButton", "closeChatButton", "scrim", "discoverDialog",
         "discoveryId", "findServerButton", "findUserButton", "discoveryResult", "createChannelDialog",
+        "onboardingDialog", "onboardingSkipButton", "onboardingDoneButton",
+        "onboardingJoinPanel", "onboardingServerId", "onboardingJoinButton", "onboardingJoinResult",
+        "onboardingCreatePanel", "onboardingServerName", "onboardingCreateButton", "onboardingCreateResult",
         "createChannelForm", "createChannelTitle", "closeCreateDialog", "channelNameInput",
         "serverDialog", "serverDialogTitle", "serverIdValue", "serverOwnerSettings",
-        "serverManageName", "serverJoinableToggle", "saveServerButton", "transferOwnerSection",
+        "serverManageName", "saveServerButton", "serverAccessSettings", "createServerInviteButton",
+        "serverInviteResult", "serverJoinRequestList", "transferOwnerSection",
         "transferOwnerSelect", "transferOwnerButton", "leaveServerButton", "deleteServerButton",
         "settingsDialog", "profileDisplayName", "profileUsername", "avatarPresetGrid", "saveProfileButton",
+        "emailVerificationNotice", "verifyExistingEmailButton",
         "audioInputSelect", "audioOutputSelect", "audioDeviceHint", "soundToggle",
         "desktopSettingsSection", "desktopVersion", "desktopAutoStartToggle",
         "desktopCloseToTrayToggle", "desktopNotificationsToggle", "desktopPttToggle",
         "desktopPttBinding", "desktopPttBindingButton", "desktopPttStatus", "desktopChangeHostButton",
+        "platformAdminSection", "pairTelegramButton", "telegramPairStatus", "createGlobalInviteButton",
+        "globalInviteResult", "registrationRequestList",
         "desktopCaptureDialog", "desktopCaptureCloseButton", "desktopCaptureScreenTab",
         "desktopCaptureApplicationTab", "desktopCaptureGrid", "desktopCaptureEmpty",
         "desktopCaptureAudioToggle", "desktopCaptureCancelButton", "desktopCaptureConfirmButton",
@@ -811,6 +822,17 @@ function updateCreatePermissions() {
     els.createTextButton.hidden = !canManage;
 }
 
+function setServerEmptyState(isEmpty) {
+    els.app.classList.toggle("no-servers", isEmpty);
+    els.serverEmptyState.hidden = !isEmpty;
+    els.stageContent.hidden = isEmpty;
+    els.voiceDock.hidden = isEmpty;
+    els.membersButton.hidden = isEmpty;
+    els.connectionDot.hidden = isEmpty;
+    els.stageKicker.textContent = isEmpty ? "начало" : "голосовая комната";
+    if (isEmpty) els.voiceTitle.textContent = "Borotalk";
+}
+
 async function loadServers(preferredId = null) {
     state.servers = await jsonRequest("/servers");
     if (!state.servers.length) {
@@ -831,11 +853,12 @@ async function loadServers(preferredId = null) {
         renderVoiceRooms();
         renderTextRooms();
         renderMembers();
+        updateCreatePermissions();
         els.serverName.textContent = "Нет серверов";
         els.serverSettingsButton.hidden = true;
         updateSelectedVoice();
+        setServerEmptyState(true);
         setChatEmpty();
-        openDiscovery();
         return;
     }
     const storedId = Number(localStorage.getItem("borotalk-active-server"));
@@ -851,6 +874,7 @@ async function selectServer(serverId) {
     if (state.currentVoiceRoomId) await leaveVoiceRoom();
 
     state.server = next;
+    setServerEmptyState(false);
     state.chat = null;
     state.messages = [];
     state.selectedVoice = null;
@@ -1247,6 +1271,31 @@ async function handleSocketEvent(data) {
             if (state.chat?.type === "direct" && data.conversation_id === state.chat.id) appendMessage(data);
             else if (data.sender_id !== state.user.id) playTone("message");
             break;
+        case "server_join_request":
+            if (desktop?.isDesktop) {
+                void desktop.notifyMessage({
+                    title: `Заявка · ${data.server_name || "Borotalk"}`,
+                    body: `${data.display_name || "Пользователь"} хочет вступить в сервер`,
+                }).catch(() => {});
+            }
+            toast(`Новая заявка в «${data.server_name || "сервер"}»`);
+            if (state.server?.id === data.server_id && isCurrentServerOwner()) {
+                await loadServerJoinRequests();
+            }
+            break;
+        case "server_join_reviewed":
+            if (data.approved) await loadServers(data.server_id);
+            toast(data.approved
+                ? `Вас приняли в «${data.server_name || "сервер"}»`
+                : `Заявка в «${data.server_name || "сервер"}» отклонена`,
+            );
+            if (desktop?.isDesktop) {
+                void desktop.notifyMessage({
+                    title: data.approved ? "Заявка одобрена" : "Заявка отклонена",
+                    body: data.server_name || "Borotalk",
+                }).catch(() => {});
+            }
+            break;
         case "typing":
             if (data.user_id !== state.user.id && state.chat?.type === "room" && data.room_id === state.chat.id) {
                 els.typingLine.textContent = `${data.username} печатает…`;
@@ -1257,6 +1306,7 @@ async function handleSocketEvent(data) {
             }
             break;
         case "room_joined":
+            await loadIceConfig(true);
             state.currentVoiceRoomId = data.room_id;
             setSocketRecovery(false);
             replaceParticipants(data.participants || []);
@@ -1518,6 +1568,7 @@ async function joinVoiceRoom(roomId = state.selectedVoice?.id) {
         return;
     }
     try {
+        await loadIceConfig(true);
         if (state.currentVoiceRoomId && state.currentVoiceRoomId !== roomId) {
             await leaveVoiceRoom();
         }
@@ -1537,7 +1588,12 @@ async function joinVoiceRoom(roomId = state.selectedVoice?.id) {
         updateVoiceUi();
     } catch (error) {
         state.currentVoiceRoomId = null;
-        toast(error.name === "NotAllowedError" ? "Доступ к микрофону не разрешён" : "Не удалось включить микрофон", "error");
+        const message = error.code === "ice-config"
+            ? "Сервер голосовой связи временно недоступен"
+            : error.name === "NotAllowedError"
+                ? "Доступ к микрофону не разрешён"
+                : "Не удалось включить микрофон";
+        toast(message, "error");
         updateVoiceUi();
     }
 }
@@ -1826,12 +1882,35 @@ async function toggleShareFullscreen() {
     }
 }
 
+async function loadIceConfig(refreshIfNeeded = false) {
+    if (
+        refreshIfNeeded
+        && state.iceConfigExpiresAt
+        && state.iceConfigExpiresAt - Date.now() > 5 * 60 * 1000
+    ) return;
+    try {
+        const config = await jsonRequest("/api/webrtc/ice-config");
+        state.iceConfig = {
+            iceServers: config.iceServers,
+            iceTransportPolicy: config.iceTransportPolicy || "all",
+        };
+        state.iceConfigExpiresAt = config.expires_at ? Date.parse(config.expires_at) : 0;
+    } catch (error) {
+        console.warn("TURN configuration unavailable", error);
+        const hasUsableConfig = state.iceConfig.iceServers.length > 0
+            && (!state.iceConfigExpiresAt || state.iceConfigExpiresAt > Date.now() + 30_000);
+        if (refreshIfNeeded && !hasUsableConfig) {
+            const unavailable = new Error("ICE configuration is unavailable");
+            unavailable.code = "ice-config";
+            throw unavailable;
+        }
+    }
+}
+
 function makePeer(userId) {
     let pc = state.peers.get(userId);
     if (pc) return pc;
-    pc = new RTCPeerConnection({
-        iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
-    });
+    pc = new RTCPeerConnection(state.iceConfig);
     state.peers.set(userId, pc);
     state.localStream?.getTracks().forEach((track) => pc.addTrack(track, state.localStream));
     state.screenStream?.getTracks().forEach((track) => pc.addTrack(track, state.screenStream));
@@ -2157,6 +2236,102 @@ function closePeer(userId, clearRecovery = true) {
     syncShareStage();
 }
 
+function onboardingStorageKey() {
+    const identity = state.user?.public_id || state.user?.id || "unknown";
+    return `borotalk-onboarding-v1:${identity}`;
+}
+
+function completeOnboarding() {
+    localStorage.setItem(onboardingStorageKey(), "complete");
+    if (els.onboardingDialog.open) els.onboardingDialog.close();
+}
+
+function showOnboardingAction(action) {
+    els.onboardingJoinPanel.hidden = action !== "join";
+    els.onboardingCreatePanel.hidden = action !== "create";
+    document.querySelectorAll("[data-onboarding-action]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.onboardingAction === action);
+    });
+    if (action === "join") window.setTimeout(() => els.onboardingServerId.focus(), 0);
+    if (action === "create") window.setTimeout(() => els.onboardingServerName.focus(), 0);
+}
+
+function maybeShowOnboarding() {
+    if (localStorage.getItem(onboardingStorageKey()) === "complete") return;
+    showOnboardingAction("");
+    if (!els.onboardingDialog.open) els.onboardingDialog.showModal();
+}
+
+function normalizedDiscoveryId(value) {
+    return String(value || "").trim().replace(/[.,;:]+$/, "");
+}
+
+async function onboardingJoinServer() {
+    const id = normalizedDiscoveryId(els.onboardingServerId.value);
+    if (!id) {
+        els.onboardingJoinResult.textContent = "Введите ID сервера или инвайт.";
+        els.onboardingJoinResult.className = "result-error";
+        return;
+    }
+    els.onboardingJoinButton.disabled = true;
+    els.onboardingJoinResult.className = "";
+    els.onboardingJoinResult.textContent = "Проверяем приглашение…";
+    try {
+        if (id.startsWith("srv-invite_")) {
+            const joined = await jsonRequest(`/server-invites/${encodeURIComponent(id)}/redeem`, {
+                method: "POST",
+            });
+            await loadServers(joined.id);
+            completeOnboarding();
+            toast(`Сервер «${joined.name}» добавлен`);
+            return;
+        }
+        const server = await jsonRequest(`/server-discovery/${encodeURIComponent(id)}`);
+        if (server.is_member) {
+            await loadServers();
+            const existing = state.servers.find((item) => item.public_id === server.public_id);
+            if (existing) await selectServer(existing.id);
+            completeOnboarding();
+            return;
+        }
+        await jsonRequest(`/server-discovery/${encodeURIComponent(id)}/join-request`, { method: "POST" });
+        els.onboardingJoinResult.textContent = `Заявка в «${server.name}» отправлена владельцу.`;
+        completeOnboarding();
+        toast("Заявка отправлена владельцу");
+    } catch (error) {
+        els.onboardingJoinResult.textContent = error.message;
+        els.onboardingJoinResult.className = "result-error";
+    } finally {
+        els.onboardingJoinButton.disabled = false;
+    }
+}
+
+async function onboardingCreateServer() {
+    const name = els.onboardingServerName.value.trim();
+    if (!name) {
+        els.onboardingCreateResult.textContent = "Введите название сервера.";
+        els.onboardingCreateResult.className = "result-error";
+        return;
+    }
+    els.onboardingCreateButton.disabled = true;
+    els.onboardingCreateResult.className = "";
+    els.onboardingCreateResult.textContent = "Создаём пространство…";
+    try {
+        const server = await jsonRequest("/servers", {
+            method: "POST",
+            body: JSON.stringify({ name, is_joinable: false }),
+        });
+        await loadServers(server.id);
+        completeOnboarding();
+        toast(`Сервер «${server.name}» готов`);
+    } catch (error) {
+        els.onboardingCreateResult.textContent = error.message;
+        els.onboardingCreateResult.className = "result-error";
+    } finally {
+        els.onboardingCreateButton.disabled = false;
+    }
+}
+
 function openDiscovery(mode = "server") {
     els.discoveryResult.innerHTML = "";
     els.discoveryId.value = "";
@@ -2166,16 +2341,25 @@ function openDiscovery(mode = "server") {
 }
 
 async function findServer() {
-    const id = Number(els.discoveryId.value);
+    const id = normalizedDiscoveryId(els.discoveryId.value);
     if (!id) return;
     els.discoveryResult.textContent = "Ищем сервер…";
     try {
-        const server = await jsonRequest(`/servers/${id}`);
+        if (id.startsWith("srv-invite_")) {
+            const joined = await jsonRequest(`/server-invites/${encodeURIComponent(id)}/redeem`, {
+                method: "POST",
+            });
+            els.discoverDialog.close();
+            await loadServers(joined.id);
+            toast("Инвайт принят");
+            return;
+        }
+        const server = await jsonRequest(`/server-discovery/${encodeURIComponent(id)}`);
         els.discoveryResult.innerHTML = `
             <div class="result-card">
                 <span class="avatar avatar-mint">${escapeHtml(initialFor(server.name))}</span>
-                <span><strong>${escapeHtml(server.name)}</strong><small>Сервер · ID ${server.id}</small></span>
-                <button class="primary-button" type="button" data-join-server="${server.id}">${server.is_member ? "Открыть" : "Войти"}</button>
+                <span><strong>${escapeHtml(server.name)}</strong><small>Приватный сервер · ${escapeHtml(server.public_id)}</small></span>
+                <button class="primary-button" type="button" data-join-server="${escapeHtml(server.public_id)}">${server.is_member ? "Открыть" : "Отправить заявку"}</button>
             </div>
         `;
     } catch (error) {
@@ -2184,16 +2368,16 @@ async function findServer() {
 }
 
 async function findUser() {
-    const id = Number(els.discoveryId.value);
+    const id = normalizedDiscoveryId(els.discoveryId.value);
     if (!id) return;
     els.discoveryResult.textContent = "Ищем человека…";
     try {
-        const user = await jsonRequest(`/users/${id}`);
+        const user = await jsonRequest(`/users/${encodeURIComponent(id)}`);
         const isSelf = user.id === state.user.id;
         els.discoveryResult.innerHTML = `
             <div class="result-card">
                 ${avatarMarkup(user, "avatar-peach")}
-                <span><strong>${escapeHtml(user.display_name)}</strong><small>@${escapeHtml(user.username)} · ID ${user.id}</small></span>
+                <span><strong>${escapeHtml(user.display_name)}</strong><small>@${escapeHtml(user.username)} · ${escapeHtml(user.public_id || "")}</small></span>
                 <button class="primary-button" type="button" data-start-direct="${user.id}" ${isSelf ? "disabled" : ""}>${isSelf ? "Это вы" : "Написать"}</button>
             </div>
         `;
@@ -2202,12 +2386,157 @@ async function findUser() {
     }
 }
 
-async function joinFoundServer(serverId) {
+async function joinFoundServer(publicId) {
     try {
-        await jsonRequest(`/servers/${serverId}/join`, { method: "POST" });
-        els.discoverDialog.close();
-        await loadServers(serverId);
-        toast("Сервер добавлен");
+        const existing = state.servers.find((server) => server.public_id === publicId);
+        if (existing) {
+            els.discoverDialog.close();
+            await selectServer(existing.id);
+            return;
+        }
+        await jsonRequest(`/server-discovery/${encodeURIComponent(publicId)}/join-request`, { method: "POST" });
+        toast("Заявка отправлена владельцу");
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+async function createServerInvite() {
+    if (!state.server || !isCurrentServerOwner()) return;
+    try {
+        const invite = await jsonRequest(`/servers/${state.server.id}/invites`, {
+            method: "POST",
+            body: JSON.stringify({max_uses: 1, expires_in_hours: 72}),
+        });
+        els.serverInviteResult.textContent = invite.code;
+        els.serverInviteResult.hidden = false;
+        await navigator.clipboard?.writeText(invite.code).catch(() => {});
+        toast("Инвайт создан и скопирован");
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+async function loadServerJoinRequests() {
+    if (!state.server || !isCurrentServerOwner()) return;
+    try {
+        const items = await jsonRequest(`/servers/${state.server.id}/join-requests`);
+        els.serverJoinRequestList.innerHTML = items.length ? items.map((item) => `
+            <div class="request-card">
+                <span><strong>${escapeHtml(item.display_name)}</strong><small>@${escapeHtml(item.username)}</small></span>
+                <span class="request-actions">
+                    <button class="soft-button" type="button" data-server-request="${item.id}" data-approved="true">Принять</button>
+                    <button class="danger-button" type="button" data-server-request="${item.id}" data-approved="false">Отказать</button>
+                </span>
+            </div>
+        `).join("") : '<p class="settings-note">Новых заявок нет.</p>';
+    } catch (error) {
+        els.serverJoinRequestList.innerHTML = `<p class="result-error">${escapeHtml(error.message)}</p>`;
+    }
+}
+
+async function reviewServerRequest(requestId, approved) {
+    try {
+        await jsonRequest(`/servers/${state.server.id}/join-requests/${requestId}/review`, {
+            method: "POST",
+            body: JSON.stringify({approved}),
+        });
+        await Promise.all([loadServerJoinRequests(), loadMembers()]);
+        toast(approved ? "Участник добавлен" : "Заявка отклонена");
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+async function loadRegistrationRequests() {
+    if (state.user?.role !== "admin") return;
+    try {
+        const items = await jsonRequest("/api/admin/registration-requests");
+        els.registrationRequestList.innerHTML = items.length ? items.map((item) => `
+            <div class="request-card">
+                <span>
+                    <strong>${escapeHtml(item.display_name)} · @${escapeHtml(item.username)}</strong>
+                    <small>${escapeHtml(item.email)}</small>
+                </span>
+                <span class="request-actions">
+                    <button class="soft-button" type="button" data-registration-request="${escapeHtml(item.public_id)}" data-approved="true">Одобрить</button>
+                    <button class="danger-button" type="button" data-registration-request="${escapeHtml(item.public_id)}" data-approved="false">Отклонить</button>
+                </span>
+            </div>
+        `).join("") : '<p class="settings-note">Новых заявок нет.</p>';
+    } catch (error) {
+        els.registrationRequestList.innerHTML = `<p class="result-error">${escapeHtml(error.message)}</p>`;
+    }
+}
+
+async function reviewRegistrationRequest(requestId, approved) {
+    if (!window.confirm(approved ? "Активировать этот аккаунт?" : "Отклонить эту заявку?")) return;
+    try {
+        await jsonRequest(`/api/admin/registration-requests/${encodeURIComponent(requestId)}/review`, {
+            method: "POST",
+            body: JSON.stringify({approved}),
+        });
+        await loadRegistrationRequests();
+        toast(approved ? "Аккаунт активирован" : "Заявка отклонена");
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+async function pairTelegram() {
+    if (!runtime.features?.telegramPairing) {
+        toast(
+            runtime.appEnv === "local"
+                ? "Telegram отключён в локальном стенде. Заявки доступны в этой очереди."
+                : "Сначала настройте Telegram-бота в конфигурации VPS.",
+            "info",
+            "telegram-not-configured",
+        );
+        return;
+    }
+    try {
+        const pairing = await jsonRequest("/api/admin/telegram/pair", {method: "POST"});
+        window.open(pairing.url, "_blank", "noopener,noreferrer");
+        toast("Откройте Telegram и нажмите Start");
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+async function openSettingsDialog() {
+    els.profileDisplayName.value = state.user.display_name;
+    els.profileUsername.value = state.user.username;
+    state.selectedAvatarPreset = avatarPreset(state.user);
+    els.emailVerificationNotice.hidden = Boolean(state.user.email_verified);
+    els.avatarPresetGrid.querySelectorAll("[data-avatar-preset]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.avatarPreset === state.selectedAvatarPreset);
+    });
+    await refreshAudioDevices();
+    els.platformAdminSection.hidden = state.user.role !== "admin";
+    if (state.user.role === "admin") {
+        const telegramEnabled = Boolean(runtime.features?.telegramPairing);
+        els.pairTelegramButton.disabled = !telegramEnabled;
+        els.pairTelegramButton.textContent = telegramEnabled ? "Подключить Telegram" : "Telegram не настроен";
+        els.telegramPairStatus.textContent = telegramEnabled
+            ? "Заявки остаются здесь и дополнительно приходят владельцу в Telegram."
+            : runtime.appEnv === "local"
+                ? "В локальном стенде Telegram отключён. Одобряйте заявки прямо здесь."
+                : "Telegram не настроен на сервере. Веб-очередь продолжает работать.";
+        await loadRegistrationRequests();
+    }
+    els.settingsDialog.showModal();
+}
+
+async function createGlobalInvite() {
+    try {
+        const invite = await jsonRequest("/api/admin/invites", {
+            method: "POST",
+            body: JSON.stringify({max_uses: 1, expires_in_hours: 72}),
+        });
+        els.globalInviteResult.textContent = invite.code;
+        els.globalInviteResult.hidden = false;
+        await navigator.clipboard?.writeText(invite.code).catch(() => {});
+        toast("Одноразовый инвайт создан и скопирован");
     } catch (error) {
         toast(error.message, "error");
     }
@@ -2237,16 +2566,18 @@ function openServerDialog() {
     const canManage = isCurrentServerOwner();
     const eligibleMembers = state.members.filter((member) => member.user_id !== state.user.id);
     els.serverDialogTitle.textContent = state.server.name;
-    els.serverIdValue.textContent = state.server.id;
+    els.serverIdValue.textContent = state.server.public_id || state.server.id;
     els.serverManageName.value = state.server.name;
-    els.serverJoinableToggle.checked = state.server.is_joinable;
     els.serverOwnerSettings.hidden = !canManage;
+    els.serverAccessSettings.hidden = !canManage;
     els.deleteServerButton.hidden = !canManage;
     els.leaveServerButton.hidden = canManage;
     els.transferOwnerSection.hidden = !canManage || eligibleMembers.length === 0;
     els.transferOwnerSelect.innerHTML = eligibleMembers.map((member) => `
         <option value="${member.user_id}">${escapeHtml(member.display_name)} · @${escapeHtml(member.username)}</option>
     `).join("");
+    els.serverInviteResult.hidden = true;
+    if (canManage) loadServerJoinRequests();
     els.serverDialog.showModal();
 }
 
@@ -2262,7 +2593,7 @@ async function saveServer() {
             method: "PATCH",
             body: JSON.stringify({
                 name,
-                is_joinable: els.serverJoinableToggle.checked,
+                is_joinable: false,
             }),
         });
         els.serverDialog.close();
@@ -2338,7 +2669,7 @@ async function createChannel(event) {
         if (channelTypeToCreate === "server") {
             const server = await jsonRequest("/servers", {
                 method: "POST",
-                body: JSON.stringify({ name, is_joinable: true }),
+                body: JSON.stringify({ name, is_joinable: false }),
             });
             els.createChannelDialog.close();
             await loadServers(server.id);
@@ -2545,12 +2876,15 @@ function bindEvents() {
     els.discoverButton.addEventListener("click", () => openDiscovery("server"));
     els.createServerButton.addEventListener("click", () => openCreateChannel("server"));
     els.newDirectButton.addEventListener("click", () => openDiscovery("user"));
+    els.emptyFindServerButton.addEventListener("click", () => openDiscovery("server"));
+    els.emptyCreateServerButton.addEventListener("click", () => openCreateChannel("server"));
+    els.emptyProfileButton.addEventListener("click", openSettingsDialog);
     els.findServerButton.addEventListener("click", findServer);
     els.findUserButton.addEventListener("click", findUser);
     els.discoveryResult.addEventListener("click", (event) => {
         const join = event.target.closest("[data-join-server]");
         const direct = event.target.closest("[data-start-direct]");
-        if (join) joinFoundServer(Number(join.dataset.joinServer));
+        if (join) joinFoundServer(join.dataset.joinServer);
         if (direct) startDirect(Number(direct.dataset.startDirect));
     });
     els.discoveryId.addEventListener("keydown", (event) => {
@@ -2563,6 +2897,33 @@ function bindEvents() {
     els.discoverDialog.addEventListener("close", () => {
         delete els.findUserButton.dataset.preferred;
     });
+    document.querySelectorAll("[data-onboarding-action]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const action = button.dataset.onboardingAction;
+            if (action === "profile") {
+                completeOnboarding();
+                void openSettingsDialog();
+                return;
+            }
+            showOnboardingAction(action);
+        });
+    });
+    els.onboardingSkipButton.addEventListener("click", completeOnboarding);
+    els.onboardingDoneButton.addEventListener("click", completeOnboarding);
+    els.onboardingJoinButton.addEventListener("click", onboardingJoinServer);
+    els.onboardingCreateButton.addEventListener("click", onboardingCreateServer);
+    els.onboardingServerId.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            onboardingJoinServer();
+        }
+    });
+    els.onboardingServerName.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            onboardingCreateServer();
+        }
+    });
 
     els.createVoiceButton.addEventListener("click", () => openCreateChannel("voice"));
     els.createTextButton.addEventListener("click", () => openCreateChannel("text"));
@@ -2570,22 +2931,34 @@ function bindEvents() {
     els.closeCreateDialog.addEventListener("click", () => els.createChannelDialog.close());
     els.serverSettingsButton.addEventListener("click", openServerDialog);
     els.saveServerButton.addEventListener("click", saveServer);
+    els.createServerInviteButton.addEventListener("click", createServerInvite);
+    els.serverJoinRequestList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-server-request]");
+        if (button) reviewServerRequest(Number(button.dataset.serverRequest), button.dataset.approved === "true");
+    });
     els.transferOwnerButton.addEventListener("click", transferServerOwner);
     els.leaveServerButton.addEventListener("click", leaveCurrentServer);
     els.deleteServerButton.addEventListener("click", deleteCurrentServer);
 
-    const openSettings = async () => {
-        els.profileDisplayName.value = state.user.display_name;
-        els.profileUsername.value = state.user.username;
-        state.selectedAvatarPreset = avatarPreset(state.user);
-        els.avatarPresetGrid.querySelectorAll("[data-avatar-preset]").forEach((button) => {
-            button.classList.toggle("active", button.dataset.avatarPreset === state.selectedAvatarPreset);
-        });
-        await refreshAudioDevices();
-        els.settingsDialog.showModal();
-    };
-    els.settingsButton.addEventListener("click", openSettings);
-    els.profileButton.addEventListener("click", openSettings);
+    els.settingsButton.addEventListener("click", openSettingsDialog);
+    els.profileButton.addEventListener("click", openSettingsDialog);
+    els.verifyExistingEmailButton.addEventListener("click", async () => {
+        try {
+            await jsonRequest("/auth/email/request-verification", {method: "POST"});
+            toast("Письмо подтверждения поставлено в очередь");
+        } catch (error) {
+            toast(error.message, "error");
+        }
+    });
+    els.pairTelegramButton.addEventListener("click", pairTelegram);
+    els.createGlobalInviteButton.addEventListener("click", createGlobalInvite);
+    els.registrationRequestList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-registration-request]");
+        if (button) reviewRegistrationRequest(
+            button.dataset.registrationRequest,
+            button.dataset.approved === "true",
+        );
+    });
     document.querySelectorAll("[data-theme-choice]").forEach((button) => {
         button.addEventListener("click", () => applyTheme(button.dataset.themeChoice));
     });
@@ -2678,10 +3051,11 @@ async function init() {
     try {
         state.user = await jsonRequest("/auth/me");
         renderCurrentUser();
-        await Promise.all([loadConversations(), loadEmojis()]);
+        await Promise.all([loadConversations(), loadEmojis(), loadIceConfig()]);
         await loadServers();
         els.app.hidden = false;
         els.loadingScreen.hidden = true;
+        maybeShowOnboarding();
         scrollMessagesToBottom();
         if (!desktop?.isDesktop && "serviceWorker" in navigator) {
             navigator.serviceWorker.register("/sw.js").catch(() => {});

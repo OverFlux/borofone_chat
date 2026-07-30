@@ -61,7 +61,19 @@ def test_server_update_transfer_and_delete(monkeypatch):
         assert server_id == server.id
         return memberships.get(user_id)
 
+    async def fake_get(model, object_id):
+        if model is Server and object_id == server.id:
+            return server
+        if model is User and object_id == next_owner.id:
+            return next_owner
+        return None
+
+    async def fake_ensure_owner_capacity(_db, _user):
+        return None
+
+    db.get = fake_get
     monkeypatch.setattr(servers_api, "get_server_member", fake_get_server_member)
+    monkeypatch.setattr(servers_api, "_ensure_owner_capacity", fake_ensure_owner_capacity)
 
     updated = asyncio.run(
         servers_api.update_server(

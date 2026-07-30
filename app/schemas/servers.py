@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class ServerCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    is_joinable: bool = True
+    is_joinable: bool = False
 
     @field_validator("name")
     @classmethod
@@ -35,6 +35,7 @@ class ServerTransferOwner(BaseModel):
 
 class ServerResponse(BaseModel):
     id: int
+    public_id: str | None = None
     name: str
     owner_id: int | None
     is_joinable: bool
@@ -45,6 +46,7 @@ class ServerResponse(BaseModel):
 
 class ServerMemberResponse(BaseModel):
     user_id: int
+    public_id: str | None = None
     username: str
     display_name: str
     avatar_url: str | None

@@ -18,7 +18,8 @@ class RegisterRequest(BaseModel):
     password: str
     username: str
     display_name: str
-    invite_code: str
+    invite_code: str | None = None
+    website: str = ""
 
     @field_validator("password")
     @classmethod
@@ -62,14 +63,12 @@ class RegisterRequest(BaseModel):
 
     @field_validator("invite_code")
     @classmethod
-    def validate_invite_code(cls, v: str) -> str:
+    def validate_invite_code(cls, v: str | None) -> str | None:
         """Валидация инвайт-кода."""
+        if v is None:
+            return None
         v = v.strip()
-
-        if not v:
-            raise ValueError("invite_code is required")
-
-        return v
+        return v or None
 
 
 # === LOGIN ===
@@ -78,6 +77,31 @@ class LoginRequest(BaseModel):
     """Схема для логина (email + password)."""
     email: EmailStr
     password: str
+
+
+class TokenRequest(BaseModel):
+    token: str
+
+
+class EmailRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetRequest(BaseModel):
+    token: str
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if len(value) < 8 or len(value) > 128:
+            raise ValueError("password must contain 8-128 characters")
+        return value
+
+
+class RegistrationResponse(BaseModel):
+    message: str
+    status: str
 
 
 # === USER INFO ===
@@ -89,12 +113,14 @@ class UserResponse(BaseModel):
     Используется в GET /auth/me и других endpoints.
     """
     id: int
+    public_id: str | None = None
     email: str
     username: str
     display_name: str
     avatar_url: str | None
     role: str
     is_active: bool
+    email_verified: bool = False
     created_at: str  # ISO 8601
 
     model_config = ConfigDict(from_attributes=True)
@@ -107,6 +133,7 @@ class UserProfileResponse(BaseModel):
     Используется в GET /auth/users/{user_id}.
     """
     id: int
+    public_id: str | None = None
     username: str
     display_name: str
     avatar_url: str | None
@@ -125,23 +152,25 @@ class InviteCreateRequest(BaseModel):
 
     Все поля опциональны.
     """
-    max_uses: int | None = None  # None = unlimited
-    expires_in_hours: int | None = None  # None = never expires
+    max_uses: int | None = 1
+    expires_in_hours: int | None = 72
 
     @field_validator("max_uses")
     @classmethod
     def validate_max_uses(cls, v: int | None) -> int | None:
         """Валидация max_uses."""
-        if v is not None and v < 1:
-            raise ValueError("max_uses must be at least 1")
-        return v
+        if v not in (None, 1):
+            raise ValueError("global invites are single-use")
+        return 1
 
     @field_validator("expires_in_hours")
     @classmethod
     def validate_expires_in_hours(cls, v: int | None) -> int | None:
         """Валидация expires_in_hours."""
-        if v is not None and v < 1:
-            raise ValueError("expires_in_hours must be at least 1")
+        if v is None:
+            return 72
+        if v < 1 or v > 72:
+            raise ValueError("expires_in_hours must be between 1 and 72")
         return v
 
 

@@ -32,6 +32,14 @@ test("persists and reloads supported settings", () => {
   withTemporaryDirectory((directory) => {
     const first = new SettingsStore(directory);
     first.patch({
+      connection: {
+        schemaVersion: 2,
+        baseUrl: "https://talk.example.test",
+        inviteCode: "",
+        certificatePolicy: "system",
+        certificateFingerprint: "",
+        trustedManually: false,
+      },
       closeToTray: false,
       notifications: false,
       pushToTalk: {
@@ -42,6 +50,14 @@ test("persists and reloads supported settings", () => {
     const second = new SettingsStore(directory);
     assert.equal(second.get().closeToTray, false);
     assert.equal(second.get().notifications, false);
+    assert.deepEqual(second.get().connection, {
+      schemaVersion: 2,
+      baseUrl: "https://talk.example.test",
+      inviteCode: "",
+      certificatePolicy: "system",
+      certificateFingerprint: "",
+      trustedManually: false,
+    });
     assert.deepEqual(second.get().pushToTalk, {
       enabled: true,
       input: { type: "mouse", code: "Mouse5", label: "Mouse 5" },

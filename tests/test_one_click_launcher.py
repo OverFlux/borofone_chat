@@ -92,3 +92,17 @@ def test_https_runner_only_passes_supported_uvicorn_options():
     assert "limit_max_requests" in run_parameters
     assert "http_max_header_size" not in runner
     assert "max_request_body_size" not in runner
+
+
+def test_vps_bundle_supports_install_check_and_safe_bundle_update():
+    builder = (ROOT / "scripts" / "Build-VpsBundle.ps1").read_text(encoding="utf-8")
+    guide = (ROOT / "docs" / "VPS_INSTALL_RU.md").read_text(encoding="utf-8")
+
+    assert 'bundle_mode="${1:-install}"' in builder
+    assert '"${bundle_mode}" = "--check"' in builder
+    assert '"${bundle_mode}" != "--update"' in builder
+    assert ".borotalk-bundled-source" in builder
+    assert "SKIP_GIT_SYNC=1 bash deploy/scripts/deploy-stack.sh production" in builder
+    assert "Borotalk-VPS-Installer.run --update" in guide
+    assert "| A | `turn.talk` |" in guide
+    assert "49160–49260" in guide
