@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import hmac
+import secrets
 import time
 from datetime import datetime, timezone
 
@@ -31,7 +32,10 @@ async def ice_config(current_user: User = Depends(get_current_user)):
         )
 
     expires = int(time.time()) + settings.turn_credential_ttl_seconds
-    username = f"{expires}:{current_user.public_id or current_user.id}"
+    # coturn's REST API requires HMAC-SHA1 for temporary credentials. The
+    # signed identity contains only an expiry and a random nonce: no user ID,
+    # email, password, session token, or other sensitive application data.
+    username = f"{expires}:{secrets.token_urlsafe(12)}"
     digest = hmac.new(
         settings.turn_shared_secret.encode("utf-8"),
         username.encode("utf-8"),

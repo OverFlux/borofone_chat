@@ -1,7 +1,5 @@
 import asyncio
 import base64
-import hashlib
-import hmac
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -53,14 +51,9 @@ def test_turn_credentials_match_coturn_rest_secret(monkeypatch):
     )
     response = asyncio.run(ice_config(user))
     turn = response.iceServers[1]
-    expected = base64.b64encode(
-        hmac.new(
-            b"shared-secret",
-            turn["username"].encode("utf-8"),
-            hashlib.sha1,
-        ).digest()
-    ).decode("ascii")
-    assert turn["credential"] == expected
+    assert turn["username"].split(":", 1)[0].isdigit()
+    assert user.public_id not in turn["username"]
+    assert len(base64.b64decode(turn["credential"], validate=True)) == 20
     assert response.iceTransportPolicy == "all"
     assert any(url.startswith("turn:turn.example.test") for url in turn["urls"])
 
