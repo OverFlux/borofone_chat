@@ -12,27 +12,53 @@ from pathlib import Path
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status, Response, UploadFile, File, Form, Request
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.db import get_db
-from app.models import Invite, Room, Server, ServerMember, User, VoiceRoom
+from app.models import (
+    PasswordResetToken,
+    RefreshSession,
+    RegistrationRequest,
+    Room,
+    Server,
+    ServerMember,
+    User,
+    UserEmailVerificationToken,
+    VoiceRoom,
+)
 from app.settings import settings
 from app.schemas.auth import (
     LoginRequest,
     RegisterRequest,
-    MessageResponse,
+    EmailRequest,
+    PasswordResetRequest,
+    RegistrationResponse,
+    TokenRequest,
     UserResponse,
     UserProfileResponse,
 )
 from app.security import (
     create_access_token,
-    create_refresh_token,
     decode_token,
+    generate_action_token,
+    generate_public_id,
     hash_password,
+    hash_token,
     verify_password,
 )
 from app.dependencies import get_current_user
+from app.services.auth_rate_limit import enforce_auth_limit
+from app.services.platform import (
+    RegistrationEmailUnavailable,
+    branded_email,
+    create_registration,
+    create_session_tokens,
+    enqueue_email,
+    public_url,
+    utcnow,
+    verify_registration_email,
+)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -67,7 +93,7 @@ LEGACY_AVATAR_PRESETS = {
 }
 
 # Cookie settings
-ACCESS_TOKEN_EXPIRE_DAYS = settings.access_token_expire_days
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
 
 # for prod & https Secure=True
@@ -82,7 +108,7 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
         httponly=True,
         secure=COOKIE_SECURE,
         samesite=COOKIE_SAMESITE,
-        max_age=ACCESS_TOKEN_EXPIRE_DAYS * 24 * 60 * 60, # seconds
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",  # Важно: cookie доступна для всех путей
     )
 
@@ -102,102 +128,322 @@ def clear_auth_cookies(response: Response):
     response.delete_cookie(key="access_token", path="/")
     response.delete_cookie(key="refresh_token", path="/")
 
-@router.post("/register", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=RegistrationResponse, status_code=status.HTTP_202_ACCEPTED)
 async def register(
     data: RegisterRequest,
-    response: Response,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Регистрация нового пользователя по инвайт-коду.
-
-    После успешной регистрации токены устанавливаются в httpOnly cookies.
-
-    Returns:
-        {"message": "Registration successful"}
-    """
-
-    # === 1. Проверка инвайт-кода ===
-    stmt = select(Invite).where(Invite.code == data.invite_code)
-    result = await db.execute(stmt)
-    invite = result.scalar_one_or_none()
-
-    if not invite:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid invite code"
-        )
-
-    # Проверка: не отозван ли
-    if invite.revoked:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invite code has been revoked"
-        )
-
-    # Проверка: не истёк ли
-    if invite.expires_at and invite.expires_at < datetime.now(timezone.utc):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invite code has expired"
-        )
-
-    # Проверка: не исчерпан ли лимит использований
-    if invite.max_uses and invite.current_uses >= invite.max_uses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invite code has reached maximum uses"
-        )
-
-    # === 2. Проверка уникальности email ===
-    stmt = select(User).where(User.email == data.email)
-    result = await db.execute(stmt)
-    if result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already registered"
-        )
-
-    # === 3. Проверка уникальности username ===
-    stmt = select(User).where(User.username == data.username)
-    result = await db.execute(stmt)
-    if result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Username already taken"
-        )
-
-    # === 4. Создание пользователя ===
-    user = User(
-        email=data.email,
-        password_hash=hash_password(data.password),
-        username=data.username,
-        display_name=data.display_name,
-        role="member"
+    if data.website:
+        return {"message": "Check your email to continue", "status": "awaiting_email"}
+    await enforce_auth_limit(
+        request,
+        "register",
+        limit=5,
+        window_seconds=3600,
+        identifier=str(data.email),
     )
+    try:
+        registration = await create_registration(
+            db,
+            email=str(data.email),
+            username=data.username,
+            display_name=data.display_name,
+            password=data.password,
+            invite_code=data.invite_code,
+        )
+    except RegistrationEmailUnavailable:
+        await db.rollback()
+        return {
+            "message": "Check your email to continue",
+            "status": "awaiting_email",
+        }
+    return {
+        "message": "Check your email to continue",
+        "status": registration.status,
+    }
 
-    db.add(user)
-    await db.flush()  # Чтобы получить user.id
 
-    # === 5. Увеличение счётчика инвайта ===
-    invite.current_uses += 1
+@router.post("/email/verify")
+async def verify_email(
+    data: TokenRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    await enforce_auth_limit(request, "verify-email", limit=20, window_seconds=3600)
+    now = utcnow()
+    existing_token = (
+        await db.execute(
+            select(UserEmailVerificationToken)
+            .where(UserEmailVerificationToken.token_hash == hash_token(data.token))
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if existing_token:
+        if existing_token.used_at is not None or existing_token.expires_at < now:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+        user = await db.get(User, existing_token.user_id)
+        if not user or not user.is_active:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+        user.email_verified_at = now
+        existing_token.used_at = now
+        await db.commit()
+        return {"message": "Email confirmed", "status": "approved"}
+    registration = await verify_registration_email(db, data.token)
+    return {
+        "message": (
+            "Account activated"
+            if registration.status == "approved"
+            else "Email confirmed. Registration is awaiting approval"
+        ),
+        "status": registration.status,
+    }
 
+
+@router.post("/email/request-verification")
+async def request_existing_email_verification(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.email_verified_at is not None:
+        return {"message": "Email is already verified"}
+    await enforce_auth_limit(
+        request,
+        "verify-existing-email-short",
+        limit=1,
+        window_seconds=60,
+        identifier=current_user.email,
+    )
+    await enforce_auth_limit(
+        request,
+        "verify-existing-email",
+        limit=5,
+        window_seconds=86400,
+        identifier=current_user.email,
+    )
+    raw_token = generate_action_token()
+    await db.execute(
+        update(UserEmailVerificationToken)
+        .where(
+            UserEmailVerificationToken.user_id == current_user.id,
+            UserEmailVerificationToken.used_at.is_(None),
+        )
+        .values(used_at=utcnow())
+    )
+    db.add(
+        UserEmailVerificationToken(
+            user_id=current_user.id,
+            token_hash=hash_token(raw_token),
+            expires_at=utcnow() + timedelta(hours=24),
+        )
+    )
+    url = public_url(f"verify-email.html#token={raw_token}")
+    enqueue_email(
+        db,
+        current_user.email,
+        "Подтвердите email — Borotalk",
+        f"Подтвердите существующий аккаунт Borotalk: {url}\nСсылка действует 24 часа.",
+        branded_email(
+            title="Подтвердите ваш email",
+            preview="Защитите существующий аккаунт Borotalk.",
+            body_html=(
+                "<p style=\"margin:0 0 22px\">Подтвердите адрес, чтобы восстановление пароля "
+                "и важные уведомления работали надёжно.</p>"
+                "<p style=\"margin:0 0 20px;color:#7a8079;font-size:13px\">Ссылка действует 24 часа.</p>"
+            ),
+            cta_label="Подтвердить email",
+            cta_url=url,
+        ),
+    )
     await db.commit()
-    await db.refresh(user)
+    return {"message": "Verification email queued"}
 
-    # === 6. Токены в cookies ===
-    access_token = create_access_token({"sub": str(user.id)})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
 
-    set_auth_cookies(response, access_token, refresh_token)
+@router.post("/email/resend")
+async def resend_verification(
+    data: EmailRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    normalized_email = str(data.email).lower()
+    await enforce_auth_limit(
+        request,
+        "resend-email-short",
+        limit=1,
+        window_seconds=60,
+        identifier=normalized_email,
+    )
+    await enforce_auth_limit(
+        request,
+        "resend-email",
+        limit=5,
+        window_seconds=86400,
+        identifier=normalized_email,
+    )
+    registration = (
+        await db.execute(
+            select(RegistrationRequest)
+            .where(
+                RegistrationRequest.email == normalized_email,
+                RegistrationRequest.status == "awaiting_email",
+            )
+            .order_by(RegistrationRequest.created_at.desc())
+        )
+    ).scalars().first()
+    if registration:
+        raw_token = generate_action_token()
+        registration.email_token_hash = hash_token(raw_token)
+        registration.email_token_expires_at = utcnow() + timedelta(hours=24)
+        from app.services.platform import verification_email
 
-    return {"message": "Registration successful"}
+        verification_email(db, registration, raw_token)
+        await db.commit()
+    return {"message": "If a pending registration exists, a new email has been queued"}
+
+
+@router.post("/password/forgot")
+async def forgot_password(
+    data: EmailRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    normalized_email = str(data.email).lower()
+    await enforce_auth_limit(
+        request,
+        "forgot-password",
+        limit=5,
+        window_seconds=3600,
+        identifier=normalized_email,
+    )
+    user = (
+        await db.execute(
+            select(User).where(User.email == normalized_email, User.is_active.is_(True))
+        )
+    ).scalar_one_or_none()
+    if user:
+        raw_token = generate_action_token()
+        await db.execute(
+            update(PasswordResetToken)
+            .where(
+                PasswordResetToken.user_id == user.id,
+                PasswordResetToken.used_at.is_(None),
+            )
+            .values(used_at=utcnow())
+        )
+        db.add(
+            PasswordResetToken(
+                user_id=user.id,
+                token_hash=hash_token(raw_token),
+                expires_at=utcnow() + timedelta(minutes=30),
+            )
+        )
+        url = public_url(f"reset-password.html#token={raw_token}")
+        enqueue_email(
+            db,
+            user.email,
+            "Сброс пароля — Borotalk",
+            f"Откройте страницу сброса пароля: {url}\nСсылка действует 30 минут.",
+            branded_email(
+                title="Сбросить пароль",
+                preview="Ссылка для восстановления доступа к Borotalk.",
+                body_html=(
+                    "<p style=\"margin:0 0 22px\">Мы получили запрос на смену пароля. "
+                    "Нажмите кнопку ниже, чтобы придумать новый.</p>"
+                    "<p style=\"margin:0 0 20px;color:#7a8079;font-size:13px\">Ссылка действует 30 минут.</p>"
+                ),
+                cta_label="Сменить пароль",
+                cta_url=url,
+            ),
+        )
+        await db.commit()
+    return {"message": "If the account exists, a password reset email has been queued"}
+
+
+@router.post("/password/reset")
+async def reset_password(
+    data: PasswordResetRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    await enforce_auth_limit(request, "reset-password", limit=10, window_seconds=3600)
+    now = utcnow()
+    reset_token = (
+        await db.execute(
+            select(PasswordResetToken)
+            .where(PasswordResetToken.token_hash == hash_token(data.token))
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if (
+        not reset_token
+        or reset_token.used_at is not None
+        or reset_token.expires_at < now
+    ):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+    user = await db.get(User, reset_token.user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+    user.password_hash = hash_password(data.password)
+    await db.execute(
+        update(PasswordResetToken)
+        .where(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used_at.is_(None),
+        )
+        .values(used_at=now)
+    )
+    sessions = (
+        await db.execute(
+            select(RefreshSession).where(
+                RefreshSession.user_id == user.id,
+                RefreshSession.revoked_at.is_(None),
+            )
+        )
+    ).scalars().all()
+    for session in sessions:
+        session.revoked_at = now
+    await db.commit()
+    return {"message": "Password updated. Sign in again."}
+
+
+@router.post("/registration/status", response_model=RegistrationResponse)
+async def registration_status(
+    data: LoginRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    await enforce_auth_limit(
+        request,
+        "registration-status",
+        limit=10,
+        window_seconds=900,
+        identifier=str(data.email),
+    )
+    normalized_email = str(data.email).lower()
+    registration = (
+        await db.execute(
+            select(RegistrationRequest)
+            .where(RegistrationRequest.email == normalized_email)
+            .order_by(RegistrationRequest.created_at.desc())
+        )
+    ).scalars().first()
+    if not registration or not verify_password(data.password, registration.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+        )
+    return {
+        "message": "Registration status is available",
+        "status": registration.status,
+    }
 
 
 @router.post("/login")
 async def login(
     data: LoginRequest,
     responce: Response,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -209,12 +455,38 @@ async def login(
         {"message": "Login successful"}
     """
 
-    # Поиск пользователя по email
-    stmt = select(User).where(User.email == data.email)
+    await enforce_auth_limit(
+        request,
+        "login",
+        limit=10,
+        window_seconds=900,
+        identifier=str(data.email),
+    )
+    normalized_email = str(data.email).lower()
+    stmt = select(User).where(User.email == normalized_email)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
     # Проверка существования и пароля
+    if not user:
+        pending = (
+            await db.execute(
+                select(RegistrationRequest)
+                .where(RegistrationRequest.email == normalized_email)
+                .order_by(RegistrationRequest.created_at.desc())
+            )
+        ).scalars().first()
+        if pending and verify_password(data.password, pending.password_hash):
+            details = {
+                "awaiting_email": "Confirm your email before signing in",
+                "awaiting_approval": "Registration request is awaiting approval",
+                "rejected": "Registration request was rejected",
+                "expired": "Registration request expired",
+            }
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=details.get(pending.status, "Account is not active"),
+            )
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -229,9 +501,9 @@ async def login(
         )
 
     # Установка токенов в cookies
-    access_token = create_access_token({"sub": str(user.id)})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
-
+    access_token, refresh_token, session = create_session_tokens(user.id)
+    db.add(session)
+    await db.commit()
     set_auth_cookies(responce, access_token, refresh_token)
 
     return {"message": "Login successful"}
@@ -261,12 +533,14 @@ async def demo_login(
             )
 
         user = User(
+            public_id=generate_public_id("usr"),
             email=demo_email,
             password_hash=hash_password(secrets.token_urlsafe(32)),
             username=demo_username,
             display_name="Demo User",
             role="member",
             is_active=True,
+            email_verified_at=utcnow(),
         )
         db.add(user)
         await db.flush()
@@ -285,7 +559,12 @@ async def demo_login(
         )
     ).scalar_one_or_none()
     if server is None:
-        server = Server(name="Boro friends", owner_id=user.id, is_joinable=True)
+        server = Server(
+            public_id=generate_public_id("srv"),
+            name="Boro friends",
+            owner_id=user.id,
+            is_joinable=False,
+        )
         db.add(server)
         await db.flush()
 
@@ -330,8 +609,9 @@ async def demo_login(
             )
     await db.commit()
 
-    access_token = create_access_token({"sub": str(user.id)})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
+    access_token, refresh_token, session = create_session_tokens(user.id)
+    db.add(session)
+    await db.commit()
     set_auth_cookies(response, access_token, refresh_token)
 
     return {
@@ -370,48 +650,69 @@ async def refresh(
         )
 
     try:
-        # Декодирование и проверка токена
         payload = decode_token(refresh_token)
-
-        # Проверка типа токена
         if payload.get("type") != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type"
-            )
-
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token"
-            )
-
-        # Проверка существования пользователя
-        user = await db.get(User, int(user_id))
+            raise ValueError("invalid token type")
+        user_id = int(payload["sub"])
+        user = await db.get(User, user_id)
         if not user or not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found or disabled"
+            raise ValueError("inactive user")
+
+        now = utcnow()
+        jti = payload.get("jti")
+        if not jti:
+            raise ValueError("untracked refresh token")
+        old_session = (
+            await db.execute(
+                select(RefreshSession)
+                .where(RefreshSession.jti == jti)
+                .with_for_update()
             )
+        ).scalar_one_or_none()
+        if (
+            not old_session
+            or old_session.user_id != user.id
+            or old_session.revoked_at is not None
+            or old_session.expires_at < now
+            or old_session.token_hash != hash_token(refresh_token)
+        ):
+            active_sessions = (
+                await db.execute(
+                    select(RefreshSession).where(
+                        RefreshSession.user_id == user.id,
+                        RefreshSession.revoked_at.is_(None),
+                    )
+                )
+            ).scalars().all()
+            for active in active_sessions:
+                active.revoked_at = now
+            await db.commit()
+            raise ValueError("refresh token reuse")
 
-        # Генерация новых токенов
-        new_access_token = create_access_token({"sub": user.id})
-        new_refresh_token = create_refresh_token({"sub": user.id})
-
+        new_access_token, new_refresh_token, new_session = create_session_tokens(user.id)
+        db.add(new_session)
+        await db.flush()
+        old_session.revoked_at = now
+        old_session.replaced_by_jti = new_session.jti
+        await db.commit()
         set_auth_cookies(response, new_access_token, new_refresh_token)
-
         return {"message": "Token refreshed"}
-
-    except Exception:
+    except HTTPException:
+        raise
+    except Exception as exc:
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
-        )
+            detail="Invalid or expired token",
+        ) from exc
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
     """
     Выход из системы.
 
@@ -420,6 +721,20 @@ async def logout(response: Response):
     Returns:
         {"message": "Logged out successfully"}
     """
+    refresh_token = request.cookies.get("refresh_token")
+    if refresh_token:
+        try:
+            payload = decode_token(refresh_token)
+            jti = payload.get("jti")
+            if jti:
+                session = (
+                    await db.execute(select(RefreshSession).where(RefreshSession.jti == jti))
+                ).scalar_one_or_none()
+                if session and session.revoked_at is None:
+                    session.revoked_at = utcnow()
+                    await db.commit()
+        except Exception:
+            await db.rollback()
     clear_auth_cookies(response)
     return {"message": "Logged out successfully"}
 
@@ -433,12 +748,14 @@ async def get_me(current_user: User = Depends(get_current_user)):
     """
     return UserResponse(
         id=current_user.id,
+        public_id=current_user.public_id,
         email=current_user.email,
         username=current_user.username,
         display_name=current_user.display_name,
         avatar_url=current_user.avatar_url,
         role=current_user.role,
         is_active=current_user.is_active,
+        email_verified=current_user.email_verified_at is not None,
         created_at=current_user.created_at.isoformat()
     )
 
@@ -454,7 +771,21 @@ async def get_user_profile(
     
     Возвращает публичную информацию: имя, аватар, username, дату регистрации.
     """
-    stmt = select(User).where(User.id == user_id)
+    if user_id != current_user.id:
+        my_server_ids = select(ServerMember.server_id).where(
+            ServerMember.user_id == current_user.id
+        )
+        shared = (
+            await db.execute(
+                select(ServerMember.id).where(
+                    ServerMember.user_id == user_id,
+                    ServerMember.server_id.in_(my_server_ids),
+                )
+            )
+        ).scalar_one_or_none()
+        if shared is None:
+            raise HTTPException(status_code=404, detail="User not found")
+    stmt = select(User).where(User.id == user_id, User.is_active.is_(True))
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
     
@@ -463,6 +794,7 @@ async def get_user_profile(
     
     return UserProfileResponse(
         id=user.id,
+        public_id=user.public_id,
         username=user.username,
         display_name=user.display_name,
         avatar_url=user.avatar_url,
@@ -540,11 +872,13 @@ async def update_profile(
 
     return UserResponse(
         id=current_user.id,
+        public_id=current_user.public_id,
         email=current_user.email,
         username=current_user.username,
         display_name=current_user.display_name,
         avatar_url=current_user.avatar_url,
         role=current_user.role,
         is_active=current_user.is_active,
+        email_verified=current_user.email_verified_at is not None,
         created_at=current_user.created_at.isoformat()
     )

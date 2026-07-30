@@ -73,9 +73,9 @@ def test_main_app_uses_standalone_nova_interface_without_legacy_ui():
     assert nova_js.status_code == 200
     assert "Разговор начинается" in main_page.text
     assert "__BOROTALK_RUNTIME_CONFIG__" in app_config.text
-    assert 'href="/styles/nova-app.css?v=28"' in main_page.text
+    assert 'href="/styles/nova-app.css?v=32"' in main_page.text
     assert 'src="/js/desktop-bridge.js?v=3"' in main_page.text
-    assert 'src="/js/nova-main.js?v=31"' in main_page.text
+    assert 'src="/js/nova-main.js?v=36"' in main_page.text
     assert 'id="messageList"' in main_page.text
     assert 'id="voiceRoomList"' in main_page.text
     assert 'class="server-rail"' in main_page.text
@@ -128,6 +128,19 @@ def test_main_app_uses_standalone_nova_interface_without_legacy_ui():
     assert 'data-avatar-preset="duck-dragon"' in main_page.text
     assert '"/images/avatars/ducks/duck-dragon.png"' in nova_js.text
     assert 'from "./message-format.mjs"' in nova_js.text
+    assert 'id="onboardingDialog"' in main_page.text
+    assert "Куда здесь нажимать?" in main_page.text
+    assert 'id="serverEmptyState"' in main_page.text
+    assert "Похоже, у вас ещё нет серверов." in main_page.text
+    assert 'classList.toggle("no-servers", isEmpty)' in nova_js.text
+    assert ".nova-app.no-servers .channel-panel" in nova_css.text
+    assert ".nova-app.no-servers .chat-panel" in nova_css.text
+    assert 'data-onboarding-action="join"' in main_page.text
+    assert 'data-onboarding-action="create"' in main_page.text
+    assert 'data-onboarding-action="profile"' in main_page.text
+    assert 'id="discoveryId" type="text"' in main_page.text
+    assert "maybeShowOnboarding" in nova_js.text
+    assert "runtime.features?.telegramPairing" in nova_js.text
 
 
 def test_duck_avatar_assets_are_available_as_transparent_pngs():
@@ -170,9 +183,9 @@ def test_auth_pages_use_nova_auth_surface_without_legacy_scripts():
     assert auth_css.status_code == 200
     assert auth_js.status_code == 200
     for page in (login_page, register_page):
-        assert "/styles/nova-auth.css?v=7" in page
+        assert "/styles/nova-auth.css?v=9" in page
         assert "/js/desktop-bridge.js?v=3" in page
-        assert "/js/nova-auth.js?v=7" in page
+        assert "/js/nova-auth.js?v=9" in page
         assert "styles/login.css" not in page
         assert "styles/register.css" not in page
         assert "js/config.js" not in page
@@ -184,3 +197,14 @@ def test_auth_pages_use_nova_auth_surface_without_legacy_scripts():
 
     assert 'id="username" name="profile_nickname"' in register_page
     assert 'id="username" name="profile_nickname" type="text" autocomplete="off"' in register_page
+
+
+def test_favicon_and_runtime_feature_flags_are_always_available():
+    with TestClient(app) as client:
+        favicon = client.get("/favicon.ico?v=3")
+        app_config = client.get("/app-config.js")
+
+    assert favicon.status_code == 200
+    assert favicon.headers["content-type"] in {"image/vnd.microsoft.icon", "image/x-icon", "image/png"}
+    assert '"features"' in app_config.text
+    assert '"telegramPairing"' in app_config.text

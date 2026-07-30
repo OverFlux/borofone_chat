@@ -15,6 +15,17 @@ npm start
 `Borotalk-connect.borotalk`, либо указать HTTPS origin вручную. Файл генерируется
 хостом при запуске `START_BOROTALK.bat`.
 
+Постоянный VPS-домен задаётся полем `borotalk.officialHost` в `package.json`
+перед сборкой. Тогда Desktop открывает его автоматически, а смена хоста остаётся
+в расширенных настройках. Локально это можно сделать командой:
+
+```powershell
+npm pkg set borotalk.officialHost="https://talk.example.com"
+```
+
+В GitHub Actions тот же адрес берётся из repository variable
+`BOROTALK_OFFICIAL_HOST`.
+
 ## Проверка и сборка
 
 ```powershell
@@ -45,3 +56,17 @@ SmartScreen на чистом компьютере может предупред
   "certificate_sha256": "…"
 }
 ```
+
+V2 для домена с публичным TLS:
+
+```json
+{
+  "schema_version": 2,
+  "base_url": "https://talk.example.com",
+  "invite_code": "boro-…",
+  "certificate_policy": "system"
+}
+```
+
+Для self-hosted v2 используется `certificate_policy: "pinned"` вместе с
+`certificate_sha256`. Чтение v1 сохраняется.

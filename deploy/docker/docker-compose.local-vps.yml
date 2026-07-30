@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    env_file: ../../.env.local-vps
+    volumes:
+      - local_vps_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-app} -d $${POSTGRES_DB:-borotalk_local_vps} -h 127.0.0.1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks:
+      - local_vps_network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - local_vps_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks:
+      - local_vps_network
+
+  mailpit:
+    image: axllent/mailpit:v1.30
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+    networks:
+      - local_vps_network
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    restart: unless-stopped
+    env_file: ../../.env.local-vps
+    ports:
+      - "127.0.0.1:8080:8000"
+    volumes:
+      - ../../.borotalk/local-vps/uploads:/code/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - local_vps_network
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    env_file: ../../.env.local-vps
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    networks:
+      - local_vps_network
+
+volumes:
+  local_vps_postgres_data:
+    name: borotalk-local-vps_postgres_data
+  local_vps_redis_data:
+    name: borotalk-local-vps_redis_data
+
+networks:
+  local_vps_network:
+    name: borotalk-local-vps_network
+    driver: bridge

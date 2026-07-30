@@ -52,6 +52,10 @@ jobs:
       - name: Install Desktop dependencies
         run: npm ci
 
+      - name: Configure official Desktop host
+        if: ${{ vars.BOROTALK_OFFICIAL_HOST != '' }}
+        run: npm pkg set borotalk.officialHost="${{ vars.BOROTALK_OFFICIAL_HOST }}"
+
       - name: Run Desktop tests
         run: npm test
 

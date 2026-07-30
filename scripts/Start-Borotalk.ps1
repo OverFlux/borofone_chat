@@ -448,7 +448,7 @@ function Ensure-Invite {
     }
 
     $newInvite = "boro-" + (New-RandomHex -Bytes 8)
-    $insertSql = "INSERT INTO invites (code, created_by, expires_at, max_uses, current_uses, revoked) VALUES ('$newInvite', NULL, NOW() + INTERVAL '30 days', 50, 0, FALSE);"
+    $insertSql = "INSERT INTO invites (code, created_by, expires_at, max_uses, current_uses, revoked) VALUES ('$newInvite', NULL, NOW() + INTERVAL '72 hours', 1, 0, FALSE);"
     Invoke-Compose $Compose @(
         "exec", "-T", "postgres",
         "psql", "-v", "ON_ERROR_STOP=1", "-U", "app", "-d", "app", "-c", $insertSql

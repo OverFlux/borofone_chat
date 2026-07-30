@@ -1,4 +1,5 @@
 .env
+.env.local-vps
 
 /.idea
 /app/__pycache__
@@ -35,3 +36,4 @@
 /desktop/node_modules/
 /desktop/out/
 /desktop/.cache/
+/Borotalk-VPS-Installer.run

@@ -40,11 +40,26 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - 'python -c "import os, urllib.request; urllib.request.urlopen(''http://127.0.0.1:{}/app-config.js''.format(os.environ.get(''APP_PORT'', ''8000'')), timeout=5)"'
+        - 'python -c "import os, urllib.request; urllib.request.urlopen(''http://127.0.0.1:{}/healthz''.format(os.environ.get(''APP_PORT'', ''8000'')), timeout=5)"'
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - staging_network
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    restart: always
+    command: ["python", "-m", "app.worker"]
+    env_file: ../../.env
     depends_on:
       postgres:
         condition: service_healthy

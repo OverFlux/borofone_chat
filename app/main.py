@@ -1,13 +1,25 @@
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, Response
+from urllib.parse import urlparse
+
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import direct_messages, rooms, servers, voice_rooms
+from app.api import (
+    direct_messages,
+    health,
+    integrations,
+    platform_admin,
+    rooms,
+    servers,
+    voice_rooms,
+    webrtc,
+)
 from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.http import router as http_router
@@ -84,11 +96,31 @@ app.add_middleware(
     allow_headers=['*'],
     expose_headers=['Set-Cookie'],
 )
+if settings.app_env.lower() == 'production' and settings.public_base_url:
+    public_host = urlparse(settings.public_base_url).hostname
+    if public_host:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=[public_host])
 app.add_middleware(
     GZipMiddleware,
     minimum_size=1024,
     compresslevel=5,
 )
+
+
+@app.middleware("http")
+async def verify_browser_origin(request: Request, call_next):
+    if (
+        request.method in {"POST", "PUT", "PATCH", "DELETE"}
+        and request.url.path != "/api/integrations/telegram/webhook"
+    ):
+        origin = request.headers.get("origin")
+        production = settings.app_env.lower() == "production"
+        if (production and not origin) or (
+            origin and origin.rstrip("/") not in settings.allowed_origins_list
+        ):
+            return JSONResponse(status_code=403, content={"detail": "Untrusted origin"})
+    return await call_next(request)
+
 
 @app.get('/app-config.js', include_in_schema=False)
 async def app_config_js() -> Response:
@@ -103,6 +135,13 @@ async def app_config_js() -> Response:
         },
         'uploads': {
             'avatarsBasePath': settings.avatar_public_path,
+        },
+        'features': {
+            'telegramPairing': bool(
+                settings.telegram_bot_token
+                and settings.telegram_bot_username
+                and settings.telegram_webhook_secret
+            ),
         },
         'appEnv': settings.app_env,
         'storageNamespace': settings.runtime_namespace,
@@ -125,7 +164,10 @@ async def root():
 
 @app.get('/favicon.ico')
 async def favicon():
-    return FileResponse(settings.favicon_file, headers={'Cache-Control': 'public, max-age=604800'})
+    favicon_path = settings.favicon_file
+    if not favicon_path.is_file():
+        favicon_path = settings.pages_path / 'icons' / 'borotalk-64.png'
+    return FileResponse(favicon_path, headers={'Cache-Control': 'public, max-age=604800'})
 
 
 @app.get('/api/emoji')
@@ -137,6 +179,10 @@ app.include_router(http_router, tags=['HTTP'])
 app.include_router(ws_router, tags=['Websocket'])
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(platform_admin.router)
+app.include_router(integrations.router)
+app.include_router(webrtc.router)
+app.include_router(health.router)
 app.include_router(servers.router)
 app.include_router(direct_messages.router)
 app.include_router(rooms.router)

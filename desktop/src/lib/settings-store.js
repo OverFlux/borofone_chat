@@ -29,9 +29,12 @@ function sanitizeSettings(value) {
   return {
     connection: value.connection && typeof value.connection === "object"
       ? {
-          schemaVersion: 1,
+          schemaVersion: Number(value.connection.schemaVersion) === 1 ? 1 : 2,
           baseUrl: String(value.connection.baseUrl || ""),
           inviteCode: String(value.connection.inviteCode || ""),
+          certificatePolicy: ["system", "pinned", "manual"].includes(value.connection.certificatePolicy)
+            ? value.connection.certificatePolicy
+            : (value.connection.certificateFingerprint ? "pinned" : "manual"),
           certificateFingerprint: String(value.connection.certificateFingerprint || ""),
           trustedManually: Boolean(value.connection.trustedManually),
         }

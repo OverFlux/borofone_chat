@@ -11,6 +11,7 @@ from app.infra.redis import room_events_channel, user_events_channel
 from app.models import User, Room, ServerMember, VoiceRoom
 from app.security import get_user_id_from_token
 from app.services.voice import voice_runtime
+from app.settings import settings
 
 router = APIRouter(tags=["WebSocket"])
 
@@ -48,6 +49,12 @@ async def global_websocket_endpoint(
     Через него клиент получает события текстовых комнат и передаёт presence,
     typing, voice и WebRTC signaling только внутри server_id.
     """
+    origin = websocket.headers.get("origin")
+    if settings.app_env.lower() == "production" and (
+        not origin or origin.rstrip("/") not in settings.allowed_origins_list
+    ):
+        await websocket.close(code=1008, reason="Untrusted origin")
+        return
     await websocket.accept()
 
     # ── Auth с отдельной сессией ───────────────────────────────────

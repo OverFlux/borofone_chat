@@ -6,6 +6,7 @@
 - Создание и проверка JWT токенов
 - Генерация инвайт-кодов
 """
+import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -54,8 +55,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # Секретный ключ для подписи JWT (должен быть в .env)
 SECRET_KEY = settings.jwt_secret_key
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 30  # 30 days for persistent login
-REFRESH_TOKEN_EXPIRE_DAYS = 30  # Same as access token for simplicity
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -77,7 +78,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     if expires_delta:
         expire = now_utc + expires_delta
     else:
-        expire = now_utc + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+        expire = now_utc + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
     to_encode.update({
         "exp": expire,
@@ -88,7 +89,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
-def create_refresh_token(data: dict) -> str:
+def create_refresh_token(data: dict, *, jti: str | None = None) -> str:
     """
     Создание JWT refresh токена (более долгий TTL).
 
@@ -105,6 +106,7 @@ def create_refresh_token(data: dict) -> str:
     to_encode.update({
         "exp": expire,
         "iat": now_utc,
+        "jti": jti or secrets.token_urlsafe(24),
         "type": "refresh"})
 
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -145,7 +147,20 @@ def generate_invite_code(length: int = 16) -> str:
         'aB3xK9mN2pQr7vWz'
     """
     # Используем secrets для криптографически стойкой генерации
-    return secrets.token_urlsafe(length)[:length]
+    return f"boro-{secrets.token_hex(8)}"
+
+
+def generate_public_id(prefix: str) -> str:
+    """Generate a non-sequential identifier suitable for copy/paste and URLs."""
+    return f"{prefix}_{secrets.token_hex(8)}"
+
+
+def generate_action_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 # === TOKEN VALIDATION ===

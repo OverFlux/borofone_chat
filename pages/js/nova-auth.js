@@ -11,6 +11,7 @@ document.querySelector('meta[name="theme-color"]')?.setAttribute(
 const mode = document.body.dataset.authMode;
 const form = document.getElementById("authForm");
 const errorText = document.getElementById("errorText");
+const successText = document.getElementById("successText");
 const demoButton = document.getElementById("demoButton");
 const desktop = window.BorotalkDesktopBridge;
 
@@ -23,6 +24,7 @@ function detailFrom(payload, fallback) {
 async function submitAuth(event) {
     event.preventDefault();
     errorText.textContent = "";
+    if (successText) successText.textContent = "";
     const submit = form.querySelector('[type="submit"]');
     submit.disabled = true;
     const payload = mode === "register"
@@ -32,6 +34,7 @@ async function submitAuth(event) {
             display_name: document.getElementById("displayName").value.trim(),
             password: document.getElementById("password").value,
             invite_code: document.getElementById("inviteCode").value.trim(),
+            website: document.getElementById("website")?.value || "",
         }
         : {
             email: document.getElementById("email").value.trim(),
@@ -45,7 +48,21 @@ async function submitAuth(event) {
             body: JSON.stringify(payload),
         });
         const result = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(detailFrom(result, "Не удалось продолжить"));
+        if (!response.ok) {
+            const detail = detailFrom(result, "Не удалось продолжить");
+            if (mode === "register" && /invite/i.test(detail)) {
+                throw new Error(`${detail}. Уберите код, чтобы отправить заявку владельцу.`);
+            }
+            throw new Error(detail);
+        }
+        if (mode === "register") {
+            if (successText) {
+                successText.textContent = "Письмо отправлено. Подтвердите email, чтобы активировать инвайт или передать заявку владельцу.";
+            }
+            form.reset();
+            submit.disabled = false;
+            return;
+        }
         window.location.href = MAIN_URL;
     } catch (error) {
         errorText.textContent = error.message || "Ошибка сети";

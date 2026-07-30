@@ -32,9 +32,35 @@ test("parses a v1 Borotalk connection document with a BOM", () => {
     schemaVersion: 1,
     baseUrl: "https://26.10.20.30:8443",
     inviteCode: "boro-0123456789abcdef",
+    certificatePolicy: "pinned",
     certificateFingerprint: FINGERPRINT,
     trustedManually: false,
   });
+});
+
+test("parses a v2 public-CA connection without a leaf fingerprint", () => {
+  const connection = parseInviteDocument(JSON.stringify({
+    schema_version: 2,
+    base_url: "https://talk.example.test",
+    invite_code: "",
+    certificate_policy: "system",
+  }));
+  assert.deepEqual(connection, {
+    schemaVersion: 2,
+    baseUrl: "https://talk.example.test",
+    inviteCode: "",
+    certificatePolicy: "system",
+    certificateFingerprint: "",
+    trustedManually: false,
+  });
+});
+
+test("requires a fingerprint for v2 pinned connections", () => {
+  assert.throws(() => parseInviteDocument(JSON.stringify({
+    schema_version: 2,
+    base_url: "https://host.example.test",
+    certificate_policy: "pinned",
+  })), /fingerprint/);
 });
 
 test("rejects unsupported or incomplete connection documents", () => {
@@ -56,9 +82,10 @@ test("compares SHA-256 fingerprints without formatting differences", () => {
 
 test("manual connections remain unpinned until explicit trust", () => {
   assert.deepEqual(connectionForManualUrl("https://host.test:8443/path"), {
-    schemaVersion: 1,
+    schemaVersion: 2,
     baseUrl: "https://host.test:8443",
     inviteCode: "",
+    certificatePolicy: "manual",
     certificateFingerprint: "",
     trustedManually: false,
   });

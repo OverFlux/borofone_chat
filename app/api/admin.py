@@ -14,6 +14,7 @@ from app.infra.db import get_db
 from app.models import Invite, User, Room
 from app.schemas.auth import InviteCreateRequest, InviteResponse
 from app.security import generate_invite_code
+from app.settings import settings
 
 router = APIRouter(prefix="/api/admin/invites", tags=["Admin"])
 
@@ -152,6 +153,28 @@ async def get_invite(
         revoked=invite.revoked,
         created_at=invite.created_at.isoformat()
     )
+
+
+@router.get("/{invite_id}/connection-file")
+async def get_invite_connection_file(
+    invite_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    invite = await db.get(Invite, invite_id)
+    if not invite or invite.revoked:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+    if not settings.public_base_url.startswith("https://"):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="PUBLIC_BASE_URL must be configured with HTTPS",
+        )
+    return {
+        "schema_version": 2,
+        "base_url": settings.public_base_url.rstrip("/"),
+        "invite_code": invite.code,
+        "certificate_policy": "system",
+    }
 
 
 @router.delete("/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)

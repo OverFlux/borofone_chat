@@ -340,6 +340,84 @@ input:focus-visible {
     font-size: 12px;
 }
 
+.form-success {
+    min-height: 0;
+    margin: 0;
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.form-success:not(:empty) {
+    position: relative;
+    padding: 14px 15px 14px 44px;
+    border: 1px solid color-mix(in srgb, var(--accent) 58%, var(--line));
+    border-radius: 15px;
+    background: color-mix(in srgb, var(--accent) 13%, var(--panel-2));
+}
+
+.form-success:not(:empty)::before {
+    position: absolute;
+    top: 13px;
+    left: 15px;
+    display: grid;
+    width: 20px;
+    height: 20px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-ink);
+    content: "✓";
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.honeypot {
+    position: absolute !important;
+    left: -10000px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+}
+
+.field-help {
+    margin: -8px 0 0;
+    text-align: right;
+    font-size: 12px;
+}
+
+.field-help a,
+.action-card a {
+    color: var(--accent);
+    font-weight: 650;
+}
+
+.action-card {
+    width: min(520px, calc(100% - 32px));
+    margin: auto;
+    padding: clamp(28px, 5vw, 52px);
+    border: 1px solid var(--line);
+    border-radius: 30px;
+    background: var(--panel);
+    box-shadow: 0 30px 80px rgb(0 0 0 / 20%);
+}
+
+.action-card h1 {
+    margin: 14px 0 8px;
+    font-size: clamp(32px, 6vw, 48px);
+    line-height: 1;
+}
+
+.action-card p {
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.action-card .primary-button {
+    width: 100%;
+    margin-top: 18px;
+}
+
 .auth-link {
     margin: 2px 0 0;
     color: var(--muted);

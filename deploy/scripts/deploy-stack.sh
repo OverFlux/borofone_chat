@@ -98,9 +98,13 @@ compose_cmd=("${COMPOSE_BIN[@]}" -p "${compose_project}" -f "${compose_file}")
 cd "${repo_root}"
 
 if [ "${SKIP_GIT_SYNC:-0}" != "1" ]; then
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "refusing to deploy over local repository changes" >&2
+    exit 1
+  fi
   git fetch --prune origin
   git checkout "${branch}" || git checkout -b "${branch}" --track "origin/${branch}"
-  git reset --hard "origin/${branch}"
+  git merge --ff-only "origin/${branch}"
 fi
 
 if [ ! -f .env ]; then
@@ -114,6 +118,23 @@ set +a
 
 : "${HOST_DATA_ROOT:?HOST_DATA_ROOT must be set in .env}"
 : "${BACKUP_ROOT:?BACKUP_ROOT must be set in .env}"
+if [ "${env_name}" = "production" ]; then
+  : "${PUBLIC_BASE_URL:?PUBLIC_BASE_URL must be set in .env}"
+  : "${TURN_HOST:?TURN_HOST must be set in .env}"
+  : "${TURN_EXTERNAL_IP:?TURN_EXTERNAL_IP must be set in .env}"
+  : "${TURN_SHARED_SECRET:?TURN_SHARED_SECRET must be set in .env}"
+  if [[ "${PUBLIC_BASE_URL}" != https://* ]]; then
+    echo "PUBLIC_BASE_URL must use HTTPS" >&2
+    exit 1
+  fi
+  for required_name in POSTGRES_PASSWORD JWT_SECRET_KEY TURN_SHARED_SECRET SMTP_HOST SMTP_USERNAME SMTP_PASSWORD SMTP_FROM_EMAIL TELEGRAM_BOT_TOKEN TELEGRAM_BOT_USERNAME TELEGRAM_WEBHOOK_SECRET BOOTSTRAP_ADMIN_EMAIL; do
+    required_value="${!required_name:-}"
+    if [ -z "${required_value}" ] || [[ "${required_value}" == change-me* ]]; then
+      echo "${required_name} must be configured in .env" >&2
+      exit 1
+    fi
+  done
+fi
 
 case "${HOST_DATA_ROOT}" in
   /*) ;;
@@ -140,16 +161,34 @@ bash deploy/scripts/prepare-persistent-data.sh "${env_name}"
 "${compose_cmd[@]}" up -d --no-recreate postgres redis
 wait_for_service postgres 120
 wait_for_service redis 60
-"${compose_cmd[@]}" build api
+"${compose_cmd[@]}" build api worker
 "${compose_cmd[@]}" run --rm api alembic upgrade head
 if [ "${COMPOSE_FLAVOR}" = "legacy" ]; then
-  echo "[deploy] using legacy docker-compose workaround for api recreation"
-  "${compose_cmd[@]}" stop api || true
-  "${compose_cmd[@]}" rm -f api || true
-  "${compose_cmd[@]}" up -d --no-deps api
+  echo "[deploy] using legacy docker-compose workaround for service recreation"
+  "${compose_cmd[@]}" stop api worker || true
+  "${compose_cmd[@]}" rm -f api worker || true
+  "${compose_cmd[@]}" up -d --no-deps api worker
 else
-  "${compose_cmd[@]}" up -d --no-deps --force-recreate api
+  "${compose_cmd[@]}" up -d --no-deps --force-recreate api worker
+fi
+if [ "${env_name}" = "production" ]; then
+  "${compose_cmd[@]}" up -d --force-recreate coturn
 fi
 wait_for_service api 120
+wait_for_service worker 60
+
+if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_WEBHOOK_SECRET:-}" ]; then
+  webhook_response="$(
+    curl -fsS \
+      --data-urlencode "url=${PUBLIC_BASE_URL%/}/api/integrations/telegram/webhook" \
+      --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}" \
+      --data-urlencode 'allowed_updates=["message","callback_query"]' \
+      "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook"
+  )"
+  if ! printf '%s' "${webhook_response}" | grep -q '"ok":true'; then
+    echo "[deploy] Telegram webhook setup failed" >&2
+    exit 1
+  fi
+fi
 "${compose_cmd[@]}" ps
 echo "[deploy] $(date -Is) done ${env_name}"

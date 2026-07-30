@@ -23,9 +23,11 @@ const {
 } = require("./lib/connection-config");
 const { PushToTalkController } = require("./lib/push-to-talk");
 const { SettingsStore, sanitizeInput } = require("./lib/settings-store");
+const packageMetadata = require("../package.json");
 
 const APP_SCHEME = "borotalk-app";
 const LOCAL_ORIGIN = `${APP_SCHEME}://ui`;
+const OFFICIAL_HOST = String(packageMetadata.borotalk?.officialHost || "").trim();
 const ICON_PATH = app.isPackaged
   ? path.join(process.resourcesPath, "favicon.ico")
   : path.resolve(__dirname, "..", "..", "favicon.ico");
@@ -62,6 +64,16 @@ function activeConnection() {
 
 function activeOrigin() {
   return activeConnection()?.baseUrl || "";
+}
+
+function officialConnection() {
+  if (!OFFICIAL_HOST) return null;
+  const connection = connectionForManualUrl(OFFICIAL_HOST);
+  return {
+    ...connection,
+    certificatePolicy: "system",
+    trustedManually: false,
+  };
 }
 
 function originFromUrl(value) {
@@ -327,8 +339,8 @@ async function connectToHost(connection, { persist = true } = {}) {
     }
     const message = connectError || (
       error?.code === "HOST_TIMEOUT"
-        ? "Хост не ответил за 12 секунд. Проверьте Radmin VPN. При включённой AmneziaVPN запустите FIX_RADMIN_ROUTE.bat, добавьте 26.0.0.0/8 в исключения IP split tunneling и отключите KillSwitch."
-        : `Хост недоступен: ${error?.message || "ошибка соединения"}. Проверьте Radmin VPN и запуск Borotalk. При включённой AmneziaVPN исключите 26.0.0.0/8 из VPN и отключите KillSwitch.`
+        ? "Хост не ответил за 12 секунд. Проверьте интернет-соединение и доступность Borotalk."
+        : `Хост недоступен: ${error?.message || "ошибка соединения"}. Проверьте адрес и доступность Borotalk.`
     );
     writeDesktopLog(`${message} Target: ${target}`);
     await showConnectScreen(message);
@@ -414,6 +426,12 @@ function configureCertificateTrust() {
     if (!connection || requestOrigin !== connection.baseUrl) {
       writeDesktopLog(`Rejected certificate outside the saved origin: ${requestOrigin}`);
       callback(false);
+      return;
+    }
+    if (connection.certificatePolicy === "system") {
+      writeDesktopLog(`Rejected invalid public certificate for ${requestOrigin}`);
+      callback(false);
+      connectError = "Системная проверка TLS-сертификата официального хоста не пройдена.";
       return;
     }
     event.preventDefault();
@@ -684,6 +702,11 @@ async function initialize() {
       await showConnectScreen(error.message);
       return;
     }
+  }
+  const defaultConnection = officialConnection();
+  if (defaultConnection) {
+    await connectToHost(defaultConnection);
+    return;
   }
   await showConnectScreen();
 }
