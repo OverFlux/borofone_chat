@@ -29,6 +29,17 @@ try {
         $targetPath = Join-Path $stagingRoot $relativePath
         New-Item -ItemType Directory -Path (Split-Path -Parent $targetPath) -Force | Out-Null
         Copy-Item -LiteralPath $sourcePath -Destination $targetPath
+        # Git may check files out with CRLF on Windows. Linux entrypoints and
+        # systemd/nginx/coturn configuration must be packaged with LF endings.
+        if ($relativePath -like "*.sh" -or $relativePath -like "deploy/native/*") {
+            $bytes = [System.IO.File]::ReadAllBytes($targetPath)
+            $text = [System.Text.Encoding]::UTF8.GetString($bytes).Replace("`r`n", "`n")
+            [System.IO.File]::WriteAllText(
+                $targetPath,
+                $text,
+                [System.Text.UTF8Encoding]::new($false)
+            )
+        }
     }
 
     tar -czf $archivePath -C $stagingRoot .
@@ -45,6 +56,19 @@ try {
     }
     if ("./.env" -in $archiveListing -or "./.env.local-vps" -in $archiveListing) {
         throw "Refusing to include a local environment file in the VPS bundle."
+    }
+    $validationRoot = Join-Path $temporaryRoot "validation"
+    New-Item -ItemType Directory -Path $validationRoot -Force | Out-Null
+    tar -xzf $archivePath -C $validationRoot ./INSTALL_VPS_NATIVE.sh ./deploy/scripts/backup-native-data.sh
+    if ($LASTEXITCODE -ne 0) { throw "Could not validate Linux entrypoints." }
+    foreach ($entrypoint in @(
+        (Join-Path $validationRoot "INSTALL_VPS_NATIVE.sh"),
+        (Join-Path $validationRoot "deploy/scripts/backup-native-data.sh")
+    )) {
+        $bytes = [System.IO.File]::ReadAllBytes($entrypoint)
+        if ($bytes -contains 13) {
+            throw "Linux entrypoint contains a carriage return: $entrypoint"
+        }
     }
 
     $header = @'
