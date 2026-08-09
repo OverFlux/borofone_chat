@@ -1,0 +1,27 @@
+[Unit]
+Description=Borotalk notification outbox worker
+After=network-online.target postgresql.service borotalk-redis.service
+Wants=network-online.target
+Requires=borotalk-redis.service
+
+[Service]
+Type=simple
+User=borotalk
+Group=borotalk
+WorkingDirectory=/opt/borotalk
+EnvironmentFile=/etc/borotalk/borotalk.env
+ExecStart=/opt/borotalk/.venv-native/bin/python -m app.worker
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+OOMScoreAdjust=550
+MemoryHigh=110M
+MemoryMax=150M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/borotalk/uploads
+
+[Install]
+WantedBy=multi-user.target

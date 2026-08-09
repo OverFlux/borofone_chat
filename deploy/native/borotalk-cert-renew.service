@@ -1,0 +1,9 @@
+[Unit]
+Description=Renew the Borotalk TLS certificate
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/borotalk-certbot/bin/certbot renew --quiet --pre-hook "systemctl stop borotalk-nginx.service" --post-hook "systemctl start borotalk-nginx.service" --deploy-hook "/bin/systemctl restart borotalk-turn.service"
+Nice=10
+OOMScoreAdjust=750

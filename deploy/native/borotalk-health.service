@@ -1,0 +1,9 @@
+[Unit]
+Description=Check native Borotalk health
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /opt/borotalk/deploy/scripts/check-native-vps-health.sh
+Nice=10
+OOMScoreAdjust=750

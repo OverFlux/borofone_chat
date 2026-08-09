@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up native Borotalk data
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /opt/borotalk/deploy/scripts/backup-native-data.sh
+Nice=10
+IOSchedulingClass=idle
+OOMScoreAdjust=750

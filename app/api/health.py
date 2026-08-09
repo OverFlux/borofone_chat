@@ -38,7 +38,8 @@ async def admin_health(
     pending_outbox = (
         await db.execute(
             select(func.count(NotificationOutbox.id)).where(
-                NotificationOutbox.sent_at.is_(None)
+                NotificationOutbox.sent_at.is_(None),
+                NotificationOutbox.failed_at.is_(None),
             )
         )
     ).scalar_one()
@@ -46,7 +47,7 @@ async def admin_health(
         await db.execute(
             select(func.count(NotificationOutbox.id)).where(
                 NotificationOutbox.sent_at.is_(None),
-                NotificationOutbox.attempts > 0,
+                NotificationOutbox.failed_at.is_not(None),
             )
         )
     ).scalar_one()

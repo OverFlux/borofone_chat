@@ -56,6 +56,7 @@ def test_turn_credentials_match_coturn_rest_secret(monkeypatch):
     assert len(base64.b64decode(turn["credential"], validate=True)) == 20
     assert response.iceTransportPolicy == "all"
     assert any(url.startswith("turn:turn.example.test") for url in turn["urls"])
+    assert "turn:turn.example.test:443?transport=udp" in turn["urls"]
 
 
 def test_vps_pages_and_public_routes_are_registered():
