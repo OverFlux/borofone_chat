@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up native Borotalk every day
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=20min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

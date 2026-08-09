@@ -14,7 +14,7 @@ Voice-first приложение для небольших комнат до в�
 - встроенные эмодзи и набор аватаров;
 - Windows Desktop с `.borotalk`-инвайтом, certificate pinning, треем,
   системными уведомлениями и push-to-talk;
-- одно-кнопочный Windows-хост через Radmin VPN.
+- одно-кнопочный Windows-хост через Radmin VPN;
 - VPS-режим с доменом, email-подтверждением и одобрением через Telegram.
 
 В проекте нет MongoDB, вложений, игр, GIF/sticker-каталогов и старого интерфейса.
@@ -36,6 +36,31 @@ Voice-first приложение для небольших комнат до в�
 Для полной остановки используйте `STOP_BOROTALK.bat`.
 
 ## VPS с собственным доменом
+
+### Небольшой или уже используемый VPS
+
+Для VPS с 1 ГБ RAM и уже работающими сервисами используйте изолированный
+нативный установщик без Docker. Он запускает Borotalk отдельными systemd-unit,
+не включает firewall и не использует глобальный `nginx.service`:
+
+```bash
+curl -fL \
+  https://github.com/OverFlux/borofone_chat/releases/latest/download/Borotalk-VPS-Native-Installer.run \
+  -o /tmp/Borotalk-VPS-Native-Installer.run
+sudo bash /tmp/Borotalk-VPS-Native-Installer.run
+```
+
+Он поддерживает временный запуск по публичному IPv4, Resend Python API,
+PostgreSQL outbox, собственный TURN и последующее переключение на домен без
+потери данных. Пошаговая инструкция: [docs/VPS_NATIVE_IP_RU.md](docs/VPS_NATIVE_IP_RU.md).
+
+Проверка уже установленного экземпляра:
+
+```bash
+sudo bash /opt/borotalk/INSTALL_VPS_NATIVE.sh --check
+```
+
+### Docker-профиль
 
 Подробная инструкция для установки с нуля:
 [docs/VPS_INSTALL_RU.md](docs/VPS_INSTALL_RU.md).

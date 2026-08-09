@@ -1,0 +1,20 @@
+[Unit]
+Description=Borotalk isolated Nginx
+After=network-online.target borotalk-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/sbin/nginx -t -c /etc/borotalk/nginx.conf
+ExecStart=/usr/sbin/nginx -c /etc/borotalk/nginx.conf -g "daemon off;"
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGQUIT
+TimeoutStopSec=10
+Restart=on-failure
+RestartSec=3
+OOMScoreAdjust=600
+MemoryHigh=48M
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target

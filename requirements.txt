@@ -22,3 +22,4 @@ email-validator==2.2.0
 
 # === UTILITIES ===
 python-dotenv==1.0.1
+resend[async]==2.35.0

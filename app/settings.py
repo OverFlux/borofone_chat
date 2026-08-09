@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     app_port: int = 8000
 
     database_url: str = 'postgresql+asyncpg://app:app@localhost:5432/app'
+    db_pool_size: int = 5
+    db_max_overflow: int = 2
+    db_pool_timeout_seconds: int = 10
     redis_url: str = 'redis://localhost:6379/0'
     jwt_secret_key: str = 'CHANGE_ME_IN_PRODUCTION_USE_LONG_RANDOM_STRING'
 
@@ -50,6 +53,12 @@ class Settings(BaseSettings):
 
     official_desktop_host: str = ''
 
+    email_provider: str = 'smtp'
+    resend_api_key: str = ''
+    allow_resend_test_sender: bool = False
+    email_from_email: str = ''
+    email_from_name: str = ''
+
     smtp_host: str = ''
     smtp_port: int = 587
     smtp_username: str = ''
@@ -64,6 +73,7 @@ class Settings(BaseSettings):
 
     turn_host: str = ''
     turn_port: int = 3478
+    turn_alt_udp_port: int = 443
     turn_tls_port: int = 5349
     turn_shared_secret: str = ''
     turn_credential_ttl_seconds: int = 3600
@@ -176,6 +186,14 @@ class Settings(BaseSettings):
                 if value not in origins:
                     origins.append(value)
         return origins
+
+    @property
+    def resolved_email_from_email(self) -> str:
+        return (self.email_from_email or self.smtp_from_email).strip()
+
+    @property
+    def resolved_email_from_name(self) -> str:
+        return (self.email_from_name or self.smtp_from_name or 'Borotalk').strip()
 
     @property
     def runtime_namespace(self) -> str:

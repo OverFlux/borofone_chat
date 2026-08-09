@@ -49,6 +49,7 @@ async def ice_config(current_user: User = Depends(get_current_user)):
             {
                 "urls": [
                     f"turn:{host}:{settings.turn_port}?transport=udp",
+                    f"turn:{host}:{settings.turn_alt_udp_port}?transport=udp",
                     f"turn:{host}:{settings.turn_port}?transport=tcp",
                     f"turns:{host}:{settings.turn_tls_port}?transport=tcp",
                 ],

@@ -2,15 +2,14 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.settings import settings
 
-# Настройки пула соединений для поддержки множества пользователей
 engine: AsyncEngine = create_async_engine(
     settings.database_url,
     echo=False,
-    pool_size=20,          # Количество постоянных соединений
-    max_overflow=10,       # Дополнительные соединения при пике нагрузки
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
     pool_pre_ping=True,    # Проверка соединения перед использованием
     pool_recycle=3600,     # Пересоздание соединений каждый час
-    pool_timeout=10,       # Timeout for getting connection from pool
+    pool_timeout=settings.db_pool_timeout_seconds,
     # Connection timeout settings for asyncpg
     connect_args={
         "timeout": 10,   # Connection timeout in seconds

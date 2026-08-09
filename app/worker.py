@@ -10,7 +10,12 @@ from sqlalchemy import delete, select, update
 
 from app.infra.db import SessionLocal, engine
 from app.models import NotificationOutbox, RegistrationRequest, TelegramAdminBinding
-from app.services.delivery import send_email, telegram_call, telegram_review_keyboard
+from app.services.delivery import (
+    PermanentDeliveryError,
+    send_email,
+    telegram_call,
+    telegram_review_keyboard,
+)
 from app.services.platform import utcnow
 from app.settings import settings
 
@@ -21,7 +26,11 @@ logger = logging.getLogger("borotalk.worker")
 
 async def deliver(item: NotificationOutbox, db) -> None:
     if item.kind == "email":
-        await send_email(item.recipient, item.payload)
+        await send_email(
+            item.recipient,
+            item.payload,
+            idempotency_key=f"borotalk-outbox/{item.id}",
+        )
         return
     if item.kind == "telegram_application":
         binding = (
@@ -75,6 +84,7 @@ async def run_once() -> bool:
                 select(NotificationOutbox)
                 .where(
                     NotificationOutbox.sent_at.is_(None),
+                    NotificationOutbox.failed_at.is_(None),
                     NotificationOutbox.available_at <= utcnow(),
                 )
                 .order_by(NotificationOutbox.id.asc())
@@ -87,7 +97,13 @@ async def run_once() -> bool:
         try:
             await deliver(item, db)
             item.sent_at = utcnow()
+            item.failed_at = None
             item.last_error = None
+        except PermanentDeliveryError as exc:
+            item.attempts += 1
+            item.failed_at = utcnow()
+            item.last_error = str(exc)[:2000]
+            logger.error("Delivery %s failed permanently: %s", item.id, exc)
         except Exception as exc:
             item.attempts += 1
             delay = min(3600, 30 * (2 ** min(item.attempts, 7)))

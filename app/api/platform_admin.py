@@ -132,7 +132,10 @@ async def delivery_failures(
             select(NotificationOutbox)
             .where(
                 NotificationOutbox.sent_at.is_(None),
-                NotificationOutbox.attempts > 0,
+                (
+                    NotificationOutbox.failed_at.is_not(None)
+                    | (NotificationOutbox.attempts > 0)
+                ),
             )
             .order_by(NotificationOutbox.created_at.desc())
             .limit(100)
@@ -145,6 +148,8 @@ async def delivery_failures(
             "recipient": item.recipient,
             "attempts": item.attempts,
             "available_at": item.available_at.isoformat(),
+            "failed_at": item.failed_at.isoformat() if item.failed_at else None,
+            "permanent": item.failed_at is not None,
             "last_error": item.last_error,
         }
         for item in items
