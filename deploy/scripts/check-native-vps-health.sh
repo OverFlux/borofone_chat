@@ -37,7 +37,7 @@ done
 
 health_ready=0
 for _attempt in {1..10}; do
-  if curl --fail --silent --show-error --max-time 15 "${PUBLIC_BASE_URL%/}/healthz" >/dev/null; then
+  if curl --fail --silent --max-time 15 "${PUBLIC_BASE_URL%/}/healthz" >/dev/null; then
     health_ready=1
     break
   fi
