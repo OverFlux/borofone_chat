@@ -35,7 +35,15 @@ for protected_service in x-ui.service callsnif.service vpn-misa-bot.service; do
   fi
 done
 
-if curl --fail --silent --show-error --max-time 15 "${PUBLIC_BASE_URL%/}/healthz" >/dev/null; then
+health_ready=0
+for _attempt in {1..10}; do
+  if curl --fail --silent --show-error --max-time 15 "${PUBLIC_BASE_URL%/}/healthz" >/dev/null; then
+    health_ready=1
+    break
+  fi
+  sleep 2
+done
+if [ "${health_ready}" -eq 1 ]; then
   printf 'OK   %s/healthz\n' "${PUBLIC_BASE_URL%/}"
 else
   printf 'FAIL %s/healthz\n' "${PUBLIC_BASE_URL%/}" >&2
